@@ -13,12 +13,13 @@ from .types import (
     LoveSpectra,
     RadialSolution,
     EnergySpectra,
+    LateralRheology,
     make_interior_model,
     make_forcing,
     make_numerics,
 )
 from .grid import set_boundary_indices
-from .rheology import get_rheology, normalize, compute_complex_rheology
+from .rheology import get_rheology, normalize, compute_complex_rheology, process_lateral_variations
 from .propagator import build_aprop, compute_gravity
 from .solver import get_solution
 from .love import get_love, extract_love_numbers
@@ -27,6 +28,14 @@ from .energy import (
     compute_stress_strain,
     build_A14_A15,
     global_dissipation,
+)
+from .wigner import wigner3j, wigner6j
+from .couplings import (
+    Couplings,
+    next_coupling,
+    get_active_modes,
+    coupling_coefficients,
+    get_couplings,
 )
 
 __all__ = [
@@ -48,6 +57,8 @@ __all__ = [
     "get_rheology",
     "normalize",
     "compute_complex_rheology",
+    "process_lateral_variations",
+    "LateralRheology",
     "build_aprop",
     "compute_gravity",
     "get_solution",
@@ -57,4 +68,11 @@ __all__ = [
     "compute_stress_strain",
     "build_A14_A15",
     "global_dissipation",
+    "wigner3j",
+    "wigner6j",
+    "Couplings",
+    "next_coupling",
+    "get_active_modes",
+    "coupling_coefficients",
+    "get_couplings",
 ]

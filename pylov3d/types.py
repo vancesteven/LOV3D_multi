@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+import numpy as np
 import jax.numpy as jnp
 
 from .constants import MAX_LAYERS, MAX_NR_TOTAL
@@ -101,6 +102,31 @@ class EnergySpectra(NamedTuple):
     m: jnp.ndarray         # (n_modes,) orders
     energy_integral: jnp.ndarray  # (n_modes,) radially integrated dissipation
     energy_profile: jnp.ndarray   # (Nr+1, n_modes) dissipation vs radius
+
+
+# ---------------------------------------------------------------------------
+# Lateral variation structures (numpy, not JAX — used for coupling setup)
+# ---------------------------------------------------------------------------
+
+class LateralRheology(NamedTuple):
+    """Processed lateral variation data for the coupled solver.
+
+    Produced by ``rheology.process_lateral_variations()``.
+
+    Attributes
+    ----------
+    variations : (Nreo, 2) int — unique rheology (degree, order) pairs across
+        all layers.  Feeds directly into ``get_couplings()``.
+    muC_amp : (n_layers, Nreo) complex128 — complex shear-modulus amplitude
+        per layer per rheology mode.  Normalized by the (0,0) mean muC.
+    K_amp : (n_layers, Nreo) complex128 — bulk-modulus amplitude per layer
+        per rheology mode (currently set to 0; placeholder for future use).
+    uniform : (n_layers,) bool — True if the layer has no lateral variations.
+    """
+    variations: np.ndarray
+    muC_amp: np.ndarray
+    K_amp: np.ndarray
+    uniform: np.ndarray
 
 
 # ---------------------------------------------------------------------------
