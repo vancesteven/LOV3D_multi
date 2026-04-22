@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylov3d"
+version = "0.1.0"
+description = "GPU-accelerated tidal Love number computation for planetary bodies"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "Steven Vance"},
+    {name = "Marc Rovira-Navarro"},
+]
+dependencies = [
+    "jax>=0.4.20",
+    "jaxlib>=0.4.20",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0", "scipy>=1.10"]
+viz = ["matplotlib>=3.7", "cartopy>=0.21"]
+compat = ["PlanetProfile", "pyalma3"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pylov3d*"]
