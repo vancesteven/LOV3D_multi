@@ -1,6 +1,7 @@
 .DS_Store
 **/.DS_Store
 .claude/
+**/.claude/
 venvLOV3Dconv/
 __pycache__/
 **/__pycache__/
