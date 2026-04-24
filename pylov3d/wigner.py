@@ -1,4 +1,4 @@
-"""Wigner 3j and 6j symbol computation — wraps py3nj.
+"""Wigner 3j, 6j, and 9j symbol computation — wraps py3nj.
 
 py3nj uses the integer ``2j`` convention: all angular momentum arguments
 are passed as ``2*j``.  The wrapper functions here accept *physical* j
@@ -93,5 +93,38 @@ def wigner6j(
             2 * j1[valid], 2 * j2[valid], 2 * j3[valid],
             2 * j4[valid], 2 * j5[valid], 2 * j6[valid],
         )
+
+    return float(result[0]) if scalar else result
+
+
+def wigner9j(
+    j1: int | np.ndarray, j2: int | np.ndarray, j3: int | np.ndarray,
+    j4: int | np.ndarray, j5: int | np.ndarray, j6: int | np.ndarray,
+    j7: int | np.ndarray, j8: int | np.ndarray, j9: int | np.ndarray,
+) -> float | np.ndarray:
+    r"""Wigner 9j symbol.
+
+    .. math::
+        \begin{Bmatrix} j_1 & j_2 & j_3 \\ j_4 & j_5 & j_6 \\
+                         j_7 & j_8 & j_9 \end{Bmatrix}
+
+    Parameters are physical angular-momentum values.
+    Accepts scalars or arrays of equal length.
+
+    Returns 0 when any j value is negative.
+    """
+    args = [np.asarray(x, dtype=np.int64) for x in
+            (j1, j2, j3, j4, j5, j6, j7, j8, j9)]
+    scalar = args[0].ndim == 0
+    args = [np.atleast_1d(a) for a in args]
+
+    valid = args[0] >= 0
+    for a in args[1:]:
+        valid &= a >= 0
+    result = np.zeros(len(args[0]), dtype=np.float64)
+
+    if np.any(valid):
+        idx = valid
+        result[idx] = py3nj.wigner9j(*(2 * a[idx] for a in args))
 
     return float(result[0]) if scalar else result

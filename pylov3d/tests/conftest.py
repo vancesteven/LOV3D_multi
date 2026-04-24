@@ -5,10 +5,51 @@ primary integration-test reference.
 """
 
 import math
+from pathlib import Path
 
 import pytest
 
 from pylov3d.types import make_interior_model, make_forcing, make_numerics
+
+
+# ---------------------------------------------------------------------------
+# Output infrastructure
+# ---------------------------------------------------------------------------
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--save-output",
+        action="store_true",
+        default=False,
+        help="Save test output (plots, .npz) to pylov3d/tests/output/",
+    )
+
+
+@pytest.fixture
+def output_dir(request, tmp_path):
+    """Directory for test output files.
+
+    With ``--save-output``: writes to ``pylov3d/tests/output/`` (persistent).
+    Without: writes to a temporary directory (auto-cleaned).
+    """
+    if request.config.getoption("--save-output"):
+        d = Path(__file__).parent / "output"
+        d.mkdir(exist_ok=True)
+        return d
+    return tmp_path
+
+
+@pytest.fixture
+def mpl():
+    """Import matplotlib with non-interactive Agg backend.
+
+    Skips the test if matplotlib is not installed.
+    """
+    pytest.importorskip("matplotlib")
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    return plt
 
 
 @pytest.fixture

@@ -17,9 +17,13 @@ The package exists in two implementations:
 
 ## pylov3d (Python)
 
-### Status: Milestone 1 Complete
+### Status: Milestone 2 Complete
 
-The 1D spherically symmetric solver with Maxwell rheology is fully implemented and validated. This covers single-mode Love number computation for multi-layered bodies with viscoelastic interiors.
+**Milestone 1 (1D spherically symmetric):** ✅ Complete  
+Single-mode Love number computation for multi-layered bodies with viscoelastic interiors.
+
+**Milestone 2 (3D lateral variations):** ✅ Complete  
+Multi-mode coupling with lateral variations in rheology. Computes Love number spectra for bodies with laterally heterogeneous structure.
 
 ### Installation
 
@@ -49,6 +53,14 @@ numerics = make_numerics(n_layers=4, method=”combination”, Nrbase=100)
 love, y_rad, model = get_love(model, forcing, numerics)
 print(f”k2 = {complex(love.k[0]):.6e}”)
 # k2 = 2.876674e-02 - 2.667945e-03j
+
+# With lateral variations (5% shear modulus variation, n=2 m=0):
+love_3d, y_rad, model = get_love(
+    model, forcing, numerics,
+    mu_variable={2: [(2, 0, 0.05)]}  # 5% variation in asthenosphere
+)
+print(f”Love number spectrum: {len(love_3d.k)} modes”)
+# Multi-mode response due to lateral coupling
 ```
 
 ### Architecture
@@ -65,9 +77,12 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `boundary_conditions.py` | 305 | `get_solution.m` BCs | BC assembly: 8x8 (no ocean) and 24x24 (with ocean) |
 | `solver.py` | 306 | `get_solution.m` main | Cash-Karp RK5 integration of 8x8 fundamental matrix ODE |
 | `love.py` | 142 | `get_Love.m` | Pipeline orchestrator + Love number extraction |
-| `energy.py` | 327 | `get_energy.m` | Strain matrices (A14/A15), stress-strain, tidal dissipation |
+| `energy.py` | 620 | `get_energy.m` | Strain matrices (A14/A15), stress-strain, tidal dissipation (1D + coupled) |
+| `energy_couplings.py` | 280 | `get_energy_couplings.m` | Energy coupling tensor (Wigner 9j products) |
+| `couplings.py` | 340 | `get_couplings.m` | Mode coupling coefficients for lateral variations |
+| `wigner.py` | 185 | external | Wigner 3j/6j/9j symbols via py3nj |
 | `bodies.py` | 253 | `Select_Moon.m` | Planetary body catalog (Io, Europa, Enceladus, Titan, Ganymede) |
-| **Total** | **2,287** | **~4,900** | |
+| **Total** | **~3,600** | **~4,900** | |
 
 #### Key differences from MATLAB
 
@@ -87,7 +102,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-159 tests across 10 test files, covering unit tests, physics tests, and analytical cross-validation.
+285 tests across 15 test files, covering unit tests, physics tests, analytical cross-validation, and lateral variation benchmarks.
 
 #### Models tested
 
@@ -127,7 +142,12 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `test_love.py` | 12 | Pipeline, Love number extraction, physics |
 | `test_energy.py` | 20 | Strain matrices, stress-strain, dissipation |
 | `test_analytical.py` | 16 | Analytical formulas, cross-validation, limits |
-| **Total** | **159** | |
+| `test_couplings.py` | 28 | Mode coupling coefficients, selection rules |
+| `test_energy_couplings.py` | 24 | Wigner 9j energy coupling tensor |
+| `test_wigner.py` | 12 | Wigner 3j/6j symbols validation |
+| `test_lateral_rheology.py` | 32 | Lateral variation processing, conjugate pairs |
+| `test_solver_coupled.py` | 14 | Coupled 8N×8N solver, boundary conditions |
+| **Total** | **285** | |
 
 ### Projected Performance
 
@@ -143,22 +163,21 @@ The Milestone 1 implementation uses NumPy for all numerical computation. Perform
 
 ### Future Development
 
-#### Milestone 2: Lateral Variations (3D)
+#### Milestone 3: Validation & Optimization
 
-- Wigner 3j/6j/9j coefficient computation in JAX
-- Mode coupling in the propagator (off-diagonal A-matrix blocks)
-- Coupled boundary conditions (24N x 24N system for N coupled modes)
-- Spectral-to-geographic coordinate transforms for map visualization
-- Validation against MATLAB LOV3D for Enceladus and Europa lateral variation models
+- MATLAB cross-validation for Enceladus and Europa lateral variation benchmarks
+- JAX JIT compilation for 10-100x CPU speedup
+- `vmap` for batched frequency sweeps
+- GPU acceleration via `jax.pmap`
 
-#### Milestone 3: Advanced Features
+#### Milestone 4: Advanced Features
 
 - Additional rheologies: Andrade, Burgers, extended Burgers
 - `jax.grad` through the full pipeline for sensitivity analysis (dk/dmu, dk/deta)
 - PlanetProfile integration via `compat.py` adapter (PlanetStruct to InteriorModel)
 - Cross-validation against PyALMA3 for identical 1D models
-- Multi-GPU support via `jax.pmap` for large parameter sweeps
 - ML surrogate models trained on pylov3d for real-time parameter exploration
+- Spectral-to-geographic coordinate transforms for map visualization
 
 ---
 

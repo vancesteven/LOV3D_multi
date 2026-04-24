@@ -27,7 +27,7 @@ viz = ["matplotlib>=3.7", "cartopy>=0.21"]
 compat = ["PlanetProfile", "pyalma3"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["pylov3d/tests"]
 
 [tool.setuptools.packages.find]
 where = ["."]
