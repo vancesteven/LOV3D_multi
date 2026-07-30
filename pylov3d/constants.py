@@ -3,7 +3,6 @@
 import jax
 jax.config.update("jax_enable_x64", True)
 
-import jax.numpy as jnp
 
 # Gravitational constant [N m^2 kg^{-2}]
 G = 6.67430e-11

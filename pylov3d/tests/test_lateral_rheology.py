@@ -1,13 +1,11 @@
 """Tests for pylov3d.rheology — lateral variation processing."""
 
-import math
 
 import numpy as np
 import pytest
 
 from pylov3d.types import (
     InteriorModel,
-    Forcing,
     LateralRheology,
     make_interior_model,
     make_forcing,
@@ -250,7 +248,6 @@ class TestLateralViscoelastic:
 
     def test_model_muC_updated(self, io_model):
         model_orig, forcing = io_model
-        muC_before = complex(model_orig.muC[1])
         model, lateral = process_lateral_variations(
             model_orig, forcing,
             mu_variable={1: [(2, 0, 0.2)]},

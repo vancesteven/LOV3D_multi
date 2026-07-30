@@ -12,7 +12,7 @@ from typing import NamedTuple
 import numpy as np
 import jax.numpy as jnp
 
-from .constants import MAX_LAYERS, MAX_NR_TOTAL
+from .constants import MAX_LAYERS
 
 
 # ---------------------------------------------------------------------------

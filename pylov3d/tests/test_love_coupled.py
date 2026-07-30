@@ -1,6 +1,5 @@
 """Tests for coupled (multi-mode) Love number extraction."""
 
-import math
 
 import numpy as np
 import pytest

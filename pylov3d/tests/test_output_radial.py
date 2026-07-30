@@ -6,7 +6,6 @@ Run with --save-output to persist plots to pylov3d/tests/output/.
 import math
 
 import numpy as np
-import pytest
 
 from pylov3d.types import make_interior_model, make_forcing, make_numerics
 from pylov3d.grid import set_boundary_indices
@@ -192,7 +191,6 @@ class TestRadialProfilesCoupled:
 
         r = y_rad.r
         N = len(y_rad.n_s)
-        N3 = 3 * N
         N6 = 6 * N
 
         fig, axes = mpl.subplots(1, 3, figsize=(15, 5))
@@ -251,7 +249,6 @@ class TestRadialProfilesCoupled:
         fig, axes = mpl.subplots(1, 3, figsize=(15, 5))
         fig.suptitle("1D vs coupled forcing mode (5% perturbation)", fontsize=14)
 
-        labels_comp = ["U", "V", r"$\Phi$"]
         for ax_idx, (lbl, idx_1d, idx_3d) in enumerate([
             ("U", 0, 3 * k_f),
             ("V", 1, 3 * k_f + 1),

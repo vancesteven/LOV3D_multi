@@ -6,7 +6,6 @@ Tests the full workflow:
 Validates backward compatibility, physical consistency, and convergence.
 """
 
-import math
 
 import numpy as np
 import pytest

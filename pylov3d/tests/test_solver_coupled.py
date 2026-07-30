@@ -3,7 +3,6 @@
 import math
 
 import numpy as np
-import pytest
 
 from pylov3d.types import (
     make_interior_model,
@@ -23,7 +22,6 @@ from pylov3d.boundary_conditions import (
     assemble_bc_no_ocean,
     assemble_bc_no_ocean_coupled,
 )
-from pylov3d.propagator import compute_gravity
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +257,6 @@ class TestGetSolutionCoupled:
             model, forcing, mu_variable={1: [(2, 0, 0.1)]},
         )
         C = get_couplings(lateral.variations, 2, 0)
-        N = len(C.n_s)
 
         y_sol, _, _, _ = get_solution(
             model, forcing, numerics, couplings=C, lateral=lateral,

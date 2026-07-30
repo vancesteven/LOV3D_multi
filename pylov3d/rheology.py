@@ -363,11 +363,6 @@ def process_lateral_variations(
     lateral : LateralRheology
         Coupling data for the coupled solver.
     """
-    if isinstance(forcing, list):
-        Td = forcing[0].Td
-    else:
-        Td = forcing.Td
-
     n_layers = model.n_layers
     mu_variable = mu_variable or {}
     eta_variable = eta_variable or {}

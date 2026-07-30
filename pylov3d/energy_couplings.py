@@ -62,7 +62,8 @@ def _couplings_coefficient(
     # Use np.maximum to avoid NaN from sqrt of negative quantum numbers.
     # Invalid entries are zeroed by the Wigner symbols; in MATLAB sqrt(-x)
     # gives a complex number that is harmlessly multiplied by zero.
-    _sq = lambda x: np.sqrt(np.maximum(x, 0.0))
+    def _sq(x):
+        return np.sqrt(np.maximum(x, 0.0))
 
     Lam_a = _sq((2 * la + 1.0) * (2 * na1 + 1.0))
     Lam_b = _sq((2 * lb + 1.0) * (2 * nb1 + 1.0))

@@ -16,7 +16,6 @@ from pylov3d.energy import (
     global_dissipation,
 )
 from pylov3d.propagator import build_A1_A2, build_A3
-from pylov3d.constants import G as G_phys
 
 
 # ---------------------------------------------------------------------------

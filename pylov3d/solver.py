@@ -196,7 +196,6 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
             model, forcing, numerics, couplings, lateral,
         )
 
-    from .types import Forcing as ForcingType
 
     n_layers = model.n_layers
     Nr = numerics.Nr
@@ -249,7 +248,6 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
     for i in range(1, n_layers):
         R_prev = float(model.R[i - 1])
         R_before = float(model.R[i - 2]) if i >= 2 else 0.0
-        rho_prev = float(model.rho[i - 1]) if i >= 1 else 0.0
         if i == 1:
             M_at_boundary[i] = M_at_boundary[0]
         else:
@@ -260,11 +258,6 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
     # ----- Initialize fundamental matrix -----
     Y = np.zeros((Nr + 1, 8, 8), dtype=np.complex128)
     Y[0] = np.eye(8, dtype=np.complex128)
-
-    # Storage for ocean regions (separate fundamental matrices)
-    if ocean_layer > 0:
-        Y_ocean = np.zeros((Nr + 1, 8, 8), dtype=np.complex128)
-        Y_shell = np.zeros((Nr + 1, 8, 8), dtype=np.complex128)
 
     # Auxiliary Aprop (first 3 rows, for stress/strain recovery)
     Aprop_aux = np.zeros((Nr + 1, 3, 8), dtype=np.complex128)
@@ -296,7 +289,6 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
         M_inner_k = M_at_boundary[i_layer]
 
         # Compute CK-RK5 increment
-        is_ocean = (ocean_layer > 0 and i_layer == ocean_layer)
         inc, Ap_at_r = cash_karp_increment(
             r_prev, dr, n_deg, muC_k, lam_k, rho_k, Gg,
             M_inner_k, R_inner_k,

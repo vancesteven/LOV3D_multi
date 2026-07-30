@@ -1,6 +1,5 @@
 """Tests for coupled (multi-mode) propagator matrices."""
 
-import math
 
 import numpy as np
 import pytest
@@ -129,7 +128,6 @@ class TestBuildA1A2Coupled:
         assert np.allclose(A2, A2_ref)
 
     def test_multi_mode_shape(self):
-        n_s = np.array([0, 2, 4])
         variations = np.array([[2, 0]])
         C = get_couplings(variations, 2, 0, perturbation_order=2)
         muC_amp = np.array([0.1 + 0.01j])
@@ -255,7 +253,6 @@ class TestBuildApropCoupled:
             0.8, 0.4, 0.1, C.n_s, 0.5+0.1j, 0.3, 1.0, 0.5,
             C.Coup, np.array([0.0]), np.array([0.0]),
         )
-        N = len(C.n_s)
 
         # Find degree-0 mode index
         k0 = np.where(C.n_s == 0)[0]

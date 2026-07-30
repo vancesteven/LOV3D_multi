@@ -12,7 +12,7 @@ from pylov3d.types import make_interior_model, make_forcing, make_numerics
 from pylov3d.grid import set_boundary_indices
 from pylov3d.rheology import get_rheology
 from pylov3d.solver import get_solution
-from pylov3d.love import get_love, extract_love_numbers
+from pylov3d.love import get_love
 from pylov3d.energy import get_energy
 
 

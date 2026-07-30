@@ -1,6 +1,5 @@
 """Tests for pylov3d.couplings — mode selection and coupling coefficients."""
 
-import math
 
 import numpy as np
 import pytest

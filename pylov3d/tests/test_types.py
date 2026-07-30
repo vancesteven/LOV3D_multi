@@ -1,18 +1,13 @@
 """Tests for pylov3d.types — data structures and factory helpers."""
 
-import math
 
 import jax.numpy as jnp
 import pytest
 
 from pylov3d.constants import MAX_LAYERS
 from pylov3d.types import (
-    InteriorModel,
-    Forcing,
-    NumericsConfig,
     make_interior_model,
     make_forcing,
-    make_numerics,
 )
 
 
