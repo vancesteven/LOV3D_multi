@@ -137,13 +137,21 @@ class TestEnceladusBenchmark:
         rel_error = abs(k2_pylov3d - k2_matlab) / abs(k2_matlab)
         assert rel_error < 1e-3, f"k2 mismatch: pylov3d={k2_pylov3d:.6e}, MATLAB={k2_matlab:.6e}"
 
-    @pytest.mark.parametrize("n_lv,m_lv,amp_pct", [
-        (2, 0, 5.0),   # 5% amplitude, n=2, m=0
-        (2, 0, 10.0),  # 10% amplitude
-        (1, 1, 5.0),   # n=1, m=1
+    @pytest.mark.parametrize("n_lv,m_lv,idx_amp", [
+        (2, 0, 4),    # n=2, m=0 at grid node ~5.3% (index 4)
+        (2, 0, 9),    # n=2, m=0 at grid node ~10.6% (index 9)
+        (1, 1, 4),    # n=1, m=1 at grid node ~5.1% (index 4)
     ])
-    def test_lateral_love_spectra(self, enceladus_params, matlab_data_path, n_lv, m_lv, amp_pct):
-        """Love number spectra with lateral variations match MATLAB."""
+    def test_lateral_love_spectra(self, enceladus_params, matlab_data_path, n_lv, m_lv, idx_amp):
+        """Love number spectra with lateral variations match MATLAB.
+
+        Drives the comparison off the actual MATLAB amplitude-grid node
+        (``ref['amp'][idx_amp]``) rather than a hardcoded percentage — the grid
+        steps by ~1.05%/node, so exact 5%/10% points do not exist.  The complex
+        spherical-harmonic amplitude is amp/sqrt(4*pi) for m=0 and
+        amp/sqrt(2)/sqrt(4*pi) for m!=0 (verified <0.25% across all coupled
+        modes; see ISSUE_matlab_validation.md).
+        """
         model = self._build_enceladus_model(enceladus_params)
         forcing = make_forcing(Td=1.0, n=2, m=0, F=1.0)
         numerics = make_numerics(
@@ -153,9 +161,12 @@ class TestEnceladusBenchmark:
             perturbation_order=2,
         )
 
-        # Convert amplitude from % to complex spherical harmonic amplitude
+        # Load MATLAB reference and use the actual grid-node amplitude.
+        ref = self._load_matlab_reference(matlab_data_path, n_lv, m_lv)
+        amp_sph = float(ref['amp'][idx_amp])
+
+        # Convert amplitude to complex spherical harmonic amplitude
         # MATLAB uses: amp / sqrt(4*pi) for m=0, amp / sqrt(2) / sqrt(4*pi) for m≠0
-        amp_sph = amp_pct / 100.0
         if m_lv == 0:
             amp_c = amp_sph / math.sqrt(4 * math.pi)
         else:
@@ -168,15 +179,6 @@ class TestEnceladusBenchmark:
             mu_variable[1].append((n_lv, -m_lv, (-1)**m_lv * amp_c))
 
         love, _, _ = get_love(model, forcing, numerics, mu_variable=mu_variable)
-
-        # Load MATLAB reference
-        ref = self._load_matlab_reference(matlab_data_path, n_lv, m_lv)
-
-        # Find matching amplitude in MATLAB data
-        amp_matlab_pct = ref['amp'] * 100  # Convert to %
-        idx_amp = np.argmin(np.abs(amp_matlab_pct - amp_pct))
-        if abs(amp_matlab_pct[idx_amp] - amp_pct) > 0.1:
-            pytest.skip(f"Amplitude {amp_pct}% not in MATLAB reference data")
 
         # Compare Love number spectrum
         # Match modes by (n, m)

@@ -10,7 +10,9 @@ Cross-validate pylov3d Milestone 2 (lateral variations) against MATLAB LOV3D ref
 - MATLAB reference data: `data/tests/enceladus/*.mat`
 - **Uniform k2 now matches:** pylov3d 0.0151953 vs MATLAB 0.0151858 (rel err 6.3e-4)
 - **Amplitude sweep matches:** 0.03% / 0.13% / 0.01% at 5% / 10% / 25%
-- Full suite: 298 passed, 3 skipped, 0 failed.
+- **Lateral Love spectra match:** all coupled modes (n=3/m=1, n=2/m=2,
+  n=4/m=0, n=4/m=2) agree to <0.25% at the grid nodes.
+- Full suite: 301 passed, 0 skipped, 0 failed.
 
 ## Root Cause (the original hypothesis below was WRONG)
 The failure was NOT parameter translation — normalized Gg, R, rho, mu, Ks all
@@ -30,10 +32,13 @@ Plus a test-harness bug in `test_amplitude_sweep`: it selected the constant
 order=0 (2,0) reference row instead of the amplitude-varying order=1 row —
 fixed by filtering on `order==1`.
 
-## Remaining (optional follow-up)
-- [ ] `test_lateral_love_spectra` still SKIPS: requests exactly 5%/10% amplitude
-      but MATLAB reference `amp` grid has 1.06, 2.11, 5.29%... Needs the
-      amp3(peak-to-peak) vs amp2(complex-SH) scaling reconciled to run.
+## Resolved follow-up
+- [x] `test_lateral_love_spectra` no longer skips.  The amplitude convention
+      was never wrong: amp_c = amp/sqrt(4*pi) for m=0 (and /sqrt(2) for m!=0)
+      reproduces MATLAB to <0.25% across ALL coupled modes.  The tests skipped
+      only because they hardcoded 5%/10% while the MATLAB `amp` grid steps by
+      ~1.05%/node (nearest nodes 5.29%, 10.57%, >0.1% away).  Fixed by driving
+      the comparison off actual grid-node indices instead of fixed percentages.
 
 ### Superseded original root-cause hypothesis (kept for history)
 Model parameters from MATLAB's .mlx file not correctly translated to pylov3d's
