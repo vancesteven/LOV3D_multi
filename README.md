@@ -17,13 +17,16 @@ The package exists in two implementations:
 
 ## pylov3d (Python)
 
-### Status: Milestone 2 Complete
+### Status: Milestone 3 Complete
 
 **Milestone 1 (1D spherically symmetric):** ✅ Complete  
 Single-mode Love number computation for multi-layered bodies with viscoelastic interiors.
 
 **Milestone 2 (3D lateral variations):** ✅ Complete  
 Multi-mode coupling with lateral variations in rheology. Computes Love number spectra for bodies with laterally heterogeneous structure.
+
+**Milestone 3 (MATLAB cross-validation):** ✅ Complete  
+The Enceladus 2-layer benchmark validates against MATLAB LOV3D reference data: uniform k2 to <0.1% (0.0151953 vs 0.0151858), the amplitude sweep to <0.15%, and the full lateral Love spectrum (n=3/m=1, n=2/m=2, n=4/m=0, n=4/m=2) to <0.25%.
 
 ### Installation
 
@@ -102,13 +105,13 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-285 tests across 15 test files, covering unit tests, physics tests, analytical cross-validation, and lateral variation benchmarks.
+301 tests across 22 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, and MATLAB reference cross-validation.
 
 #### Models tested
 
 - **Uniform elastic sphere** (2-layer: tiny fluid core + elastic mantle)
   - h2 matches Kelvin/Love analytical formula within 3%: h2 = 5/(2(1 + 19mu/(2*rho*g*R)))
-  - k2 positive and purely real (Im < 1e-10)
+  - k2 matches the analytic gravity Love number k2 = 3h2/5 to <0.1% (0.038704), and is purely real (Im < 1e-10)
   - Zero tidal dissipation confirmed
   - Convergence with increasing radial resolution (Nrbase = 100, 200, 400)
 
@@ -133,21 +136,29 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 | Test file | Tests | Coverage |
 |-----------|-------|----------|
-| `test_types.py` | 25 | Data structures, factory functions, defaults |
-| `test_grid.py` | 18 | All 4 grid methods, boundary indices, edge cases |
-| `test_rheology.py` | 22 | Normalization, Maxwell rheology, elastic/viscous limits |
-| `test_propagator.py` | 20 | A-matrices, propagator, gravity, symmetries |
-| `test_solver.py` | 18 | RK5 integration, BCs, ocean/no-ocean, convergence |
-| `test_bodies.py` | 8 | Body catalog, parameter ranges |
-| `test_love.py` | 12 | Pipeline, Love number extraction, physics |
-| `test_energy.py` | 20 | Strain matrices, stress-strain, dissipation |
+| `test_propagator.py` | 41 | A-matrices, propagator, gravity, symmetries |
+| `test_couplings.py` | 27 | Mode coupling coefficients, selection rules |
+| `test_lateral_rheology.py` | 24 | Lateral variation processing, conjugate pairs |
+| `test_energy.py` | 24 | Strain matrices, stress-strain, dissipation |
+| `test_propagator_coupled.py` | 18 | Coupled multi-mode propagator matrices |
+| `test_solver.py` | 16 | RK5 integration, BCs, ocean/no-ocean, convergence |
+| `test_rheology.py` | 16 | Normalization, Maxwell rheology, elastic/viscous limits |
 | `test_analytical.py` | 16 | Analytical formulas, cross-validation, limits |
-| `test_couplings.py` | 28 | Mode coupling coefficients, selection rules |
-| `test_energy_couplings.py` | 24 | Wigner 9j energy coupling tensor |
+| `test_types.py` | 13 | Data structures, factory functions, defaults |
+| `test_solver_coupled.py` | 13 | Coupled 8N×8N solver, boundary conditions |
 | `test_wigner.py` | 12 | Wigner 3j/6j symbols validation |
-| `test_lateral_rheology.py` | 32 | Lateral variation processing, conjugate pairs |
-| `test_solver_coupled.py` | 14 | Coupled 8N×8N solver, boundary conditions |
-| **Total** | **285** | |
+| `test_love.py` | 12 | Pipeline, Love number extraction, physics |
+| `test_grid.py` | 11 | All 4 grid methods, boundary indices, edge cases |
+| `test_lateral_e2e.py` | 10 | End-to-end lateral variation workflow |
+| `test_bodies.py` | 10 | Body catalog, parameter ranges |
+| `test_love_coupled.py` | 9 | Coupled multi-mode Love number extraction |
+| `test_compat.py` | 9 | PlanetProfile compatibility adapter |
+| `test_matlab_validation.py` | 7 | MATLAB reference cross-validation (Enceladus) |
+| `test_output_radial.py` | 5 | Radial profile output plots |
+| `test_output_love.py` | 3 | Love number output plots |
+| `test_output_convergence.py` | 3 | Grid convergence study plots |
+| `test_output_reference.py` | 2 | Reference output regression |
+| **Total** | **301** | |
 
 ### Projected Performance
 
