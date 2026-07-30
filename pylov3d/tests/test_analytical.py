@@ -43,7 +43,10 @@ class TestUniformElasticSphere:
         mu = 1e10
         g = G_phys * (4.0 / 3.0) * math.pi * rho * R_m
         h2_an = 5.0 / (2.0 * (1.0 + 19.0 * mu / (2.0 * rho * g * R_m)))
-        k2_an = 3.0 * h2_an / 5.0 - 1.0
+        # Gravity (potential) Love number for a homogeneous sphere: k2 = 3 h2 / 5.
+        # NOTE: not 3 h2 / 5 - 1, which is the *body-tide* convention; pylov3d
+        # returns the gravity Love number (Phi_surf - 1 for the forcing mode).
+        k2_an = 3.0 * h2_an / 5.0
         return dict(
             R_km=R_km, rho=rho, mu=mu, R_m=R_m, g=g,
             h2=h2_an, k2=k2_an,
@@ -68,16 +71,20 @@ class TestUniformElasticSphere:
         h2 = abs(complex(love.h[0]).real)
         assert h2 == pytest.approx(params['h2'], rel=0.03)
 
-    def test_k2_positive(self, model, forcing):
-        """k₂ for an elastic body with fluid core should be positive and real.
+    def test_k2_value(self, model, forcing, params):
+        """k₂ must match the analytic homogeneous-sphere value quantitatively.
 
-        The analytical formula k₂ = 3h₂/5 − 1 applies only to a truly
-        homogeneous solid sphere.  A fluid core significantly enhances the
-        gravitational potential response, so we only test sign and reality.
+        For a (near-)homogeneous elastic sphere the gravity Love number is
+        k₂ = 3 h₂ / 5.  The 10 km fluid core in a 1000 km body is negligible,
+        so the numerical result matches the closed form to ~5e-6.  This
+        quantitative check is what guards against propagator-assembly bugs that
+        preserve k₂ > 0 while corrupting its magnitude (e.g. the A1/A2 role
+        swap, which gave 0.0897 instead of 0.038704).
         """
         numerics = make_numerics(n_layers=2, method="variable", Nrbase=500)
         love, _, _ = get_love(model, forcing, numerics)
         k2 = complex(love.k[0])
+        assert k2.real == pytest.approx(params['k2'], rel=1e-3)
         assert k2.real > 0
         assert abs(k2.imag) < 1e-10
 
