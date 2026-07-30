@@ -279,14 +279,18 @@ def build_aprop(
     Ax = np.zeros((N8, N8), dtype=np.complex128)
 
     # Block 1: constitutive (rows 0:3)
-    Adotx[:N3, :N3] = A4 @ A1 @ A3_inv
-    Ax[:N3, :N3] = -A4 @ A2 @ A3_inv / r
+    # NOTE: A1 (angular /r term, carries the (n-1) factor) and A2 (pure-moduli
+    # d/dr term) map to the Ax (/r) and Adotx (d/dr) blocks respectively — i.e.
+    # A2 -> Adotx, A1 -> Ax.  build_A1_A2 returns them in (A1, A2) order; the
+    # correct assignment swaps their roles here.
+    Adotx[:N3, :N3] = A4 @ A2 @ A3_inv
+    Ax[:N3, :N3] = -A4 @ A1 @ A3_inv / r
     Ax[:N3, N3:N6] = A13
 
     # Block 2: momentum (rows 3:6)
-    Adotx[N3:N6, :N3] = -A5 @ A1 @ A3_inv / r + A6
+    Adotx[N3:N6, :N3] = -A5 @ A2 @ A3_inv / r + A6
     Adotx[N3:N6, N3:N6] = A13
-    Ax[N3:N6, :N3] = A5 @ A2 @ A3_inv / r**2 + g / r * A71 + dg * A72
+    Ax[N3:N6, :N3] = A5 @ A1 @ A3_inv / r**2 + g / r * A71 + dg * A72
     Ax[N3:N6, N6:N8] = A81 + A82 / r
 
     # Block 3: Poisson (rows 6:8)
@@ -574,14 +578,16 @@ def build_aprop_coupled(
     Ax = np.zeros((N8, N8), dtype=np.complex128)
 
     # Block 1: constitutive (rows 0:3N)
-    Adotx[:N3, :N3] = A4 @ A1 @ A3_inv
-    Ax[:N3, :N3] = -A4 @ A2 @ A3_inv / r
+    # NOTE: A1/A2 role swap — see the same block in build_aprop (scalar) for the
+    # rationale.  A2 -> Adotx (d/dr), A1 -> Ax (/r).
+    Adotx[:N3, :N3] = A4 @ A2 @ A3_inv
+    Ax[:N3, :N3] = -A4 @ A1 @ A3_inv / r
     Ax[:N3, N3:N6] = A13
 
     # Block 2: momentum (rows 3N:6N)
-    Adotx[N3:N6, :N3] = -A5 @ A1 @ A3_inv / r + A6
+    Adotx[N3:N6, :N3] = -A5 @ A2 @ A3_inv / r + A6
     Adotx[N3:N6, N3:N6] = A13
-    Ax[N3:N6, :N3] = A5 @ A2 @ A3_inv / r**2 + (g / r) * A71 + dg * A72
+    Ax[N3:N6, :N3] = A5 @ A1 @ A3_inv / r**2 + (g / r) * A71 + dg * A72
     Ax[N3:N6, N6:N8] = A81 + A82 / r
 
     # Block 3: Poisson (rows 6N:8N)

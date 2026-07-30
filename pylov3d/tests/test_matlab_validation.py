@@ -68,11 +68,18 @@ class TestEnceladusBenchmark:
         R_core = params['r_ratio'] * 252.1e3
         R_surface = 252.1e3
 
+        # MATLAB sets Interior_Model(1).Delta_rho0 = 0 for the ice-ocean
+        # interface (see Test_Enceladus_Two_Layer_Lateral_Variations.mlx).  The
+        # core-boundary density contrast must be forced to 0 rather than
+        # auto-computed as rho_core - rho_ice, or the CMB potential BC (rho2)
+        # is wrong and k2 comes out with the wrong sign/magnitude.
+        rho_core = params['rho_r'] * 1000
         model = make_interior_model(
             R0_km=[R_core / 1e3, R_surface / 1e3],
-            rho0=[params['rho_r'] * 1000, 1000],  # Normalize to ice density
+            rho0=[rho_core, 1000],  # Normalize to ice density
             mu0=[0.0, 3.3e9],  # Core rigid, ice elastic
             Ks0=[1e20, params['Ks_nd'] * 3.3e9],  # Core incompressible
+            Delta_rho0=[0.0, rho_core - 1000],
         )
         return model
 
@@ -229,7 +236,14 @@ class TestEnceladusBenchmark:
             k_idx = np.where((love.n == 2) & (love.m == 0))[0][0]
             k_pylov3d = love.k[k_idx]
 
-            idx_forcing = np.where((ref['n'] == 2) & (ref['m'] == 0))[0][0]
+            # The reference has TWO (2,0) rows: order=0 is the constant uniform
+            # value (k_M(2,:) in MATLAB), order=1 is the amplitude-dependent
+            # response.  Select the order=1 row — comparing against the
+            # amplitude-independent order=0 row spuriously grows the error with
+            # amplitude.
+            idx_forcing = np.where(
+                (ref['n'] == 2) & (ref['m'] == 0) & (ref['order'] == 1)
+            )[0][0]
             k_matlab = ref['k'][idx_forcing, idx_amp]
 
             rel_error = abs(k_pylov3d - k_matlab) / abs(k_matlab)
