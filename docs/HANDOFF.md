@@ -33,7 +33,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
-| TASK-001 | 3D coupled (8N×8N) JAX scan port | free | QUEUED — awaiting user go-ahead | `docs/tasks/TASK-001-jax-coupled-3d.md` |
+| TASK-001 | 3D coupled (8N×8N) JAX scan port | A | IN-PROGRESS | `docs/tasks/TASK-001-jax-coupled-3d.md` |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
