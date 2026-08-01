@@ -33,8 +33,8 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
-| TASK-001 | 3D coupled JAX port — increments 3–4 (scan + API) | A | BLOCKED on TASK-001a | `docs/tasks/TASK-001-jax-coupled-3d.md` |
-| TASK-001a | 3D coupled JAX port — increments 1–2 (static precompute + traced build) | CODEX | IN-PROGRESS | `docs/tasks/TASK-001a-codex-increments-1-2.md` |
+| TASK-001 | 3D coupled JAX port — increments 3–4 (scan + API) | A | READY (001a verified) | `docs/tasks/TASK-001-jax-coupled-3d.md` |
+| TASK-001a | 3D coupled JAX port — increments 1–2 (static precompute + traced build) | A (review done) | VERIFIED — uncommitted, 2 test nits open | `docs/tasks/TASK-001a-codex-increments-1-2.md` |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -62,8 +62,12 @@ reviewed by an Opus-tier agent before Status moves DONE → VERIFIED.
 
 ## Environment notes (non-obvious)
 
-- **Python venv:** `venvLOV3Dconv/bin/python` (JAX 0.10.0, pytest here; base
-  conda python has neither). Tests: `venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q`
+- **Python venv:** `venvLOV3Dconv/bin/python` on BOTH machines (venvs are
+  per-clone, not synced). Machine B: JAX 0.10.0. Machine A: rebuilt 2026-08-02 —
+  JAX 0.10.2, py3nj compiled from source (needed `brew install gcc` +
+  `CC=gcc-16 CXX=g++-16 FC=gfortran-16` for OpenMP), plus pyalma3 (module name
+  is `alma`) and matplotlib. Full suite on A: 322 = 318 baseline + 4 new.
+  Tests: `venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q`
 - JAX x64 enabled at import; complex128 OK on CPU. First JIT call slow (~10–30s).
 - `matlab/` is source material only — do not scan/grep/modify.
 
@@ -91,6 +95,7 @@ reviewed by an Opus-tier agent before Status moves DONE → VERIFIED.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` TASK-001a assessed and VERIFIED. Codex output correct: Opus 5 adversarial review (line-by-line + randomized differential harness to 2.2e-15 + 27-mutant mutation test, 25 killed / 2 equivalent-or-gap) → APPROVE, zero defects. Suite in rebuilt machine-A venv: 322 passed, 0 failed. Open nits before commit: test_jit_smoke compares JAX to itself (swap tuple unpack), Nreo≥2 coupling axis untested (fixture has Nreo=1). Increment 3 note: close over `static`, do not pass as jit arg (non-hashable; traced-pytree path degrades deg-0 rows to dynamic scatter).
 - `[A][2026-08-01]` TASK-001 go-ahead received. Increments 1–2 delegated to Codex 5.6 (TASK-001a spec written; user launches Codex). Design upgrade over original plan: all traced quantities enter linearly, so the traced build is static-tensor einsum contractions — no 27×N² trace-time unroll, flat compile cost in N. A holds increments 3–4, blocked until 001a verified.
 - `[A][2026-08-01]` Formalized coordination protocol (this rewrite): git-push locking, task ledger, model routing incl. Codex 5.6 handoff convention. Moved 3D-port plan to `docs/tasks/TASK-001-jax-coupled-3d.md`. TASK-001 still awaiting user go-ahead.
 - `[B][2026-08-01]` Pushed `3c41217` (JAX scan increment + multilayer viscoelastic test; suite 318 green). Wrote initial handoff. Yielded to Machine A.
