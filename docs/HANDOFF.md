@@ -33,7 +33,8 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
-| TASK-001 | 3D coupled (8N×8N) JAX scan port | A | IN-PROGRESS | `docs/tasks/TASK-001-jax-coupled-3d.md` |
+| TASK-001 | 3D coupled JAX port — increments 3–4 (scan + API) | A | BLOCKED on TASK-001a | `docs/tasks/TASK-001-jax-coupled-3d.md` |
+| TASK-001a | 3D coupled JAX port — increments 1–2 (static precompute + traced build) | CODEX | IN-PROGRESS | `docs/tasks/TASK-001a-codex-increments-1-2.md` |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -90,5 +91,6 @@ reviewed by an Opus-tier agent before Status moves DONE → VERIFIED.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-01]` TASK-001 go-ahead received. Increments 1–2 delegated to Codex 5.6 (TASK-001a spec written; user launches Codex). Design upgrade over original plan: all traced quantities enter linearly, so the traced build is static-tensor einsum contractions — no 27×N² trace-time unroll, flat compile cost in N. A holds increments 3–4, blocked until 001a verified.
 - `[A][2026-08-01]` Formalized coordination protocol (this rewrite): git-push locking, task ledger, model routing incl. Codex 5.6 handoff convention. Moved 3D-port plan to `docs/tasks/TASK-001-jax-coupled-3d.md`. TASK-001 still awaiting user go-ahead.
 - `[B][2026-08-01]` Pushed `3c41217` (JAX scan increment + multilayer viscoelastic test; suite 318 green). Wrote initial handoff. Yielded to Machine A.

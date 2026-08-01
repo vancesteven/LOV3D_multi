@@ -1,8 +1,15 @@
 # TASK-001 — 3D coupled (8N×8N) JAX scan port
 
-**Status:** QUEUED (awaiting user go-ahead — project rule: propose before implementing)
-**Owner:** free
+**Status:** IN-PROGRESS — increments 1–2 delegated to Codex (TASK-001a); increments 3–4 with Machine A, blocked until 001a verified
+**Owner:** A (increments 3–4) / CODEX (increments 1–2, see `TASK-001a-codex-increments-1-2.md`)
 **Origin:** Machine B plan, 2026-08-01 (moved out of HANDOFF.md by Machine A)
+
+> **Design revision (Machine A, 2026-08-01):** the A1/A2 "unroll mode×slot
+> loops at trace time" strategy below is superseded. All traced quantities
+> (muC, lam, rho, muC_amp, K_amp) enter *linearly* as scalar coefficients on
+> static geometry, so the traced build is precomputed-tensor contractions
+> (`jnp.einsum`) — no trace-time unroll, compile cost flat in N. Interface
+> contract lives in TASK-001a.
 
 Extends `jax_scan.py` (8×8) to the coupled **8N×8N** system (N = # GSH modes, ~5–20).
 NumPy reference to match: `solver._get_solution_coupled` (pylov3d/solver.py:~390–542)
