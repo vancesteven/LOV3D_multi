@@ -36,9 +36,9 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-001…004 | Milestone 4 (coupled JAX port, Aprop_aux, MATLAB validation, benchmark) | — | ALL VERIFIED & committed (see log / git history) | `docs/tasks/` |
 | TASK-005 | **M5:** audit + fix + test the 1D ocean path (3 bugs incl. singular BC matrix) | free | VERIFIED — committed `9ce8e78` | tests: `test_solver_ocean.py` |
 | TASK-006 | **M5:** `assemble_bc_ocean_coupled` (24N×24N) | free | VERIFIED — committed `3953c29` | `docs/tasks/TASK-006-codex-bc-ocean-coupled.md` |
-| TASK-007 | **M5:** coupled NumPy solver ocean path | A | DONE — uncommitted, awaiting user commit approval. **All 5 MATLAB/Qin checks LIVE + GREEN** | log entry below |
+| TASK-007 | **M5:** coupled NumPy solver ocean path | free | VERIFIED — committed `a68a351`. All 5 MATLAB/Qin checks live+green | log entry below |
 | TASK-008 | **M5:** MATLAB reference for ocean+lateral validation — Weber Moon case (`data/tests/moon/*.mat` exists, unused) + optionally regenerate/extend via `tests/Test_Moon_MultiLayered_Lateral_Variations.mlx` and Europa case. Machine B (MATLAB) | B | DONE (uncommitted) — parser+model tests live, 5 solver checks auto-skip until 007 | `test_matlab_validation_ocean.py` |
-| TASK-009 | **M5:** JAX coupled ocean support (extend jax_coupled after NumPy path verified) | free | QUEUED — after 007 | — |
+| TASK-009 | **M5:** JAX coupled ocean support (three-segment scan) | A | IN-PROGRESS | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
