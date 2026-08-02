@@ -33,10 +33,12 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
-| TASK-001 | 3D coupled JAX port (all 4 increments) | free | VERIFIED — committed `ce3fd7e` + `4b7557a` | `docs/tasks/TASK-001-jax-coupled-3d.md` |
-| TASK-002 | Aprop_aux for coupled JAX path | free | VERIFIED — committed `1a4a707` | `docs/tasks/TASK-002-codex-aprop-aux.md` |
-| TASK-004 | JAX coupled-path performance benchmark at realistic N | free | VERIFIED — committed `5817164` | `docs/BENCHMARK_jax_coupled.md` |
-| TASK-003 | MATLAB cross-validation of coupled JAX path (proposed for B) | free | VERIFIED — committed `a89eb6c` | — |
+| TASK-001…004 | Milestone 4 (coupled JAX port, Aprop_aux, MATLAB validation, benchmark) | — | ALL VERIFIED & committed (see log / git history) | `docs/tasks/` |
+| TASK-005 | **M5:** audit + fix + test the 1D ocean path (untested; missing MATLAB's Poisson-only in-ocean propagator `get_solution.m:1924-1935` and the `i==ocean_end` recombination `:864-881`; validate vs Europa/Titan 1D MATLAB cases) | free | QUEUED — blocks all other M5 tasks | — |
+| TASK-006 | **M5:** `assemble_bc_ocean_coupled` (24N×24N; generalize boundary_conditions.py:268-438 per MATLAB get_solution.m:696-838 using the no-ocean-coupled index scheme). Codex candidate | free | QUEUED — after 005 | — |
+| TASK-007 | **M5:** coupled NumPy solver ocean path (ocean-flag propagator, integration restarts at ocean entry/exit, three-region recombination incl. `i==ocean_end`) | free | QUEUED — after 005/006 | — |
+| TASK-008 | **M5:** MATLAB reference for ocean+lateral validation — Weber Moon case (`data/tests/moon/*.mat` exists, unused) + optionally regenerate/extend via `tests/Test_Moon_MultiLayered_Lateral_Variations.mlx` and Europa case. Machine B (MATLAB) | free | QUEUED — parallel with 006/007 | — |
+| TASK-009 | **M5:** JAX coupled ocean support (extend jax_coupled after NumPy path verified) | free | QUEUED — after 007 | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -85,7 +87,9 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
   is `alma`) and matplotlib.
   Tests: `venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q`
 - JAX x64 enabled at import; complex128 OK on CPU. First JIT call slow (~10–30s).
-- `matlab/` is source material only — do not scan/grep/modify.
+- MATLAB source = `src/` + `tests/*.mlx` (there is no `matlab/` dir — earlier
+  rule wording was stale). Read-only port reference: targeted reads for porting
+  are fine; never modify, never bulk-scan.
 
 ---
 
@@ -112,6 +116,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` **M5 chosen by user: ocean layers in the coupled solver.** Recon done; tickets TASK-005…009 queued. CRITICAL recon finding: the Python 1D ocean path has ZERO solve tests and diverges from MATLAB in two ways — (1) no ocean_flag propagator (MATLAB uses a Poisson-only system inside the ocean, get_solution.m:1924-1935; Python integrates the elastic equations with the ocean layer's muC), (2) missing the `i==ocean_end` identity-based recombination (get_solution.m:864-881 vs solver.py:375-382). TASK-005 (audit/fix/test 1D) therefore gates the milestone. Also: `matlab source lives in src/ + tests/*.mlx` (repo has no matlab/ dir — old rule wording corrected below); ocean-bearing coupled MATLAB reference data already in repo at data/tests/moon/ (Weber Moon, unused by any Python test).
 - `[B][2026-08-01]` **HANDOFF TO A — B standing down.** M4 ledger fully closed; TASK-004 verification final (full Opus report received, corroborates the pushed verdict line-for-line, no new findings — all 4 nits are cosmetic writeup prose, no reported number affected). Suite 333 green both machines. **A's call: pick the next milestone.** Unticketed candidates (need user go-ahead before claim): (1) README/milestone update to reflect M4 done; (2) chunked-vmap for large-N memory (JAX peak RSS ~3× NumPy at N=101); (3) ocean-layer support in coupled path (`NotImplementedError` today); (4) GPU-backend benchmark (all figures CPU-only). B will pull and claim once a direction + ticket exist.
 - `[B][2026-08-01]` TASK-004 VERIFIED (was DONE `5817164`). Opus adversarial static review of `scripts/benchmark_jax_coupled.py` + `docs/BENCHMARK_jax_coupled.md` → APPROVE-WITH-NITS: methodology sound (subprocess isolation correct, RUSAGE_CHILDREN reads exactly one child, cold/warm distinction valid), benchmarks the genuine solver paths (`_get_solution_coupled` / `jax_get_solution_coupled_scan`, no cross-backend cache leak, N/Nr data-determined), numbers internally consistent. B independently reproduced `--quick` on jax 0.10.0: tiny N=4 → 4.42× (A: 4.5×), small N=12 → 6.86× (A: 6.5×); warm medians rock-steady (33–34 ms / 144 ms), peak RSS 1.7–1.9× NumPy — cross-machine agreement. Non-blocking nits (no number affected): (1) large_denser abort prose is arithmetically self-inconsistent (says ~220–260 s expected < 300 s timeout yet it aborted → per-call estimate too low, cold likely ~100 s+); (2) anomaly FLOP estimate omits the ~6 matmuls inside each `_ap` build, so 15.3 s figure is coincidentally-close not rigorous (writeup hedges "right order of magnitude"); (3) median-of-3 warm is spec floor (stable in practice); (4) headline is warm-JAX vs never-warmed-NumPy — correctly labeled, JAX-favorable framing. **M4 ledger fully closed.**
 - `[A][2026-08-02]` TASK-004 benchmark run (Apple M4, CPU backend). Warm JAX vs NumPy: 4.5× (N=4), 6.5× (N=12), 3.7× (N=38), 1.4× (N=101). At N≈100 both paths are compute-bound in the dense 8N×8N linalg.solve inside every RK stage, so jit caching stops mattering (cold≈warm) and the speedup collapses — JAX wins big for small/medium-N sweeps, not large single solves. JAX peak RSS ~3× NumPy (4.4 vs 1.5 GB at N=101). N=101/Nr=179 JAX case aborted at 300s timeout (NumPy: 99.6s). Earlier "20× at N=107" figure was the vmapped aux build only, not the full solve — not comparable. Results: docs/BENCHMARK_jax_coupled.md; script scripts/benchmark_jax_coupled.py (note /scripts is gitignored — needs add -f).
