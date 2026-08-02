@@ -1,8 +1,7 @@
-"""JAX assembly helpers for the coupled multi-mode propagator.
+"""JAX port of the coupled multi-mode propagator.
 
-This module covers the static precomputation and traceable 8N x 8N matrix
-build used by the coupled ``lax.scan`` propagator.  Radial integration and
-the public solver API are added separately.
+Static precompute, traceable 8N x 8N assembly, lax.scan radial integration,
+and the public coupled solve API (``jax_get_solution_coupled_scan``).
 """
 
 from __future__ import annotations
@@ -15,7 +14,11 @@ import numpy as np
 
 jax.config.update("jax_enable_x64", True)
 
+from .boundary_conditions import assemble_bc_no_ocean_coupled
 from .propagator import (
+    CK_A,
+    CK_B,
+    CK_C,
     _COUP_ROWS,
     _a1a2_geometric,
     build_A3,
@@ -222,3 +225,273 @@ def _build_aprop_coupled_jax(
         Ax = Ax.at[phi_row, 3 * k].set(-4 * math.pi * static["Gg"])
 
     return jnp.linalg.solve(Adotx, Ax)
+
+
+# ---------------------------------------------------------------------------
+# Increment 3: lax.scan radial integration
+# ---------------------------------------------------------------------------
+
+def _make_jit_scan_coupled(static: dict):
+    """Return a JIT-compiled scan over the coupled 8N x 8N system.
+
+    Mirrors ``jax_scan._make_jit_scan``. ``static`` (from
+    ``_precompute_coupled_static``) is closed over rather than passed as a
+    jit argument: it is non-hashable, and tracing it would degrade the
+    degree-0 row overrides to dynamic scatter ops.
+
+    Returns run_scan(Y_init, xs_tuple) -> (Y_final, Y_all (Nr, 8N, 8N)).
+    """
+    N3 = static["A3_inv"].shape[0]
+    N6 = static["A4"].shape[1]
+    N2 = static["A9"].shape[0]
+    N = N3 // 3
+    N8 = N6 + N2
+    Gg = static["Gg"]
+
+    ck_a = CK_A
+    ck_b = CK_B
+    ck_c = CK_C
+    I8N = jnp.eye(N8, dtype=jnp.complex128)
+
+    dPhi_rows = jnp.array([6 * N + 2 * m + 1 for m in range(N)], dtype=jnp.int32)
+    U_rows = jnp.array([3 * m for m in range(N)], dtype=jnp.int32)
+
+    def _ap(r, muC, lam, rho, M_inner, R_inner, muC_amp, K_amp):
+        """Build the coupled propagator at radius r given layer material."""
+        M_r = M_inner + (4.0 / 3.0) * math.pi * rho * (r**3 - R_inner**3)
+        g = Gg * M_r / r**2
+        dg = Gg * (
+            2.0 * (4.0 / 3.0 * math.pi * rho * R_inner**3 - M_inner) / r**3
+            + 4.0 / 3.0 * math.pi * rho
+        )
+        return _build_aprop_coupled_jax(
+            r, g, dg, muC, lam, rho, muC_amp, K_amp, static
+        )
+
+    def _cash_karp(r_start, dr, muC, lam, rho, M_inner, R_inner, muC_amp, K_amp):
+        """One Cash-Karp RK5 step returning the 8N x 8N increment matrix."""
+        args = (muC, lam, rho, M_inner, R_inner, muC_amp, K_amp)
+        K1 = dr * _ap(r_start, *args)
+        K2 = dr * _ap(r_start + ck_a[1] * dr, *args) \
+            @ (I8N + ck_b[1][0] * K1)
+        K3 = dr * _ap(r_start + ck_a[2] * dr, *args) \
+            @ (I8N + ck_b[2][0] * K1 + ck_b[2][1] * K2)
+        K4 = dr * _ap(r_start + ck_a[3] * dr, *args) \
+            @ (I8N + ck_b[3][0] * K1 + ck_b[3][1] * K2 + ck_b[3][2] * K3)
+        K5 = dr * _ap(r_start + ck_a[4] * dr, *args) \
+            @ (I8N + ck_b[4][0] * K1 + ck_b[4][1] * K2
+                   + ck_b[4][2] * K3 + ck_b[4][3] * K4)
+        K6 = dr * _ap(r_start + ck_a[5] * dr, *args) \
+            @ (I8N + ck_b[5][0] * K1 + ck_b[5][1] * K2
+                   + ck_b[5][2] * K3 + ck_b[5][3] * K4 + ck_b[5][4] * K5)
+        return ck_c[0] * K1 + ck_c[2] * K3 + ck_c[3] * K4 + ck_c[5] * K6
+
+    def step(Y_prev, xs):
+        """Single scan step: per-mode density correction + RK5 propagation."""
+        (r_prev, r_curr, muC_k, lam_k, rho_k, M_inner_k, R_inner_k,
+         drho_k, muC_amp_k, K_amp_k) = xs
+        dr = r_curr - r_prev
+
+        # Density-discontinuity correction, per mode (nonzero only at
+        # layer boundaries): dPhi_row(m) += 4*pi*Gg*drho * U_row(m).
+        Y_corr = Y_prev.at[dPhi_rows, :].add(
+            4.0 * jnp.pi * Gg * drho_k * Y_prev[U_rows, :]
+        )
+
+        inc = _cash_karp(
+            r_prev, dr, muC_k, lam_k, rho_k, M_inner_k, R_inner_k,
+            muC_amp_k, K_amp_k,
+        )
+        Y_new = (I8N + inc) @ Y_corr
+        return Y_new, Y_new
+
+    @jax.jit
+    def run_scan(Y_init, xs_tuple):
+        """JIT-compiled scan over all Nr radial steps."""
+        Y_final, Y_all = jax.lax.scan(step, Y_init, xs_tuple)
+        return Y_final, Y_all
+
+    return run_scan
+
+
+# ---------------------------------------------------------------------------
+# Increment 4: public API
+# ---------------------------------------------------------------------------
+
+_SCAN_CACHE: dict = {}
+
+
+def _get_cached_scan(n_s, Coup, Gg):
+    """Memoize (static, run_scan) so repeated solves reuse the jitted scan.
+
+    Without this, every call rebuilds the scan closure and jax.jit never
+    hits its compilation cache, making small-N solves compile-bound.
+    """
+    key = (np.asarray(n_s).tobytes(), np.asarray(Coup).tobytes(), float(Gg))
+    entry = _SCAN_CACHE.get(key)
+    if entry is None:
+        static = _precompute_coupled_static(n_s, Coup, Gg)
+        entry = (static, _make_jit_scan_coupled(static))
+        _SCAN_CACHE[key] = entry
+    return entry
+
+
+def propagate_coupled_jax_scan(model, forcing, numerics, couplings, lateral):
+    """JIT-compiled coupled radial integration using jax.lax.scan.
+
+    Mirrors ``jax_scan.propagate_1d_jax_scan`` but integrates the 8N x 8N
+    coupled system (multiple degree/order modes with lateral-variation
+    coupling), matching the NumPy reference ``solver._get_solution_coupled``.
+
+    Arguments mirror ``solver._get_solution_coupled``; ``forcing`` is unused
+    here and kept for signature parity.
+
+    Returns
+    -------
+    Y_all : (Nr+1, 8N, 8N) complex128 numpy array
+    r_grid : (Nr+1,) float64 numpy array
+    """
+    n_layers = model.n_layers
+    Nr = numerics.Nr
+    Gg = model.Gg
+    N = len(couplings.n_s)
+    N8 = 8 * N
+
+    # Ocean not supported yet in coupled solver (mirrors solver.py:407-411).
+    for i in range(n_layers):
+        if int(model.ocean[i]) == 1:
+            raise NotImplementedError(
+                "Ocean layers not yet supported in coupled JAX scan solver"
+            )
+
+    # ----- Radial grid -----
+    r_grid = np.zeros(Nr + 1)
+    layer_map = np.zeros(Nr + 1, dtype=int)
+    Rc = float(model.R[0])
+    r_grid[0] = Rc
+    layer_map[0] = 0
+
+    k = 1
+    for i_layer in range(1, n_layers):
+        R_inner = float(model.R[i_layer - 1])
+        R_outer = float(model.R[i_layer])
+        npts = int(numerics.Nrlayer[i_layer])
+        if npts > 0:
+            dr_layer = (R_outer - R_inner) / npts
+            for j in range(npts):
+                r_grid[k] = R_inner + (j + 1) * dr_layer
+                layer_map[k] = i_layer
+                k += 1
+
+    # ----- Enclosed mass at inner boundary of each layer -----
+    M_at_boundary = np.zeros(n_layers)
+    M_at_boundary[0] = (4.0 / 3.0) * math.pi * float(model.rho[0]) * Rc ** 3
+    for i in range(1, n_layers):
+        R_prev = float(model.R[i - 1])
+        if i == 1:
+            M_at_boundary[i] = M_at_boundary[0]
+        else:
+            R_before = float(model.R[i - 2])
+            M_at_boundary[i] = M_at_boundary[i - 1] + \
+                (4.0 / 3.0) * math.pi * float(model.rho[i - 1]) * \
+                (R_prev ** 3 - R_before ** 3)
+
+    # ----- Per-point input arrays (shape (Nr,) or (Nr, Nreo)) -----
+    Nreo = couplings.Coup.shape[3]
+    r_prev_arr    = np.zeros(Nr, dtype=np.float64)
+    r_curr_arr    = np.zeros(Nr, dtype=np.float64)
+    muC_arr       = np.zeros(Nr, dtype=np.complex128)
+    lam_arr       = np.zeros(Nr, dtype=np.complex128)
+    rho_arr       = np.zeros(Nr, dtype=np.float64)
+    M_inner_arr   = np.zeros(Nr, dtype=np.float64)
+    R_inner_arr   = np.zeros(Nr, dtype=np.float64)
+    delta_rho_arr = np.zeros(Nr, dtype=np.float64)
+    muC_amp_arr   = np.zeros((Nr, Nreo), dtype=np.complex128)
+    K_amp_arr     = np.zeros((Nr, Nreo), dtype=np.complex128)
+
+    # delta_rho_arr: nonzero only at the first grid point of each new layer.
+    # prev_layer=1 at k_idx==1 mirrors solver.py's coupled loop (line 470).
+    for k_idx in range(1, Nr + 1):
+        xs_k = k_idx - 1  # 0-indexed xs slot
+        i_layer = layer_map[k_idx]
+        prev_layer_k = 1 if k_idx == 1 else layer_map[k_idx - 1]
+
+        r_prev_arr[xs_k]  = r_grid[k_idx - 1]
+        r_curr_arr[xs_k]  = r_grid[k_idx]
+        muC_arr[xs_k]     = complex(model.muC[i_layer])
+        lam_arr[xs_k]     = complex(model.lam[i_layer])
+        rho_arr[xs_k]     = float(model.rho[i_layer])
+        M_inner_arr[xs_k] = M_at_boundary[i_layer]
+        R_inner_arr[xs_k] = float(model.R[i_layer - 1])
+        muC_amp_arr[xs_k, :] = lateral.muC_amp[i_layer, :]
+        K_amp_arr[xs_k, :]   = lateral.K_amp[i_layer, :]
+
+        if i_layer != prev_layer_k:
+            delta_rho_arr[xs_k] = float(model.Delta_rho[i_layer])
+
+    # ----- Build (or reuse) the JIT-compiled scan -----
+    _, run_scan = _get_cached_scan(couplings.n_s, couplings.Coup, Gg)
+
+    Y_init = jnp.eye(N8, dtype=jnp.complex128)
+    xs_tuple = (
+        jnp.array(r_prev_arr),
+        jnp.array(r_curr_arr),
+        jnp.array(muC_arr),
+        jnp.array(lam_arr),
+        jnp.array(rho_arr),
+        jnp.array(M_inner_arr),
+        jnp.array(R_inner_arr),
+        jnp.array(delta_rho_arr),
+        jnp.array(muC_amp_arr),
+        jnp.array(K_amp_arr),
+    )
+
+    _, Y_steps = run_scan(Y_init, xs_tuple)
+    jax.block_until_ready(Y_steps)
+
+    # Prepend the identity initial matrix to get shape (Nr+1, 8N, 8N)
+    Y_all_jax = jnp.concatenate(
+        [jnp.eye(N8, dtype=jnp.complex128)[None, :, :], Y_steps], axis=0
+    )
+    return np.array(Y_all_jax), r_grid
+
+
+def jax_get_solution_coupled_scan(model, forcing, numerics, couplings, lateral):
+    """Coupled solve using the lax.scan JAX propagator.
+
+    Mirrors the boundary-condition and solution-assembly block of
+    ``solver._get_solution_coupled`` (lines 522-540), but built on top of
+    ``propagate_coupled_jax_scan``. Note that unlike the NumPy reference,
+    this does not compute ``Aprop_aux`` (the auxiliary 3N x 8N stress/strain
+    recovery matrix) — only the first three outputs are returned.
+
+    Returns
+    -------
+    y_sol : (Nr+1, 8N) complex128 numpy array
+    r_grid : (Nr+1,) float64 numpy array
+    Y : (Nr+1, 8N, 8N) complex128 numpy array
+    """
+    Y, r_grid = propagate_coupled_jax_scan(
+        model, forcing, numerics, couplings, lateral,
+    )
+    Nr = len(r_grid) - 1
+    n_layers = model.n_layers
+    Gg = model.Gg
+
+    rhoC = float(model.rho[0])
+    Rc = float(model.R[0])
+    Mc = (4.0 / 3.0) * math.pi * rhoC * Rc ** 3
+    gc = Gg * Mc / Rc ** 2 if Rc > 0 else 0.0
+
+    rho2 = float(model.Delta_rho[0]) + float(model.rho[1])
+    rhoK_surface = float(model.rho[n_layers - 1])
+
+    B, B2 = assemble_bc_no_ocean_coupled(
+        Y[0], Y[Nr], couplings.n_s, couplings.m_s,
+        gc, Rc, rho2, rhoK_surface, Gg,
+        float(model.rho[1]), forcing,
+    )
+    C = np.linalg.solve(B, B2)
+    y_sol = Y @ C
+
+    return y_sol, r_grid, Y
