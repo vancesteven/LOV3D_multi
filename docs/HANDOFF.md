@@ -33,8 +33,8 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
-| TASK-001 | 3D coupled JAX port — increments 3–4 (scan + API) | A | READY (001a verified) | `docs/tasks/TASK-001-jax-coupled-3d.md` |
-| TASK-001a | 3D coupled JAX port — increments 1–2 (static precompute + traced build) | A (review done) | VERIFIED — uncommitted, 2 test nits open | `docs/tasks/TASK-001a-codex-increments-1-2.md` |
+| TASK-001 | 3D coupled JAX port (all 4 increments) | free | VERIFIED — committed `ce3fd7e` + `4b7557a` | `docs/tasks/TASK-001-jax-coupled-3d.md` |
+| TASK-002 | Aprop_aux for coupled JAX path (unblocks energy/love integration) | free | QUEUED — see log for scope | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -85,8 +85,8 @@ reviewed by an Opus-tier agent before Status moves DONE → VERIFIED.
 ## Project status
 
 - ✅ M1 1D solver · ✅ M2 3D lateral/mode coupling · ✅ M3 MATLAB cross-validation
-- 🔄 **M4:** PyALMA3 benchmark ✅ · JAX 1D loop ✅ · JAX 1D lax.scan ✅ · 3D coupled port ⬜ (TASK-001)
-- Suite: 318 passed as of `3c41217`.
+- 🔄 **M4:** PyALMA3 benchmark ✅ · JAX 1D loop ✅ · JAX 1D lax.scan ✅ · 3D coupled scan port ✅ (TASK-001)
+- Suite: 329 passed as of `4b7557a` (machine A).
 
 ---
 
@@ -95,6 +95,7 @@ reviewed by an Opus-tier agent before Status moves DONE → VERIFIED.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` TASK-001 COMPLETE. Increments 1–2 (Codex) committed `ce3fd7e` with review fixes; increments 3–4 (Sonnet impl, Opus verify — APPROVE, 18/19 mutants killed, fuzz to N=107) committed `4b7557a`. y_sol matches NumPy coupled solver to 1.5e-15. Jit-cache memoization added (uncached path was 3.4× slower than NumPy at N=4; warm ~10× faster). Suite 329. Known gaps → TASK-002: Aprop_aux not computed (blocks energy.get_energy_coupled / love.py:89 substitution); ocean layers still NotImplementedError (parity with NumPy); K_amp upstream is identically zero in rheology.py (both branches) — JAX path verified correct against hand-injected K_amp anyway.
 - `[A][2026-08-02]` TASK-001a assessed and VERIFIED. Codex output correct: Opus 5 adversarial review (line-by-line + randomized differential harness to 2.2e-15 + 27-mutant mutation test, 25 killed / 2 equivalent-or-gap) → APPROVE, zero defects. Suite in rebuilt machine-A venv: 322 passed, 0 failed. Open nits before commit: test_jit_smoke compares JAX to itself (swap tuple unpack), Nreo≥2 coupling axis untested (fixture has Nreo=1). Increment 3 note: close over `static`, do not pass as jit arg (non-hashable; traced-pytree path degrades deg-0 rows to dynamic scatter).
 - `[A][2026-08-01]` TASK-001 go-ahead received. Increments 1–2 delegated to Codex 5.6 (TASK-001a spec written; user launches Codex). Design upgrade over original plan: all traced quantities enter linearly, so the traced build is static-tensor einsum contractions — no 27×N² trace-time unroll, flat compile cost in N. A holds increments 3–4, blocked until 001a verified.
 - `[A][2026-08-01]` Formalized coordination protocol (this rewrite): git-push locking, task ledger, model routing incl. Codex 5.6 handoff convention. Moved 3D-port plan to `docs/tasks/TASK-001-jax-coupled-3d.md`. TASK-001 still awaiting user go-ahead.
