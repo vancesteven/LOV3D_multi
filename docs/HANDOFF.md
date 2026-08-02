@@ -82,7 +82,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
   per-clone, not synced). Machine B: JAX 0.10.0. Machine A: rebuilt 2026-08-02 —
   JAX 0.10.2, py3nj compiled from source (needed `brew install gcc` +
   `CC=gcc-16 CXX=g++-16 FC=gfortran-16` for OpenMP), plus pyalma3 (module name
-  is `alma`) and matplotlib. Full suite on A: 322 = 318 baseline + 4 new.
+  is `alma`) and matplotlib.
   Tests: `venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q`
 - JAX x64 enabled at import; complex128 OK on CPU. First JIT call slow (~10–30s).
 - `matlab/` is source material only — do not scan/grep/modify.
@@ -101,8 +101,8 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 ## Project status
 
 - ✅ M1 1D solver · ✅ M2 3D lateral/mode coupling · ✅ M3 MATLAB cross-validation
-- 🔄 **M4:** PyALMA3 benchmark ✅ · JAX 1D loop ✅ · JAX 1D lax.scan ✅ · 3D coupled scan port ✅ (TASK-001)
-- Suite: 329 passed as of `4b7557a` (machine A).
+- 🔄 **M4:** PyALMA3 benchmark ✅ · JAX 1D loop ✅ · JAX 1D lax.scan ✅ · 3D coupled scan port ✅ · Aprop_aux ✅ · JAX↔MATLAB direct validation ✅
+- Suite: 333 passed as of `a89eb6c` — confirmed on BOTH machines (A: jax 0.10.2, B: 0.10.0).
 
 ---
 
@@ -111,6 +111,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` TASK-003 confirmed on machine A: 333 passed (jax 0.10.2), matching B. MATLAB refs present in A clone. Validation triangle closed: JAX↔NumPy 1e-15, NumPy↔MATLAB (M3), JAX↔MATLAB direct 6e-4–1.4e-2 within tolerance ladder. M4 remaining: TASK-004 perf benchmark (A).
 - `[B][2026-08-01]` TASK-003 DONE + VERIFIED. New `pylov3d/tests/test_jax_matlab_validation.py`: drives the Enceladus lateral benchmark through `jax_get_solution_coupled_scan` → `extract_love_numbers` (zero NumPy-solver involvement) and asserts vs published MATLAB `data/tests/enceladus/Q_*.mat` at the same 3 cases + order-based tolerances (1%/5%/10%) as the NumPy MATLAB test. 4–6 modes compared/case (pert. orders 0/1/2); JAX↔MATLAB rel err 6e-4–1.4e-2, all within tol. Suite **333 passed** on B. Opus adversarial review APPROVE, zero correctness defects: confirmed JAX is the sole solver (no NumPy leak), assertions non-vacuous (10% y_sol perturbation → all fail), perturbation_order genuinely exercised, reference/tolerance logic byte-identical to NumPy sibling. Non-blocking nit: reuses `_EnceladusBench.enceladus_params.__wrapped__` (pytest impl detail; fails loud not silent). Awaiting user commit approval. Real MATLAB refs live in `data/tests/`, NOT `io_coupled_reference.npz` (that's a NumPy self-regression fixture).
 - `[B][2026-08-01]` Synced to `0dd4935` (fast-forward, 11 A-commits). Full suite **330 passed** on B clone (JAX 0.10.0) — TASK-001/002 coupled JAX + Aprop_aux confirmed green on B. Claiming TASK-003 (scope: standalone JAX→MATLAB regression guard, independent of NumPy reference).
 - `[A][2026-08-02]` TASK-002 assessed and VERIFIED (uncommitted). Codex fully guardrail-compliant. Opus review APPROVE: refactor bitwise-identical to HEAD across 4 configs; Aprop_aux matches NumPy in 10 configs ≤8e-16 incl. adversarial Nrlayer[1]=0; vmap bitwise-equal to serial; 7/9 mutants caught, 2 survivors provably immaterial (stored rows independent of g/dg/rho). Perf notes: vmap peak RAM ~5.4GB at N=107/Nr=119 (chunk if production runs grow); Aprop_aux always computed (parity with NumPy, no opt-out); ~27ms/solve re-keying overhead. Nits: aux entry point lacks ocean guard.
