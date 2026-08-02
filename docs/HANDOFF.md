@@ -38,7 +38,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-006 | **M5:** `assemble_bc_ocean_coupled` (24N×24N) | free | VERIFIED — committed `3953c29` | `docs/tasks/TASK-006-codex-bc-ocean-coupled.md` |
 | TASK-007 | **M5:** coupled NumPy solver ocean path | free | VERIFIED — committed `a68a351`. All 5 MATLAB/Qin checks live+green | log entry below |
 | TASK-008 | **M5:** MATLAB reference for ocean+lateral validation — Weber Moon case (`data/tests/moon/*.mat` exists, unused) + optionally regenerate/extend via `tests/Test_Moon_MultiLayered_Lateral_Variations.mlx` and Europa case. Machine B (MATLAB) | B | DONE (uncommitted) — parser+model tests live, 5 solver checks auto-skip until 007 | `test_matlab_validation_ocean.py` |
-| TASK-009 | **M5:** JAX coupled ocean support (three-segment scan) | A | DONE — uncommitted, awaiting user commit approval | log entry below |
+| TASK-009 | **M5:** JAX coupled ocean support (three-segment scan) | free | VERIFIED — committed `6374640` | log entry below |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -105,9 +105,9 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 ## Project status
 
 - ✅ M1 1D solver · ✅ M2 3D lateral/mode coupling · ✅ M3 MATLAB cross-validation
-- ✅ **M4 COMPLETE + ALL TASKS VERIFIED:** PyALMA3 benchmark · JAX 1D loop · JAX 1D lax.scan · 3D coupled scan port · Aprop_aux · JAX↔MATLAB direct validation · performance benchmark (`5817164`, verified by B)
-- Suite: 333 passed as of `a89eb6c` — confirmed on BOTH machines (A: jax 0.10.2, B: 0.10.0).
-- Ledger fully closed — no open/queued tasks. README/milestone update DONE (`42e5d2a`). Remaining candidates (need user go-ahead + ticketing): ocean-layer support in coupled path (`NotImplementedError` today — last functional gap vs MATLAB, which handles ocean-bearing Enceladus with lateral variations); chunked-vmap for large-N memory (JAX peak RSS ~3× NumPy at N=101); GPU-backend benchmark (CPU-only so far; hardware TBD).
+- ✅ **M4 COMPLETE** (JAX coupled port + validation + benchmark)
+- ✅ **M5 COMPLETE** (`b871153` README): oceans in 1D (TASK-005, incl. 3-bug repair), coupled NumPy (006+007, Weber Moon MATLAB/Qin spectra to ppm), coupled JAX (009, three-segment scan). Suite **377** as of `6374640` (machine A — B should confirm on next pull).
+- No queued tasks. Candidates (need user go-ahead + ticketing): ocean energy dissipation in coupled path (energy.py skips ocean-ceiling node, now shell data); Europa thick-shallow-ocean coupled MATLAB case (would constrain gO, weakly pinned by Moon geometry — B/MATLAB task); chunked-vmap for large-N memory; GPU-backend benchmark.
 
 ---
 
