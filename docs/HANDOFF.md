@@ -103,7 +103,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 - ✅ M1 1D solver · ✅ M2 3D lateral/mode coupling · ✅ M3 MATLAB cross-validation
 - ✅ **M4 COMPLETE + ALL TASKS VERIFIED:** PyALMA3 benchmark · JAX 1D loop · JAX 1D lax.scan · 3D coupled scan port · Aprop_aux · JAX↔MATLAB direct validation · performance benchmark (`5817164`, verified by B)
 - Suite: 333 passed as of `a89eb6c` — confirmed on BOTH machines (A: jax 0.10.2, B: 0.10.0).
-- Ledger fully closed — no open/queued tasks. Candidate next work (needs user go-ahead + ticketing): README/milestone update; chunked-vmap for large-N memory (JAX peak RSS ~3× NumPy at N=101); ocean-layer support in coupled path (`NotImplementedError`); GPU-backend benchmark (CPU-only so far).
+- Ledger fully closed — no open/queued tasks. README/milestone update DONE (`42e5d2a`). Remaining candidates (need user go-ahead + ticketing): ocean-layer support in coupled path (`NotImplementedError` today — last functional gap vs MATLAB, which handles ocean-bearing Enceladus with lateral variations); chunked-vmap for large-N memory (JAX peak RSS ~3× NumPy at N=101); GPU-backend benchmark (CPU-only so far; hardware TBD).
 
 ---
 
