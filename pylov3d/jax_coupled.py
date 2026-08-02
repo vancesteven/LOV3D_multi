@@ -336,6 +336,67 @@ def _get_cached_scan(n_s, Coup, Gg):
     return entry
 
 
+def _grid_and_props(model, numerics, couplings, lateral):
+    """Build the coupled radial grid, layer map, masses, and scan inputs."""
+    n_layers = model.n_layers
+    Nr = numerics.Nr
+    r_grid = np.zeros(Nr + 1)
+    layer_map = np.zeros(Nr + 1, dtype=int)
+    Rc = float(model.R[0])
+    r_grid[0] = Rc
+
+    k = 1
+    for i_layer in range(1, n_layers):
+        R_inner = float(model.R[i_layer - 1])
+        R_outer = float(model.R[i_layer])
+        npts = int(numerics.Nrlayer[i_layer])
+        if npts > 0:
+            dr_layer = (R_outer - R_inner) / npts
+            for j in range(npts):
+                r_grid[k] = R_inner + (j + 1) * dr_layer
+                layer_map[k] = i_layer
+                k += 1
+
+    M_at_boundary = np.zeros(n_layers)
+    M_at_boundary[0] = (4.0 / 3.0) * math.pi * float(model.rho[0]) * Rc ** 3
+    for i in range(1, n_layers):
+        R_prev = float(model.R[i - 1])
+        if i == 1:
+            M_at_boundary[i] = M_at_boundary[0]
+        else:
+            R_before = float(model.R[i - 2])
+            M_at_boundary[i] = M_at_boundary[i - 1] + \
+                (4.0 / 3.0) * math.pi * float(model.rho[i - 1]) * \
+                (R_prev ** 3 - R_before ** 3)
+
+    Nreo = couplings.Coup.shape[3]
+    arrays = {
+        "r_prev": np.zeros(Nr), "r_curr": np.zeros(Nr),
+        "muC": np.zeros(Nr, dtype=np.complex128),
+        "lam": np.zeros(Nr, dtype=np.complex128),
+        "rho": np.zeros(Nr), "M_inner": np.zeros(Nr),
+        "R_inner": np.zeros(Nr), "delta_rho": np.zeros(Nr),
+        "muC_amp": np.zeros((Nr, Nreo), dtype=np.complex128),
+        "K_amp": np.zeros((Nr, Nreo), dtype=np.complex128),
+    }
+    for k_idx in range(1, Nr + 1):
+        xs_k = k_idx - 1
+        i_layer = layer_map[k_idx]
+        prev_layer_k = 1 if k_idx == 1 else layer_map[k_idx - 1]
+        arrays["r_prev"][xs_k] = r_grid[k_idx - 1]
+        arrays["r_curr"][xs_k] = r_grid[k_idx]
+        arrays["muC"][xs_k] = complex(model.muC[i_layer])
+        arrays["lam"][xs_k] = complex(model.lam[i_layer])
+        arrays["rho"][xs_k] = float(model.rho[i_layer])
+        arrays["M_inner"][xs_k] = M_at_boundary[i_layer]
+        arrays["R_inner"][xs_k] = float(model.R[i_layer - 1])
+        arrays["muC_amp"][xs_k] = lateral.muC_amp[i_layer]
+        arrays["K_amp"][xs_k] = lateral.K_amp[i_layer]
+        if i_layer != prev_layer_k:
+            arrays["delta_rho"][xs_k] = float(model.Delta_rho[i_layer])
+    return r_grid, layer_map, M_at_boundary, arrays
+
+
 def propagate_coupled_jax_scan(model, forcing, numerics, couplings, lateral):
     """JIT-compiled coupled radial integration using jax.lax.scan.
 
@@ -364,87 +425,18 @@ def propagate_coupled_jax_scan(model, forcing, numerics, couplings, lateral):
                 "Ocean layers not yet supported in coupled JAX scan solver"
             )
 
-    # ----- Radial grid -----
-    r_grid = np.zeros(Nr + 1)
-    layer_map = np.zeros(Nr + 1, dtype=int)
-    Rc = float(model.R[0])
-    r_grid[0] = Rc
-    layer_map[0] = 0
-
-    k = 1
-    for i_layer in range(1, n_layers):
-        R_inner = float(model.R[i_layer - 1])
-        R_outer = float(model.R[i_layer])
-        npts = int(numerics.Nrlayer[i_layer])
-        if npts > 0:
-            dr_layer = (R_outer - R_inner) / npts
-            for j in range(npts):
-                r_grid[k] = R_inner + (j + 1) * dr_layer
-                layer_map[k] = i_layer
-                k += 1
-
-    # ----- Enclosed mass at inner boundary of each layer -----
-    M_at_boundary = np.zeros(n_layers)
-    M_at_boundary[0] = (4.0 / 3.0) * math.pi * float(model.rho[0]) * Rc ** 3
-    for i in range(1, n_layers):
-        R_prev = float(model.R[i - 1])
-        if i == 1:
-            M_at_boundary[i] = M_at_boundary[0]
-        else:
-            R_before = float(model.R[i - 2])
-            M_at_boundary[i] = M_at_boundary[i - 1] + \
-                (4.0 / 3.0) * math.pi * float(model.rho[i - 1]) * \
-                (R_prev ** 3 - R_before ** 3)
-
-    # ----- Per-point input arrays (shape (Nr,) or (Nr, Nreo)) -----
-    Nreo = couplings.Coup.shape[3]
-    r_prev_arr    = np.zeros(Nr, dtype=np.float64)
-    r_curr_arr    = np.zeros(Nr, dtype=np.float64)
-    muC_arr       = np.zeros(Nr, dtype=np.complex128)
-    lam_arr       = np.zeros(Nr, dtype=np.complex128)
-    rho_arr       = np.zeros(Nr, dtype=np.float64)
-    M_inner_arr   = np.zeros(Nr, dtype=np.float64)
-    R_inner_arr   = np.zeros(Nr, dtype=np.float64)
-    delta_rho_arr = np.zeros(Nr, dtype=np.float64)
-    muC_amp_arr   = np.zeros((Nr, Nreo), dtype=np.complex128)
-    K_amp_arr     = np.zeros((Nr, Nreo), dtype=np.complex128)
-
-    # delta_rho_arr: nonzero only at the first grid point of each new layer.
-    # prev_layer=1 at k_idx==1 mirrors solver.py's coupled loop (line 470).
-    for k_idx in range(1, Nr + 1):
-        xs_k = k_idx - 1  # 0-indexed xs slot
-        i_layer = layer_map[k_idx]
-        prev_layer_k = 1 if k_idx == 1 else layer_map[k_idx - 1]
-
-        r_prev_arr[xs_k]  = r_grid[k_idx - 1]
-        r_curr_arr[xs_k]  = r_grid[k_idx]
-        muC_arr[xs_k]     = complex(model.muC[i_layer])
-        lam_arr[xs_k]     = complex(model.lam[i_layer])
-        rho_arr[xs_k]     = float(model.rho[i_layer])
-        M_inner_arr[xs_k] = M_at_boundary[i_layer]
-        R_inner_arr[xs_k] = float(model.R[i_layer - 1])
-        muC_amp_arr[xs_k, :] = lateral.muC_amp[i_layer, :]
-        K_amp_arr[xs_k, :]   = lateral.K_amp[i_layer, :]
-
-        if i_layer != prev_layer_k:
-            delta_rho_arr[xs_k] = float(model.Delta_rho[i_layer])
+    r_grid, _, _, arrays = _grid_and_props(
+        model, numerics, couplings, lateral,
+    )
 
     # ----- Build (or reuse) the JIT-compiled scan -----
     _, run_scan = _get_cached_scan(couplings.n_s, couplings.Coup, Gg)
 
     Y_init = jnp.eye(N8, dtype=jnp.complex128)
-    xs_tuple = (
-        jnp.array(r_prev_arr),
-        jnp.array(r_curr_arr),
-        jnp.array(muC_arr),
-        jnp.array(lam_arr),
-        jnp.array(rho_arr),
-        jnp.array(M_inner_arr),
-        jnp.array(R_inner_arr),
-        jnp.array(delta_rho_arr),
-        jnp.array(muC_amp_arr),
-        jnp.array(K_amp_arr),
-    )
+    xs_tuple = tuple(jnp.array(arrays[name]) for name in (
+        "r_prev", "r_curr", "muC", "lam", "rho", "M_inner", "R_inner",
+        "delta_rho", "muC_amp", "K_amp",
+    ))
 
     _, Y_steps = run_scan(Y_init, xs_tuple)
     jax.block_until_ready(Y_steps)
@@ -461,15 +453,14 @@ def jax_get_solution_coupled_scan(model, forcing, numerics, couplings, lateral):
 
     Mirrors the boundary-condition and solution-assembly block of
     ``solver._get_solution_coupled`` (lines 522-540), but built on top of
-    ``propagate_coupled_jax_scan``. Note that unlike the NumPy reference,
-    this does not compute ``Aprop_aux`` (the auxiliary 3N x 8N stress/strain
-    recovery matrix) — only the first three outputs are returned.
+    ``propagate_coupled_jax_scan``, including the auxiliary propagator rows.
 
     Returns
     -------
     y_sol : (Nr+1, 8N) complex128 numpy array
     r_grid : (Nr+1,) float64 numpy array
     Y : (Nr+1, 8N, 8N) complex128 numpy array
+    Aprop_aux : (Nr+1, 3N, 8N) complex128 numpy array
     """
     Y, r_grid = propagate_coupled_jax_scan(
         model, forcing, numerics, couplings, lateral,
@@ -494,4 +485,8 @@ def jax_get_solution_coupled_scan(model, forcing, numerics, couplings, lateral):
     C = np.linalg.solve(B, B2)
     y_sol = Y @ C
 
-    return y_sol, r_grid, Y
+    from .jax_coupled_aux import compute_aprop_aux_coupled
+    Aprop_aux = compute_aprop_aux_coupled(
+        model, forcing, numerics, couplings, lateral,
+    )
+    return y_sol, r_grid, Y, Aprop_aux

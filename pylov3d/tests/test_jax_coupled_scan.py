@@ -46,10 +46,10 @@ def coupled_solution():
     )
     couplings = get_couplings(lateral.variations, 2, 0)
 
-    y_ref, r_ref, Y_ref, _ = _get_solution_coupled(
+    y_ref, r_ref, Y_ref, Aprop_aux_ref = _get_solution_coupled(
         model, forcing, numerics, couplings, lateral,
     )
-    y_jax, r_jax, Y_jax = jax_get_solution_coupled_scan(
+    y_jax, r_jax, Y_jax, Aprop_aux_jax = jax_get_solution_coupled_scan(
         model, forcing, numerics, couplings, lateral,
     )
 
@@ -65,6 +65,8 @@ def coupled_solution():
         "y_jax": y_jax,
         "r_jax": r_jax,
         "Y_jax": Y_jax,
+        "Aprop_aux_ref": Aprop_aux_ref,
+        "Aprop_aux_jax": Aprop_aux_jax,
     }
 
 
@@ -89,6 +91,15 @@ def test_y_sol_matches_reference(coupled_solution):
 
     rel_err = _relative_error(y_jax, y_ref)
     assert rel_err < 1e-12, f"y_sol max relative error {rel_err:.3e} >= 1e-12"
+
+
+def test_aprop_aux_matches_reference(coupled_solution):
+    """Auxiliary propagator rows match NumPy at every radial point."""
+    expected = coupled_solution["Aprop_aux_ref"]
+    actual = coupled_solution["Aprop_aux_jax"]
+    assert actual.shape == expected.shape
+    rel_err = _relative_error(actual, expected)
+    assert rel_err < 1e-12, f"Aprop_aux max relative error {rel_err:.3e}"
 
 
 def test_viscoelastic_response_is_complex(coupled_solution):
@@ -152,15 +163,17 @@ def test_nonzero_K_amp_selection(coupled_solution):
     K_amp[2, :] = 0.005j
     lateral_K = lateral._replace(K_amp=K_amp)
 
-    y_ref, _, _, _ = _get_solution_coupled(
+    y_ref, _, _, Aprop_aux_ref = _get_solution_coupled(
         model, forcing, numerics, couplings, lateral_K,
     )
-    y_jax, _, _ = jax_get_solution_coupled_scan(
+    y_jax, _, _, Aprop_aux_jax = jax_get_solution_coupled_scan(
         model, forcing, numerics, couplings, lateral_K,
     )
 
     rel_err = _relative_error(y_jax, y_ref)
     assert rel_err < 1e-12, f"K_amp case relative error {rel_err:.3e}"
+    aux_err = _relative_error(Aprop_aux_jax, Aprop_aux_ref)
+    assert aux_err < 1e-12, f"K_amp Aprop_aux relative error {aux_err:.3e}"
     # The injected K_amp must actually change the solution, or this test
     # would pass with the K path dropped entirely.
     assert _relative_error(y_jax, coupled_solution["y_jax"]) > 1e-6

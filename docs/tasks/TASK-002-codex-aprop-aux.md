@@ -71,4 +71,11 @@ compute_aprop_aux_coupled(model, forcing, numerics, couplings, lateral)
 
 ## Completion notes
 
-_(Codex appends here.)_
+- `[CODEX][2026-08-02]` Extracted `_grid_and_props` without changing scan
+  formulas, added cached jitted/vmapped Aprop evaluation in
+  `pylov3d/jax_coupled_aux.py`, and made `jax_get_solution_coupled_scan`
+  return the NumPy-compatible 4-tuple. Added full-grid reference coverage and
+  K_amp auxiliary-path coverage. Focused suite: 12 passed. Full suite: 330
+  passed. Measured Aprop_aux global-max-normalized relative error:
+  `8.117655098638899e-16`. Final line counts: `jax_coupled.py` 492,
+  `jax_coupled_aux.py` 74, `test_jax_coupled_scan.py` 215. No deviations.
