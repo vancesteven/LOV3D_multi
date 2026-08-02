@@ -17,7 +17,7 @@ The package exists in two implementations:
 
 ## pylov3d (Python)
 
-### Status: Milestone 4 Complete
+### Status: Milestone 5 Complete
 
 **Milestone 1 (1D spherically symmetric):** ✅ Complete  
 Single-mode Love number computation for multi-layered bodies with viscoelastic interiors.
@@ -35,6 +35,12 @@ The Enceladus 2-layer benchmark validates against MATLAB LOV3D reference data: u
 - Coupled 8N×8N JAX scan port (`jax_coupled.py`): static-tensor einsum assembly, memoized JIT scan, full 4-tuple drop-in for the NumPy coupled solver including the auxiliary stress/strain recovery matrix (`jax_coupled_aux.py`). Matches the NumPy solver to ~1e-15 relative.
 - Direct JAX↔MATLAB validation (`test_jax_matlab_validation.py`): the Enceladus lateral benchmark solved end-to-end by the JAX path matches published MATLAB Love-number spectra within the same per-order tolerances as the NumPy path, with no NumPy solver involved.
 - Performance benchmark (`docs/BENCHMARK_jax_coupled.md`): on CPU the warm JAX path is 4.5–6.5× faster than NumPy for N=4–12 coupled modes and 3.7× at N=38, converging to parity near N≈100 where both are bound by dense 8N×8N linear solves.
+
+**Milestone 5 (subsurface oceans):** ✅ Complete  
+- 1D ocean path audited and repaired (it had never solved: a boundary-index convention bug made the 24×24 ocean BC system singular; the in-ocean propagator now uses MATLAB's Laplace-only formulation). Validated by the mu→0 fluid limit (4e-6 relative agreement) and by MATLAB: uniform Weber Moon k2 matches `k2_Q` to 2.2e-9.
+- Coupled (multi-mode) ocean solver: 24N×24N boundary conditions (`bc_ocean_coupled.py`), in-ocean Laplace propagator (`ocean_coupled.py`), three-segment integration with identity restarts. Validated end-to-end against the published Weber Moon lateral-variation spectra (MATLAB/Qin, `data/tests/moon/`): order-1 modes to 2–5 ppm, forcing-mode deviation to ~0.3%.
+- JAX coupled ocean scan (`jax_ocean_scan.py`): three-segment `lax.scan`, in-ocean segment matching NumPy to ~1e-19; full drop-in via the existing dispatch.
+- Both solvers explicitly reject the degenerate configurations MATLAB handles incorrectly or not at all (ocean above the core, outermost ocean, zero-node layer above the ocean).
 
 ### Installation
 
@@ -97,8 +103,11 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `jax_propagator.py` | 407 | — | JAX 1D propagator (Python-loop increment) |
 | `jax_scan.py` | 353 | — | JAX 1D `lax.scan` JIT radial integration |
 | `jax_coupled.py` | 492 | — | JAX coupled 8N×8N assembly + memoized JIT scan + solve API |
-| `jax_coupled_aux.py` | 74 | — | Auxiliary 3N×8N stress/strain recovery rows (jitted vmap) |
-| **Total** | **~5,100** | **~4,900** | |
+| `jax_coupled_aux.py` | 90 | — | Auxiliary 3N×8N stress/strain recovery rows (jitted vmap) |
+| `bc_ocean_coupled.py` | 125 | `get_solution.m` ocean BCs | 24N×24N coupled ocean boundary conditions |
+| `ocean_coupled.py` | 42 | `get_solution.m` ocean Aprop | In-ocean Laplace-only coupled propagator |
+| `jax_ocean_scan.py` | 310 | — | Three-segment JAX scan for ocean-bearing coupled models |
+| **Total** | **~5,600** | **~4,900** | |
 
 #### Key differences from MATLAB
 
@@ -118,7 +127,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-333 tests across 27 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
+377 tests across 31 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
 
 #### Models tested
 
@@ -164,9 +173,13 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `test_grid.py` | 11 | All 4 grid methods, boundary indices, edge cases |
 | `test_lateral_e2e.py` | 10 | End-to-end lateral variation workflow |
 | `test_bodies.py` | 10 | Body catalog, parameter ranges |
+| `test_matlab_validation_ocean.py` | 13 | Weber Moon ocean+lateral vs MATLAB/Qin spectra |
+| `test_jax_coupled_ocean.py` | 12 | JAX coupled ocean scan vs NumPy (segments, guards) |
+| `test_solver_ocean.py` | 11 | 1D + coupled ocean path (fluid limit, structure) |
 | `test_love_coupled.py` | 9 | Coupled multi-mode Love number extraction |
 | `test_jax_propagator.py` | 9 | JAX 1D propagator + scan vs NumPy/analytic |
 | `test_compat.py` | 9 | PlanetProfile compatibility adapter |
+| `test_bc_ocean_coupled.py` | 8 | 24N×24N ocean BC assembler vs 1D reduction |
 | `test_benchmark_pyalma3.py` | 8 | PyALMA3 cross-validation (1D models) |
 | `test_matlab_validation.py` | 7 | MATLAB reference cross-validation (Enceladus, NumPy path) |
 | `test_jax_coupled_scan.py` | 7 | Coupled JAX scan vs NumPy solver (Y, y_sol, Aprop_aux, K path) |
@@ -176,7 +189,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `test_output_convergence.py` | 3 | Grid convergence study plots |
 | `test_jax_matlab_validation.py` | 3 | MATLAB reference cross-validation (Enceladus, JAX path) |
 | `test_output_reference.py` | 2 | Reference output regression |
-| **Total** | **333** | |
+| **Total** | **377** | |
 
 ### Measured Performance (Milestone 4)
 
@@ -195,7 +208,7 @@ Full methodology and numbers in [`docs/BENCHMARK_jax_coupled.md`](./docs/BENCHMA
 
 ### Future Development
 
-- Ocean-layer support in the coupled solver (currently `NotImplementedError` in both NumPy and JAX coupled paths)
+- Ocean energy dissipation in the coupled path (the dissipation integral currently skips the ocean-ceiling node)
 - Chunked `vmap` for the auxiliary-matrix build to cap large-N memory
 - `jax.vmap` over forcings/frequencies for batched sweeps; GPU backend evaluation
 - `jax.grad` through the pipeline for sensitivity analysis (dk/dmu, dk/deta) — gradients through the coupled builder already verified working
