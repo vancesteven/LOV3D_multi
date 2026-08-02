@@ -19,6 +19,12 @@ from .propagator import compute_gravity
 _AUX_CACHE: dict = {}
 
 
+def _ocean_layer_bounds(model, numerics):
+    """Ocean-node lookup with the full guard set; (0, 0, 0) if no ocean."""
+    from .jax_ocean_scan import _detect_ocean
+    return _detect_ocean(model, numerics)
+
+
 def _get_cached_aux_builder(n_s, Coup, Gg):
     """Return a memoized jitted-vmapped coupled propagator builder."""
     key = (np.asarray(n_s).tobytes(), np.asarray(Coup).tobytes(), float(Gg))
@@ -71,4 +77,11 @@ def compute_aprop_aux_coupled(model, forcing, numerics, couplings, lateral):
     ))
     jax.block_until_ready(Aprop)
     N3 = 3 * len(couplings.n_s)
-    return np.asarray(Aprop[:, :N3, :])
+    out = np.array(Aprop[:, :N3, :])
+
+    # In-ocean nodes: displacement/stress recovery is undefined there
+    # (matches NumPy's ``Aprop_aux[k_idx] = 0.0`` for layer_map==ocean_layer).
+    ocean_layer, ocean_start, ocean_end = _ocean_layer_bounds(model, numerics)
+    if ocean_layer:
+        out[ocean_start + 1: ocean_end + 1] = 0.0
+    return out

@@ -290,6 +290,11 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
                     "Ocean as the outermost layer is not supported "
                     "(errors in MATLAB LOV3D as well)."
                 )
+            if int(numerics.Nrlayer[i + 1]) == 0:
+                raise ValueError(
+                    "The layer directly above the ocean has zero grid "
+                    "points; increase the radial resolution."
+                )
             ocean_start = int(numerics.BCindices[i - 2])
             ocean_end = int(numerics.BCindices[i - 1])
             break
@@ -510,6 +515,14 @@ def _get_solution_coupled(model, forcing, numerics, couplings, lateral):
                 raise NotImplementedError(
                     "Ocean as the outermost layer is not supported "
                     "(errors in MATLAB LOV3D as well)."
+                )
+            if int(numerics.Nrlayer[i + 1]) == 0:
+                # Shell-entry restart would land in a different layer; the
+                # result is discontinuous in the point count (ad hoc in
+                # MATLAB too). Refuse rather than silently mis-solve.
+                raise ValueError(
+                    "The layer directly above the ocean has zero grid "
+                    "points; increase the radial resolution."
                 )
             ocean_start = int(numerics.BCindices[i - 2])
             ocean_end = int(numerics.BCindices[i - 1])
