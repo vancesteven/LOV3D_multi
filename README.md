@@ -9,7 +9,7 @@
 
 The package exists in two implementations:
 - **MATLAB** (`src/`): The original implementation supporting full 3D lateral variations
-- **Python** (`pylov3d/`): A new Python/NumPy port targeting GPU acceleration via JAX (Milestone 1: 1D spherically symmetric solver)
+- **Python** (`pylov3d/`): A Python/NumPy port with a JAX (`lax.scan`, JIT) backend for the radial integration, validated against MATLAB, PyALMA3, and analytic references (Milestone 4 complete)
 
 ![logo](./docs/logo.png)
 
@@ -17,7 +17,7 @@ The package exists in two implementations:
 
 ## pylov3d (Python)
 
-### Status: Milestone 3 Complete
+### Status: Milestone 4 Complete
 
 **Milestone 1 (1D spherically symmetric):** ✅ Complete  
 Single-mode Love number computation for multi-layered bodies with viscoelastic interiors.
@@ -27,6 +27,14 @@ Multi-mode coupling with lateral variations in rheology. Computes Love number sp
 
 **Milestone 3 (MATLAB cross-validation):** ✅ Complete  
 The Enceladus 2-layer benchmark validates against MATLAB LOV3D reference data: uniform k2 to <0.1% (0.0151953 vs 0.0151858), the amplitude sweep to <0.15%, and the full lateral Love spectrum (n=3/m=1, n=2/m=2, n=4/m=0, n=4/m=2) to <0.25%.
+
+**Milestone 4 (independent benchmark + JAX port):** ✅ Complete  
+- PyALMA3 cross-validation for identical 1D models (`test_benchmark_pyalma3.py`)
+- PlanetProfile compatibility adapter (`compat.py`)
+- JAX 1D propagator, then `jax.lax.scan` JIT radial integration (`jax_scan.py`)
+- Coupled 8N×8N JAX scan port (`jax_coupled.py`): static-tensor einsum assembly, memoized JIT scan, full 4-tuple drop-in for the NumPy coupled solver including the auxiliary stress/strain recovery matrix (`jax_coupled_aux.py`). Matches the NumPy solver to ~1e-15 relative.
+- Direct JAX↔MATLAB validation (`test_jax_matlab_validation.py`): the Enceladus lateral benchmark solved end-to-end by the JAX path matches published MATLAB Love-number spectra within the same per-order tolerances as the NumPy path, with no NumPy solver involved.
+- Performance benchmark (`docs/BENCHMARK_jax_coupled.md`): on CPU the warm JAX path is 4.5–6.5× faster than NumPy for N=4–12 coupled modes and 3.7× at N=38, converging to parity near N≈100 where both are bound by dense 8N×8N linear solves.
 
 ### Installation
 
@@ -85,7 +93,12 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `couplings.py` | 340 | `get_couplings.m` | Mode coupling coefficients for lateral variations |
 | `wigner.py` | 185 | external | Wigner 3j/6j/9j symbols via py3nj |
 | `bodies.py` | 253 | `Select_Moon.m` | Planetary body catalog (Io, Europa, Enceladus, Titan, Ganymede) |
-| **Total** | **~3,600** | **~4,900** | |
+| `compat.py` | 139 | — | PlanetProfile compatibility adapter (PlanetStruct → InteriorModel) |
+| `jax_propagator.py` | 407 | — | JAX 1D propagator (Python-loop increment) |
+| `jax_scan.py` | 353 | — | JAX 1D `lax.scan` JIT radial integration |
+| `jax_coupled.py` | 492 | — | JAX coupled 8N×8N assembly + memoized JIT scan + solve API |
+| `jax_coupled_aux.py` | 74 | — | Auxiliary 3N×8N stress/strain recovery rows (jitted vmap) |
+| **Total** | **~5,100** | **~4,900** | |
 
 #### Key differences from MATLAB
 
@@ -105,7 +118,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-301 tests across 22 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, and MATLAB reference cross-validation.
+333 tests across 27 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
 
 #### Models tested
 
@@ -152,41 +165,41 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 | `test_lateral_e2e.py` | 10 | End-to-end lateral variation workflow |
 | `test_bodies.py` | 10 | Body catalog, parameter ranges |
 | `test_love_coupled.py` | 9 | Coupled multi-mode Love number extraction |
+| `test_jax_propagator.py` | 9 | JAX 1D propagator + scan vs NumPy/analytic |
 | `test_compat.py` | 9 | PlanetProfile compatibility adapter |
-| `test_matlab_validation.py` | 7 | MATLAB reference cross-validation (Enceladus) |
+| `test_benchmark_pyalma3.py` | 8 | PyALMA3 cross-validation (1D models) |
+| `test_matlab_validation.py` | 7 | MATLAB reference cross-validation (Enceladus, NumPy path) |
+| `test_jax_coupled_scan.py` | 7 | Coupled JAX scan vs NumPy solver (Y, y_sol, Aprop_aux, K path) |
 | `test_output_radial.py` | 5 | Radial profile output plots |
+| `test_jax_coupled_build.py` | 5 | Coupled JAX 8N×8N assembly vs NumPy reference |
 | `test_output_love.py` | 3 | Love number output plots |
 | `test_output_convergence.py` | 3 | Grid convergence study plots |
+| `test_jax_matlab_validation.py` | 3 | MATLAB reference cross-validation (Enceladus, JAX path) |
 | `test_output_reference.py` | 2 | Reference output regression |
-| **Total** | **301** | |
+| **Total** | **333** | |
 
-### Projected Performance
+### Measured Performance (Milestone 4)
 
-The Milestone 1 implementation uses NumPy for all numerical computation. Performance relative to MATLAB:
+Full methodology and numbers in [`docs/BENCHMARK_jax_coupled.md`](./docs/BENCHMARK_jax_coupled.md) (Apple M4, CPU backend, `scripts/benchmark_jax_coupled.py` to reproduce). Coupled solve, warm JIT cache vs the NumPy reference:
 
-- **Single evaluation (CPU)**: Comparable to MATLAB. Both implementations perform the same fixed-step Cash-Karp RK5 integration with identical matrix operations. Python has slightly higher per-call overhead from NumPy dispatch, but lower overhead for array allocation. Net effect: roughly equivalent wall-clock time for a single Love number evaluation.
+| Coupled modes N | NumPy | JAX (warm) | Speedup |
+|---:|---:|---:|---:|
+| 4 | 124 ms | 27 ms | 4.5× |
+| 12 | 778 ms | 119 ms | 6.5× |
+| 38 | 4.97 s | 1.35 s | 3.7× |
+| 101 | 33.2 s | 23.8 s | 1.4× |
 
-- **With JAX JIT (planned)**: Converting NumPy calls to JAX and enabling `jit` compilation will eliminate Python interpreter overhead, yielding ~2-10x speedup for single evaluations on CPU. The fixed-step integration and matrix operations are well-suited to XLA compilation.
-
-- **Batch computation via `vmap` (planned)**: The primary performance advantage will come from `jax.vmap` over forcings/frequencies. MATLAB parallelizes via `parfor` (process-level), while `vmap` vectorizes at the array level with zero serialization overhead. Expected 10-100x speedup for frequency sweeps over ~100 frequencies.
-
-- **GPU acceleration (planned)**: The 8x8 matrix multiplications in the RK5 integrator map directly to GPU tensor cores. For parameter sweeps (e.g., varying eta across 1000 values), GPU batching via `vmap` + `pmap` is expected to deliver 100-1000x speedup over serial MATLAB, limited primarily by memory bandwidth.
+- The JAX path is the right default for the realistic N≈5–20 regime and for parameter sweeps at fixed model structure (the compiled scan is memoized on the coupling structure; first call pays ~0.75–2 s of XLA compile at small/medium N).
+- Near N≈100 both implementations are bound by the dense 8N×8N complex `linalg.solve` inside every Cash-Karp stage, so the speedup converges toward parity and JAX peak memory runs ~3× NumPy (4.4 vs 1.5 GB at N=101). NumPy remains competitive, and lighter, for one-shot very large N solves.
+- GPU backends are untested so far; all figures are CPU.
 
 ### Future Development
 
-#### Milestone 3: Validation & Optimization
-
-- MATLAB cross-validation for Enceladus and Europa lateral variation benchmarks
-- JAX JIT compilation for 10-100x CPU speedup
-- `vmap` for batched frequency sweeps
-- GPU acceleration via `jax.pmap`
-
-#### Milestone 4: Advanced Features
-
+- Ocean-layer support in the coupled solver (currently `NotImplementedError` in both NumPy and JAX coupled paths)
+- Chunked `vmap` for the auxiliary-matrix build to cap large-N memory
+- `jax.vmap` over forcings/frequencies for batched sweeps; GPU backend evaluation
+- `jax.grad` through the pipeline for sensitivity analysis (dk/dmu, dk/deta) — gradients through the coupled builder already verified working
 - Additional rheologies: Andrade, Burgers, extended Burgers
-- `jax.grad` through the full pipeline for sensitivity analysis (dk/dmu, dk/deta)
-- PlanetProfile integration via `compat.py` adapter (PlanetStruct to InteriorModel)
-- Cross-validation against PyALMA3 for identical 1D models
 - ML surrogate models trained on pylov3d for real-time parameter exploration
 - Spectral-to-geographic coordinate transforms for map visualization
 
@@ -294,7 +307,7 @@ If you have any questions or queries or would like to contribute contact M. Rovi
 Future developments include: 
 - Extend the code to other loadings (e.g., surface loads)
 - Benchmark with FEM-viscoelastic code
-- Complete pylov3d Milestone 2 (lateral variations) and Milestone 3 (advanced features)
+- pylov3d post-Milestone-4 work: ocean layers in the coupled solver, batched frequency sweeps, GPU backends (see Future Development above)
 
 Found a bug? Report an “Issue” in the issue's tab. 
 
