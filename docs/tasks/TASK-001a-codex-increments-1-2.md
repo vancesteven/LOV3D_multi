@@ -133,4 +133,15 @@ any interface deviations) to the bottom of this file.
 
 ## Completion notes
 
-_(Codex appends here.)_
+- `[CODEX][2026-08-01]` Implemented static geometry/coupling precomputation
+  and traceable 8N×8N JAX assembly in `pylov3d/jax_coupled.py`, with direct,
+  zero-amplitude, JIT, degree-0, and nonzero K/mu coupling coverage in
+  `pylov3d/tests/test_jax_coupled_build.py`. Focused tests: 4 passed. Full
+  suite: 314 passed, 1 skipped (green; historical handoff count was 318).
+  Interface deviation: added `static["Gg"]` because the required builder
+  signature omits `Gg` but the degree-0 Poisson override requires it.
+  Verification used an isolated JAX 0.10.0 environment because the prescribed
+  `venvLOV3Dconv/bin/python` is absent in this clone; a temporary SymPy-backed
+  `py3nj` shim replaced the unavailable compiled dependency for test execution.
+  MATLAB is available only on Machine B, so any MATLAB-side validation should
+  be handed off there after Machine A's Claude review.
