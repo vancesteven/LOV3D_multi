@@ -222,6 +222,11 @@ def propagate_1d_jax_scan(model, forcing, numerics):
         raise NotImplementedError(
             f"jax_scan: only n=2 is supported; got n={n_deg}."
         )
+    if any(int(model.ocean[i]) == 1 for i in range(n_layers)):
+        raise NotImplementedError(
+            "jax_scan: ocean layers are not supported; use the NumPy "
+            "solver (get_solution) for ocean-bearing models."
+        )
 
     # ----- Radial grid -----
     r_grid = np.zeros(Nr + 1)

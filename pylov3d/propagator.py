@@ -305,6 +305,27 @@ def build_aprop(
     return Aprop
 
 
+def build_aprop_ocean(r: float, n: int, Gg: float, gK: float = 0.0) -> np.ndarray:
+    """Build the 8×8 propagator inside a liquid (inviscid) ocean layer.
+
+    Translates the ``ocean_flag==1`` branch of ``get_Aprop`` in
+    ``get_solution.m`` (lines 1924–1935): displacements and stresses are
+    undefined in the ocean, so every row is zero except the Poisson block,
+    which reduces to the Laplace equation for the potential.
+
+    ``gK`` (gravity at *r*) is only used by the degree-0 special case.
+    """
+    _, _, _, _, _, _, _, A100, A101, A102, _, _ = build_others(n, 0.0, Gg)
+
+    Aprop = np.zeros((8, 8), dtype=np.complex128)
+    Aprop[6:8, 6:8] = A100 + A101 / r + A102 / r**2
+    if n == 0:
+        # MATLAB get_solution.m:1928-1931 (Longman degree-0 row)
+        Aprop[6, :] = 0
+        Aprop[6, 6] = 4 * math.pi * Gg / gK
+    return Aprop
+
+
 def compute_gravity(
     r: float,
     rho_layer: float,

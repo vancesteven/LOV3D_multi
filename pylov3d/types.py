@@ -67,7 +67,7 @@ class NumericsConfig(NamedTuple):
     Nrbase: int            # Base radial points
     Nr: int                # Total radial points (computed)
     Nrlayer: jnp.ndarray   # (MAX_LAYERS,) int, points per layer
-    BCindices: jnp.ndarray # (MAX_LAYERS,) int, boundary point indices
+    BCindices: jnp.ndarray # (MAX_LAYERS,) int, 0-based grid-node index of each internal layer boundary (entry i-1 = last node of layer i)
     perturbation_order: int
     rheology_cutoff: float
     Nenergy: int

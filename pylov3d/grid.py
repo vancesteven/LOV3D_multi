@@ -73,16 +73,20 @@ def set_boundary_indices(
         for i in range(1, n_layers):
             Nrlayer[i] = int(math.floor(frac_r[i - 1] * Nrbase)) + Nrbase
         Nr = sum(Nrlayer)
-        # BCindices: cumulative sums (+1 for 1-based → 0-based adjusted below)
+        # BCindices: 0-based grid-node index of each internal layer boundary
+        # (node k = last point of layer k's cumulative count). MATLAB stores
+        # these 1-based for combination/variable/fixed but 0-based for manual
+        # (set_boundary_indices.m:131-140, a latent MATLAB inconsistency);
+        # here they are normalized to 0-based for every method.
         for i in range(1, n_layers):
-            BCindices[i - 1] = 1 + sum(Nrlayer[: i + 1])
+            BCindices[i - 1] = sum(Nrlayer[: i + 1])
 
     elif method == "variable":
         for i in range(1, n_layers):
             Nrlayer[i] = Nrbase
         Nr = sum(Nrlayer)
         for i in range(1, n_layers):
-            BCindices[i - 1] = 1 + sum(Nrlayer[: i + 1])
+            BCindices[i - 1] = sum(Nrlayer[: i + 1])
 
     elif method == "fixed":
         delta_r = (R0[-1] - R0[0]) / Nrbase
@@ -90,15 +94,15 @@ def set_boundary_indices(
         for i in range(1, n_layers):
             if i == 1:
                 Nrlayer[i] = int(math.floor((R0[i] - R0[0]) / delta_r))
-                BCindices[0] = Nrlayer[i] + 1
+                BCindices[0] = Nrlayer[i]
                 R0_new[i] = R0[0] + Nrlayer[i] * delta_r
             elif i == n_layers - 1:
                 Nrlayer[i] = Nrbase - sum(Nrlayer[:i])
-                BCindices[i - 1] = 1 + sum(Nrlayer[: i + 1])
+                BCindices[i - 1] = sum(Nrlayer[: i + 1])
                 R0_new[i] = R0_new[i - 1] + Nrlayer[i] * delta_r
             else:
                 Nrlayer[i] = int(math.floor((R0[i] - R0_new[i - 1]) / delta_r))
-                BCindices[i - 1] = 1 + sum(Nrlayer[: i + 1])
+                BCindices[i - 1] = sum(Nrlayer[: i + 1])
                 R0_new[i] = R0_new[i - 1] + Nrlayer[i] * delta_r
         Nr = sum(Nrlayer)
         assert Nr == Nrbase, f"Nr ({Nr}) != Nrbase ({Nrbase})"

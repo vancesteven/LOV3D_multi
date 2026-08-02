@@ -40,11 +40,12 @@ class TestCombination:
         bc = [int(numerics.BCindices[i]) for i in range(3)]
         assert bc[0] < bc[1] < bc[2]
 
-    def test_last_bcindex_equals_nr_plus_1(self, io_4layer):
+    def test_last_bcindex_equals_nr(self, io_4layer):
         numerics = make_numerics(n_layers=4, method="combination", Nrbase=200)
         numerics, _ = set_boundary_indices(numerics, io_4layer)
-        # Last BC index = 1 + sum(Nrlayer) = 1 + Nr
-        assert int(numerics.BCindices[2]) == numerics.Nr + 1
+        # BCindices are 0-based grid-node indices; the last one is the
+        # surface node, sum(Nrlayer) = Nr.
+        assert int(numerics.BCindices[2]) == numerics.Nr
 
     def test_matlab_reference(self, io_4layer):
         """Match MATLAB combination method for Io with Nrbase=200."""
