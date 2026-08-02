@@ -35,7 +35,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 |---|---|---|---|---|
 | TASK-001 | 3D coupled JAX port (all 4 increments) | free | VERIFIED — committed `ce3fd7e` + `4b7557a` | `docs/tasks/TASK-001-jax-coupled-3d.md` |
 | TASK-002 | Aprop_aux for coupled JAX path | free | VERIFIED — committed `1a4a707` | `docs/tasks/TASK-002-codex-aprop-aux.md` |
-| TASK-004 | JAX coupled-path performance benchmark at realistic N | A | IN-PROGRESS | — |
+| TASK-004 | JAX coupled-path performance benchmark at realistic N | A | DONE — uncommitted, awaiting user commit approval | `docs/BENCHMARK_jax_coupled.md` |
 | TASK-003 | MATLAB cross-validation of coupled JAX path (proposed for B) | free | VERIFIED — committed `a89eb6c` | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
@@ -111,6 +111,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` TASK-004 benchmark run (Apple M4, CPU backend). Warm JAX vs NumPy: 4.5× (N=4), 6.5× (N=12), 3.7× (N=38), 1.4× (N=101). At N≈100 both paths are compute-bound in the dense 8N×8N linalg.solve inside every RK stage, so jit caching stops mattering (cold≈warm) and the speedup collapses — JAX wins big for small/medium-N sweeps, not large single solves. JAX peak RSS ~3× NumPy (4.4 vs 1.5 GB at N=101). N=101/Nr=179 JAX case aborted at 300s timeout (NumPy: 99.6s). Earlier "20× at N=107" figure was the vmapped aux build only, not the full solve — not comparable. Results: docs/BENCHMARK_jax_coupled.md; script scripts/benchmark_jax_coupled.py (note /scripts is gitignored — needs add -f).
 - `[A][2026-08-02]` TASK-003 confirmed on machine A: 333 passed (jax 0.10.2), matching B. MATLAB refs present in A clone. Validation triangle closed: JAX↔NumPy 1e-15, NumPy↔MATLAB (M3), JAX↔MATLAB direct 6e-4–1.4e-2 within tolerance ladder. M4 remaining: TASK-004 perf benchmark (A).
 - `[B][2026-08-01]` TASK-003 DONE + VERIFIED. New `pylov3d/tests/test_jax_matlab_validation.py`: drives the Enceladus lateral benchmark through `jax_get_solution_coupled_scan` → `extract_love_numbers` (zero NumPy-solver involvement) and asserts vs published MATLAB `data/tests/enceladus/Q_*.mat` at the same 3 cases + order-based tolerances (1%/5%/10%) as the NumPy MATLAB test. 4–6 modes compared/case (pert. orders 0/1/2); JAX↔MATLAB rel err 6e-4–1.4e-2, all within tol. Suite **333 passed** on B. Opus adversarial review APPROVE, zero correctness defects: confirmed JAX is the sole solver (no NumPy leak), assertions non-vacuous (10% y_sol perturbation → all fail), perturbation_order genuinely exercised, reference/tolerance logic byte-identical to NumPy sibling. Non-blocking nit: reuses `_EnceladusBench.enceladus_params.__wrapped__` (pytest impl detail; fails loud not silent). Awaiting user commit approval. Real MATLAB refs live in `data/tests/`, NOT `io_coupled_reference.npz` (that's a NumPy self-regression fixture).
 - `[B][2026-08-01]` Synced to `0dd4935` (fast-forward, 11 A-commits). Full suite **330 passed** on B clone (JAX 0.10.0) — TASK-001/002 coupled JAX + Aprop_aux confirmed green on B. Claiming TASK-003 (scope: standalone JAX→MATLAB regression guard, independent of NumPy reference).
