@@ -34,7 +34,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
 | TASK-001…004 | Milestone 4 (coupled JAX port, Aprop_aux, MATLAB validation, benchmark) | — | ALL VERIFIED & committed (see log / git history) | `docs/tasks/` |
-| TASK-005 | **M5:** audit + fix + test the 1D ocean path (untested; missing MATLAB's Poisson-only in-ocean propagator `get_solution.m:1924-1935` and the `i==ocean_end` recombination `:864-881`; validate vs Europa/Titan 1D MATLAB cases) | free | QUEUED — blocks all other M5 tasks | — |
+| TASK-005 | **M5:** audit + fix + test the 1D ocean path (untested; missing MATLAB's Poisson-only in-ocean propagator `get_solution.m:1924-1935` and the `i==ocean_end` recombination `:864-881`; validate vs Europa/Titan 1D MATLAB cases) | A | IN-PROGRESS | — |
 | TASK-006 | **M5:** `assemble_bc_ocean_coupled` (24N×24N; generalize boundary_conditions.py:268-438 per MATLAB get_solution.m:696-838 using the no-ocean-coupled index scheme). Codex candidate | free | QUEUED — after 005 | — |
 | TASK-007 | **M5:** coupled NumPy solver ocean path (ocean-flag propagator, integration restarts at ocean entry/exit, three-region recombination incl. `i==ocean_end`) | free | QUEUED — after 005/006 | — |
 | TASK-008 | **M5:** MATLAB reference for ocean+lateral validation — Weber Moon case (`data/tests/moon/*.mat` exists, unused) + optionally regenerate/extend via `tests/Test_Moon_MultiLayered_Lateral_Variations.mlx` and Europa case. Machine B (MATLAB) | free | QUEUED — parallel with 006/007 | — |
