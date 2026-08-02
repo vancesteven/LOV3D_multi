@@ -106,4 +106,13 @@ max N=1 reduction error, file line counts, any deviations.
 
 ## Completion notes
 
-_(Codex appends here.)_
+- `[CODEX][2026-08-02]` Implemented `assemble_bc_ocean_coupled` as a faithful
+  24N×24N transcription with contiguous BC1–BC24 mode-row blocks, grouped
+  coupled-state indexing, and `[below, ocean, shell]` coefficient columns.
+  Final signature order is exactly `Y_cmb, Y_surf, Y_ocean_start,
+  Y_ocean_end, n_s, m_s, gc, Rc, rho2, rhoK_surface, Gg, rho1, gO, gI,
+  rhoO, rho_below_ocean, rho_above_ocean, forcing`. Focused suite: 5 passed.
+  Full current-tree suite: 353 passed, 5 skipped (the five pre-existing
+  TASK-008 checks await TASK-007; the spec's 341 baseline predates TASK-008).
+  Maximum N=1 reduction error across B and B2: `0.0`. Final line counts:
+  `bc_ocean_coupled.py` 125, `test_bc_ocean_coupled.py` 114. No deviations.
