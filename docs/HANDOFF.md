@@ -35,7 +35,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 |---|---|---|---|---|
 | TASK-001 | 3D coupled JAX port (all 4 increments) | free | VERIFIED — committed `ce3fd7e` + `4b7557a` | `docs/tasks/TASK-001-jax-coupled-3d.md` |
 | TASK-002 | Aprop_aux for coupled JAX path | free | VERIFIED — committed `1a4a707` | `docs/tasks/TASK-002-codex-aprop-aux.md` |
-| TASK-004 | JAX coupled-path performance benchmark at realistic N | A | DONE — uncommitted, awaiting user commit approval | `docs/BENCHMARK_jax_coupled.md` |
+| TASK-004 | JAX coupled-path performance benchmark at realistic N | free | DONE — committed `5817164` | `docs/BENCHMARK_jax_coupled.md` |
 | TASK-003 | MATLAB cross-validation of coupled JAX path (proposed for B) | free | VERIFIED — committed `a89eb6c` | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
@@ -101,8 +101,9 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 ## Project status
 
 - ✅ M1 1D solver · ✅ M2 3D lateral/mode coupling · ✅ M3 MATLAB cross-validation
-- 🔄 **M4:** PyALMA3 benchmark ✅ · JAX 1D loop ✅ · JAX 1D lax.scan ✅ · 3D coupled scan port ✅ · Aprop_aux ✅ · JAX↔MATLAB direct validation ✅
+- ✅ **M4 COMPLETE:** PyALMA3 benchmark · JAX 1D loop · JAX 1D lax.scan · 3D coupled scan port · Aprop_aux · JAX↔MATLAB direct validation · performance benchmark (`5817164`)
 - Suite: 333 passed as of `a89eb6c` — confirmed on BOTH machines (A: jax 0.10.2, B: 0.10.0).
+- No queued tasks. Candidate next work: README/milestone update; chunked-vmap for large-N memory; ocean-layer support in coupled path.
 
 ---
 
