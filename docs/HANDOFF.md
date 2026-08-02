@@ -34,7 +34,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | ID | Task | Owner | Status | Spec |
 |---|---|---|---|---|
 | TASK-001 | 3D coupled JAX port (all 4 increments) | free | VERIFIED — committed `ce3fd7e` + `4b7557a` | `docs/tasks/TASK-001-jax-coupled-3d.md` |
-| TASK-002 | Aprop_aux for coupled JAX path (unblocks energy/love integration) | CODEX | IN-PROGRESS | `docs/tasks/TASK-002-codex-aprop-aux.md` |
+| TASK-002 | Aprop_aux for coupled JAX path (unblocks energy/love integration) | A (review done) | VERIFIED — uncommitted, awaiting user commit approval | `docs/tasks/TASK-002-codex-aprop-aux.md` |
 | TASK-003 | MATLAB cross-validation of coupled JAX path (proposed for B) | free | QUEUED — needs MATLAB, B only | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
@@ -110,6 +110,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-02]` TASK-002 assessed and VERIFIED (uncommitted). Codex fully guardrail-compliant. Opus review APPROVE: refactor bitwise-identical to HEAD across 4 configs; Aprop_aux matches NumPy in 10 configs ≤8e-16 incl. adversarial Nrlayer[1]=0; vmap bitwise-equal to serial; 7/9 mutants caught, 2 survivors provably immaterial (stored rows independent of g/dg/rho). Perf notes: vmap peak RAM ~5.4GB at N=107/Nr=119 (chunk if production runs grow); Aprop_aux always computed (parity with NumPy, no opt-out); ~27ms/solve re-keying overhead. Nits: aux entry point lacks ocean guard.
 - `[A][2026-08-02]` TASK-002 spec written and delegated to Codex (Aprop_aux via vmapped verified builder; 4-tuple return for full drop-in parity). Standing Codex guardrails added to this file (user has not yet settled Codex autonomy level — specs are defensive). TASK-003 (MATLAB cross-validation of coupled path) queued for B.
 - `[A][2026-08-02]` TASK-001 COMPLETE. Increments 1–2 (Codex) committed `ce3fd7e` with review fixes; increments 3–4 (Sonnet impl, Opus verify — APPROVE, 18/19 mutants killed, fuzz to N=107) committed `4b7557a`. y_sol matches NumPy coupled solver to 1.5e-15. Jit-cache memoization added (uncached path was 3.4× slower than NumPy at N=4; warm ~10× faster). Suite 329. Known gaps → TASK-002: Aprop_aux not computed (blocks energy.get_energy_coupled / love.py:89 substitution); ocean layers still NotImplementedError (parity with NumPy); K_amp upstream is identically zero in rheology.py (both branches) — JAX path verified correct against hand-injected K_amp anyway.
 - `[A][2026-08-02]` TASK-001a assessed and VERIFIED. Codex output correct: Opus 5 adversarial review (line-by-line + randomized differential harness to 2.2e-15 + 27-mutant mutation test, 25 killed / 2 equivalent-or-gap) → APPROVE, zero defects. Suite in rebuilt machine-A venv: 322 passed, 0 failed. Open nits before commit: test_jit_smoke compares JAX to itself (swap tuple unpack), Nreo≥2 coupling axis untested (fixture has Nreo=1). Increment 3 note: close over `static`, do not pass as jit arg (non-hashable; traced-pytree path degrades deg-0 rows to dynamic scatter).
