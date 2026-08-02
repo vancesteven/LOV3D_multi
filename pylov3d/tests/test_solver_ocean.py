@@ -167,6 +167,79 @@ def test_regression_pin_europa_like_k2(ocean_solution):
     np.testing.assert_allclose(k2.real, 0.270346, atol=2e-4)
 
 
+def test_coupled_ocean_matches_1d(ocean_solution):
+    """N=1 zero-coupling coupled solve is bitwise-identical to the 1D
+    ocean path (elastic and viscoelastic)."""
+    from pylov3d.couplings import Couplings
+    from pylov3d.solver import _get_solution_coupled
+    from pylov3d.types import LateralRheology
+
+    for eta in (None, 1e19):
+        model = make_interior_model(
+            mu0=MU, ocean=[0, 0, 1, 0],
+            eta0=[None, eta, None, None],
+            **{k: v for k, v in GEOM.items() if k != "eta0"},
+        )
+        forcing = _forcing()
+        numerics, model = set_boundary_indices(_numerics(), model)
+        model = get_rheology(model, forcing)
+        y1, r1, Y1, _ = get_solution(model, forcing, numerics)
+
+        couplings = Couplings(
+            n_s=np.array([2]), m_s=np.array([0]), order=np.array([0]),
+            Coup=np.zeros((1, 1, 27, 1)),
+        )
+        lateral = LateralRheology(
+            variations=np.zeros((1, 2), dtype=int),
+            muC_amp=np.zeros((model.n_layers, 1), dtype=complex),
+            K_amp=np.zeros((model.n_layers, 1), dtype=complex),
+            uniform=np.ones(model.n_layers, dtype=bool),
+        )
+        yc, rc, Yc, _ = _get_solution_coupled(
+            model, forcing, numerics, couplings, lateral,
+        )
+        np.testing.assert_array_equal(yc, y1)
+        np.testing.assert_array_equal(Yc, Y1)
+
+
+def test_build_aprop_ocean_coupled_structure():
+    """Coupled in-ocean propagator: per-mode Laplace blocks matching the 1D
+    builder, zero elsewhere, and the degree-0 row rewrite."""
+    from pylov3d.ocean_coupled import build_aprop_ocean_coupled
+    from pylov3d.propagator import build_aprop_ocean
+
+    r, Gg, gK = 0.7, 2.5, 0.4
+    n_s = np.array([0, 2, 4])
+    N = len(n_s)
+    Ap = build_aprop_ocean_coupled(r, n_s, Gg, gK)
+    assert Ap.shape == (8 * N, 8 * N)
+    # Rows/cols outside the Poisson blocks are identically zero.
+    assert np.max(np.abs(Ap[: 6 * N, :])) == 0.0
+    for k, n in enumerate(n_s):
+        b = 6 * N + 2 * k
+        block = Ap[b:b + 2, b:b + 2]
+        expected = build_aprop_ocean(r, int(n), Gg, gK)[6:8, 6:8]
+        np.testing.assert_array_equal(block, expected)
+    # Degree-0 rewrite: +4*pi*Gg/gK on the diagonal, rest of the row zero.
+    b0 = 6 * N
+    assert Ap[b0, b0] == pytest.approx(4 * np.pi * Gg / gK)
+    assert np.count_nonzero(Ap[b0, :]) == 1
+
+
+def test_degree_zero_mode_listed_first():
+    """MATLAB's in-ocean degree-0 rewrite targets the FIRST mode's Poisson
+    row; our per-mode generalization reduces to it only while get_couplings
+    keeps n_s sorted with any degree-0 mode first. Pin that ordering."""
+    from pylov3d.couplings import get_couplings
+
+    variations = np.array([[2, 0]])
+    couplings = get_couplings(variations, 2, 0, perturbation_order=2)
+    n_s = np.asarray(couplings.n_s)
+    assert np.all(np.diff(n_s) >= 0), "n_s no longer sorted ascending"
+    if 0 in n_s:
+        assert int(n_s[0]) == 0
+
+
 def test_jax_paths_reject_ocean_models():
     """The 1D JAX solvers do not implement the ocean equations and must
     refuse ocean-bearing models instead of silently mis-solving them."""

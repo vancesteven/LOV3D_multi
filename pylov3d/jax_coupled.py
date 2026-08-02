@@ -418,11 +418,13 @@ def propagate_coupled_jax_scan(model, forcing, numerics, couplings, lateral):
     N = len(couplings.n_s)
     N8 = 8 * N
 
-    # Ocean not supported yet in coupled solver (mirrors solver.py:407-411).
+    # Ocean layers: supported by the NumPy coupled solver since TASK-007,
+    # but not yet ported to the JAX scan (queued as TASK-009).
     for i in range(n_layers):
         if int(model.ocean[i]) == 1:
             raise NotImplementedError(
-                "Ocean layers not yet supported in coupled JAX scan solver"
+                "Ocean layers not yet supported in the coupled JAX scan; "
+                "use solver.get_solution (NumPy) for ocean-bearing models."
             )
 
     r_grid, _, _, arrays = _grid_and_props(

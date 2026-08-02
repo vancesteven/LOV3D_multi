@@ -18,6 +18,8 @@ from .propagator import (
     build_aprop, build_aprop_coupled, build_aprop_ocean, compute_gravity,
     CK_A, CK_B, CK_C,
 )
+from .bc_ocean_coupled import assemble_bc_ocean_coupled
+from .ocean_coupled import build_aprop_ocean_coupled
 from .boundary_conditions import (
     assemble_bc_no_ocean,
     assemble_bc_ocean,
@@ -78,6 +80,33 @@ def cash_karp_increment_ocean(
         return build_aprop_ocean(r, n, Gg, g)
 
     return _cash_karp_stages(_aprop_at, r_start, dr, 8)
+
+
+def cash_karp_increment_ocean_coupled(
+    r_start: float,
+    dr: float,
+    n_s,
+    Gg: float,
+    rho: float,
+    M_inner: float,
+    R_inner: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """CK-RK5 increment inside an ocean layer for the coupled 8N system.
+
+    Only the per-mode Poisson blocks propagate (see
+    ``ocean_coupled.build_aprop_ocean_coupled``); gravity is only needed
+    when a degree-0 mode is present.
+    """
+    deg0 = any(int(n) == 0 for n in n_s)
+
+    def _aprop_at(r):
+        if deg0:
+            g, _ = compute_gravity(r, rho, M_inner, R_inner, Gg)
+        else:
+            g = 0.0
+        return build_aprop_ocean_coupled(r, n_s, Gg, g)
+
+    return _cash_karp_stages(_aprop_at, r_start, dr, 8 * len(n_s))
 
 
 def _cash_karp_stages(aprop_at, r_start: float, dr: float, size: int):
@@ -255,6 +284,11 @@ def get_solution(model, forcing, numerics, couplings=None, lateral=None):
                 raise NotImplementedError(
                     "Ocean directly above the core (layer index < 2) is "
                     "not supported (broken in MATLAB LOV3D as well)."
+                )
+            if i >= n_layers - 1:
+                raise NotImplementedError(
+                    "Ocean as the outermost layer is not supported "
+                    "(errors in MATLAB LOV3D as well)."
                 )
             ocean_start = int(numerics.BCindices[i - 2])
             ocean_end = int(numerics.BCindices[i - 1])
@@ -460,12 +494,26 @@ def _get_solution_coupled(model, forcing, numerics, couplings, lateral):
     N6 = 6 * N
     N8 = 8 * N
 
-    # Ocean not supported yet in coupled solver
+    # Detect ocean layer (0 = no ocean); same conventions as the 1D path.
+    ocean_layer = 0
+    ocean_start = 0
+    ocean_end = 0
     for i in range(n_layers):
         if int(model.ocean[i]) == 1:
-            raise NotImplementedError(
-                "Ocean layers not yet supported in coupled solver"
-            )
+            ocean_layer = i
+            if i < 2:
+                raise NotImplementedError(
+                    "Ocean directly above the core (layer index < 2) is "
+                    "not supported (broken in MATLAB LOV3D as well)."
+                )
+            if i >= n_layers - 1:
+                raise NotImplementedError(
+                    "Ocean as the outermost layer is not supported "
+                    "(errors in MATLAB LOV3D as well)."
+                )
+            ocean_start = int(numerics.BCindices[i - 2])
+            ocean_end = int(numerics.BCindices[i - 1])
+            break
 
     # ----- Build radial grid -----
     r_grid = np.zeros(Nr + 1)
@@ -543,34 +591,51 @@ def _get_solution_coupled(model, forcing, numerics, couplings, lateral):
         muC_amp_k = lateral.muC_amp[i_layer, :]
         K_amp_k = lateral.K_amp[i_layer, :]
 
-        # Coupled CK-RK5 increment
-        inc, _ = cash_karp_increment_coupled(
-            r_prev, dr, couplings.n_s, muC_k, lam_k, rho_k, Gg,
-            M_inner_k, R_inner_k,
-            couplings.Coup, muC_amp_k, K_amp_k,
-        )
+        in_ocean = ocean_layer > 0 and i_layer == ocean_layer
 
-        # Auxiliary Aprop at current point
-        g_aux, dg_aux = compute_gravity(
-            r_curr, rho_k, M_inner_k, R_inner_k, Gg,
-        )
-        Ap_aux = build_aprop_coupled(
-            r_curr, g_aux, dg_aux, couplings.n_s,
-            muC_k, lam_k, rho_k, Gg,
-            couplings.Coup, muC_amp_k, K_amp_k,
-        )
-        Aprop_aux[k_idx] = Ap_aux[:N3, :]
+        # Coupled CK-RK5 increment. Inside the ocean the propagator reduces
+        # to the per-mode Laplace blocks (MATLAB ocean_flag==1).
+        if in_ocean:
+            inc, _ = cash_karp_increment_ocean_coupled(
+                r_prev, dr, couplings.n_s, Gg, rho_k, M_inner_k, R_inner_k,
+            )
+            # Displacement/stress recovery rows are undefined in the ocean;
+            # the first 3N rows of the ocean propagator are identically zero.
+            Aprop_aux[k_idx] = 0.0
+        else:
+            inc, _ = cash_karp_increment_coupled(
+                r_prev, dr, couplings.n_s, muC_k, lam_k, rho_k, Gg,
+                M_inner_k, R_inner_k,
+                couplings.Coup, muC_amp_k, K_amp_k,
+            )
 
-        # Density discontinuity correction at layer boundaries
+            # Auxiliary Aprop at current point
+            g_aux, dg_aux = compute_gravity(
+                r_curr, rho_k, M_inner_k, R_inner_k, Gg,
+            )
+            Ap_aux = build_aprop_coupled(
+                r_curr, g_aux, dg_aux, couplings.n_s,
+                muC_k, lam_k, rho_k, Gg,
+                couplings.Coup, muC_amp_k, K_amp_k,
+            )
+            Aprop_aux[k_idx] = Ap_aux[:N3, :]
+
+        # Layer boundary: identity restarts at ocean entry / shell entry,
+        # density-discontinuity correction otherwise (MATLAB :545-560).
         Y_old = Y[k_idx - 1].copy()
         if i_layer != prev_layer:
-            Delta_rho_k = float(model.Delta_rho[i_layer])
-            for m_idx in range(N):
-                U_row = 3 * m_idx
-                dPhi_row = N6 + 2 * m_idx + 1
-                Y_old[dPhi_row, :] += (
-                    4.0 * math.pi * Gg * Delta_rho_k * Y_old[U_row, :]
-                )
+            if ocean_layer > 0 and i_layer == ocean_layer:
+                Y_old = IN8.copy()
+            elif ocean_layer > 0 and i_layer == ocean_layer + 1:
+                Y_old = IN8.copy()
+            else:
+                Delta_rho_k = float(model.Delta_rho[i_layer])
+                for m_idx in range(N):
+                    U_row = 3 * m_idx
+                    dPhi_row = N6 + 2 * m_idx + 1
+                    Y_old[dPhi_row, :] += (
+                        4.0 * math.pi * Gg * Delta_rho_k * Y_old[U_row, :]
+                    )
 
         # Propagate: Y(k) = (I + inc) @ Y_old
         Y[k_idx] = (IN8 + inc) @ Y_old
@@ -584,16 +649,53 @@ def _get_solution_coupled(model, forcing, numerics, couplings, lateral):
     rho2 = float(model.Delta_rho[0]) + float(model.rho[1])
     rhoK_surface = float(model.rho[n_layers - 1])
 
-    B, B2 = assemble_bc_no_ocean_coupled(
-        Y[0], Y[Nr], couplings.n_s, couplings.m_s,
-        gc, Rc, rho2, rhoK_surface, Gg,
-        float(model.rho[1]), forcing,
-    )
-    C = np.linalg.solve(B, B2)
+    if ocean_layer == 0:
+        B, B2 = assemble_bc_no_ocean_coupled(
+            Y[0], Y[Nr], couplings.n_s, couplings.m_s,
+            gc, Rc, rho2, rhoK_surface, Gg,
+            float(model.rho[1]), forcing,
+        )
+        C = np.linalg.solve(B, B2)
 
-    # Assemble physical solution
-    y_sol = np.zeros((Nr + 1, N8), dtype=np.complex128)
-    for k_idx in range(Nr + 1):
-        y_sol[k_idx] = Y[k_idx] @ C
+        # Assemble physical solution
+        y_sol = np.zeros((Nr + 1, N8), dtype=np.complex128)
+        for k_idx in range(Nr + 1):
+            y_sol[k_idx] = Y[k_idx] @ C
+    else:
+        gO = float(model.gs[ocean_layer - 1])
+        gI = float(model.gs[ocean_layer])
+        rhoO = float(model.rho[ocean_layer])
+        rho_below_ocean = float(model.rho[ocean_layer - 1])
+        rho_above_ocean = float(model.rho[ocean_layer + 1])
+
+        B, B2 = assemble_bc_ocean_coupled(
+            Y[0], Y[Nr], Y[ocean_start], Y[ocean_end],
+            couplings.n_s, couplings.m_s,
+            gc, Rc, rho2, rhoK_surface, Gg,
+            float(model.rho[1]),
+            gO, gI, rhoO, rho_below_ocean, rho_above_ocean,
+            forcing,
+        )
+        C = np.linalg.solve(B, B2)
+
+        # Three-segment recombination (grouped column basis — C comes back
+        # as [below | ocean | shell] blocks; MATLAB get_solution.m:864-881).
+        C_below = C[:N8]
+        C_ocean = C[N8:2 * N8]
+        C_shell = C[2 * N8:]
+
+        y_sol = np.zeros((Nr + 1, N8), dtype=np.complex128)
+        for k_idx in range(Nr + 1):
+            il = layer_map[k_idx]
+            if k_idx == ocean_end:
+                # Ocean-ceiling node = the shell segment's identity origin
+                # (MATLAB get_solution.m:879: one_arr * C_shell).
+                y_sol[k_idx] = C_shell.copy()
+            elif il >= ocean_layer + 1:
+                y_sol[k_idx] = Y[k_idx] @ C_shell
+            elif il == ocean_layer:
+                y_sol[k_idx] = Y[k_idx] @ C_ocean
+            else:
+                y_sol[k_idx] = Y[k_idx] @ C_below
 
     return y_sol, r_grid, Y, Aprop_aux

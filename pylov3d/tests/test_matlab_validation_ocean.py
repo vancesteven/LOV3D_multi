@@ -27,12 +27,12 @@ Moon files use the notebook's *plot* layout
 The Moon model has a FLUID outer core (Weber layer 2, Vs=0), so it genuinely
 exercises the M5 ocean/fluid propagator — the whole point of validating here.
 
-Skip behaviour
---------------
-The solver-comparison test auto-skips (not xfail) while
-``_get_solution_coupled`` raises ``NotImplementedError`` on an ocean model,
-i.e. until TASK-007 lands.  After that it runs live with no edit needed here.
-The parser and model-builder tests are ACTIVE now (they need no solver).
+Status
+------
+TASK-007 landed the coupled ocean solver; all tests here run live.  The
+solver-comparison cases validate the coupled ocean path end to end against
+the Qin-method reference spectra (order-1 modes agree to ~5e-6 relative,
+the forcing-mode deviation to ~0.3%).
 
 See ``ISSUE_matlab_validation.md`` for the amplitude / spherical-harmonic
 normalization derivation shared with the Enceladus tests.
@@ -105,27 +105,87 @@ def _load_qin_reference(stem):
 # ---------------------------------------------------------------------------
 
 def _build_weber_moon_model():
-    """Build the Weber et al. (2011) 9-layer Moon as an ``InteriorModel``.
+    """Build the Weber Moon exactly as the MATLAB notebook does (10 layers).
+
+    ``Test_Moon_MultiLayered_Lateral_Variations.mlx`` does NOT use the raw
+    9-layer Weber profile: it prepends an artificial 50 km, 8000 kg/m^3
+    core (so the fluid outer core is not directly above the LOV3D core —
+    that configuration is unsupported in MATLAB and here), and rigidifies
+    the solid inner core (mu, Ks x1000).  The Vs=0 layer (outer core) is
+    tagged ocean=1; it lands at layer index 2.
 
     ``Moon_Weber.dat`` columns: radius [m], density [kg/m^3], Vp [m/s], Vs [m/s].
-    mu = rho*Vs^2 ; Ks = rho*(Vp^2 - 4/3 Vs^2).  The Vs=0 layer (outer core) is
-    tagged ocean=1 so the coupled solver routes it through the fluid propagator.
+    mu = rho*Vs^2 ; Ks = rho*(Vp^2 - 4/3 Vs^2).
     """
     dat = np.loadtxt(MOON_DATA / "Moon_Weber.dat")
     r_m, rho, vp, vs = dat[:, 0], dat[:, 1], dat[:, 2], dat[:, 3]
 
-    mu = rho * vs**2
-    Ks = rho * (vp**2 - 4.0 / 3.0 * vs**2)
-    ocean = [1 if v == 0.0 else 0 for v in vs]
+    mu = list(rho * vs**2)
+    Ks = list(rho * (vp**2 - 4.0 / 3.0 * vs**2))
+    mu[0] *= 1000.0   # notebook: "let's make the inner core rigid"
+    Ks[0] *= 1000.0
+
+    R0 = [50.0] + list(r_m / 1e3)
+    rho0 = [8000.0] + list(rho)
+    mu0 = [0.0] + mu
+    Ks0 = [0.0] + Ks
+    ocean = [1 if m_i == 0.0 else 0 for m_i in mu0]
+    ocean[0] = 0  # layer 0 is the LOV3D core, not a subsurface ocean
 
     model = make_interior_model(
-        R0_km=list(r_m / 1e3),
-        rho0=list(rho),
-        mu0=list(mu),
-        Ks0=list(Ks),
+        R0_km=R0,
+        rho0=rho0,
+        mu0=mu0,
+        Ks0=Ks0,
         ocean=ocean,
     )
     return model
+
+
+# Host layers for the lateral variation, 0-based (notebook, 1-based: UM=6:9,
+# LM=4:5).
+_HOST_LAYERS = {"UM": [5, 6, 7, 8], "LM": [3, 4]}
+
+
+def _delta_unit_map(n, m, l_max=30):
+    """Peak-to-peak of the unit-coefficient real SH map, MATLAB-style.
+
+    Replicates ``SPH_LatLon`` (4pi-normalized Legendre, half-cell-offset
+    lat/lon grid with resolution 180/(2*lmax), lmax = 2*l_max-1) so the
+    peak-to-peak normalization matches ``get_rheology.m:520-560`` exactly.
+    """
+    from scipy.special import lpmv
+    from math import factorial
+
+    lmax = 2 * l_max - 1
+    d = 180.0 / (2 * lmax)
+    lat = np.arange(-90.0 + d / 2.0, 90.0 - d / 2.0 + 1e-9, d)
+    lon = np.arange(-180.0 + d / 2.0, 180.0 - d / 2.0 + 1e-9, d)
+    t = np.sin(np.radians(lat))
+
+    # 4pi-normalized associated Legendre (no Condon-Shortley; scipy's lpmv
+    # includes (-1)^m, cancelled by the notebook's explicit (-1)^m factor).
+    norm = math.sqrt((2 - (1 if m == 0 else 0)) * (2 * n + 1)
+                     * factorial(n - m) / factorial(n + m))
+    P = norm * lpmv(m, n, t)
+    z = P[:, None] * np.cos(m * np.radians(lon))[None, :]
+    return float(z.max() - z.min())
+
+
+def _p2p_to_mu_variable(n_lv, m_lv, p2p_percent):
+    """Convert a peak-to-peak percent amplitude to CSH mu_variable entries.
+
+    Mirrors ``get_rheology.m:527-560``: amp = (p2p/100)/Delta for m=0;
+    for m>0 a conjugate pair with sqrt(2)/2 and Condon-Shortley factors.
+    """
+    if m_lv < 0:
+        # MATLAB's m<0 branch carries +/- i factors not replicated here.
+        raise ValueError("pass the positive order; the conjugate is added")
+    base = (p2p_percent / 100.0) / _delta_unit_map(n_lv, m_lv)
+    if m_lv == 0:
+        return [(n_lv, 0, base)]
+    a = math.sqrt(2.0) / 2.0 * base
+    return [(n_lv, m_lv, a), (n_lv, -m_lv, (-1) ** m_lv * a)]
 
 
 # ---------------------------------------------------------------------------
@@ -160,15 +220,32 @@ class TestMoonReferenceData:
 
     def test_weber_model_has_fluid_outer_core(self):
         model = _build_weber_moon_model()
-        n_layers = 9
+        n_layers = 10  # artificial core + 9 Weber layers (notebook config)
         ocean_flags = [int(model.ocean[i]) for i in range(n_layers)]
-        # Exactly one fluid layer (the Weber outer core), at layer index 1.
+        # Exactly one fluid layer (the Weber outer core), at layer index 2
+        # (index 1 is the rigidified solid inner core).
         assert sum(ocean_flags) == 1
-        assert ocean_flags[1] == 1
-        # Shear modulus is zero in the fluid layer and positive elsewhere.
-        assert float(model.mu0[1]) == 0.0
-        for i in [0, 2, 3, 4, 5, 6, 7, 8]:
+        assert ocean_flags[2] == 1
+        assert float(model.mu0[2]) == 0.0
+        for i in [1, 3, 4, 5, 6, 7, 8, 9]:
             assert float(model.mu0[i]) > 0.0
+
+    def test_uniform_k2_matches_matlab(self):
+        """1D ocean path on the notebook model reproduces MATLAB's k2_Q.
+
+        Strongest available anchor: measured agreement is ~2e-9 relative
+        (0.02315914222851756 vs k2_Q = 0.023159142178491576).
+        """
+        from pylov3d.love import get_love
+
+        ref = _load_qin_reference("moon_3D_UM_20")
+        model = _build_weber_moon_model()
+        forcing = make_forcing(Td=1.0, n=2, m=0, F=1.0)
+        numerics = make_numerics(n_layers=10, method="variable", Nrbase=50)
+        love, _, _ = get_love(model, forcing, numerics)
+        k2 = complex(love.k[0])
+        assert abs(k2.imag) < 1e-10
+        assert abs(k2.real - ref["k2_uniform"]) / ref["k2_uniform"] < 1e-6
 
 
 # ---------------------------------------------------------------------------
@@ -176,12 +253,11 @@ class TestMoonReferenceData:
 # ---------------------------------------------------------------------------
 
 class TestMoonCoupledOceanValidation:
-    """Coupled JAX/NumPy ocean solve vs MATLAB/Qin — pending TASK-007.
+    """Coupled NumPy ocean solve vs MATLAB/Qin reference spectra.
 
     Mirrors ``TestEnceladusBenchmark.test_lateral_love_spectra`` but on the
-    ocean-bearing Weber Moon.  While the coupled solver rejects ocean models
-    (``NotImplementedError``), this test skips cleanly; once TASK-007 wires the
-    24N BC path in, it runs live with no change here.
+    ocean-bearing Weber Moon, configured exactly as the MATLAB notebook
+    (``Test_Moon_MultiLayered_Lateral_Variations.mlx``).
     """
 
     @pytest.mark.parametrize("stem,n_lv,m_lv", MOON_CASES)
@@ -194,28 +270,30 @@ class TestMoonCoupledOceanValidation:
 
         ref = _load_qin_reference(stem)
         # Compare at a mid-grid amplitude node (well inside the perturbative
-        # regime, matching the Enceladus test's idx_amp≈4-9 choice).
+        # regime).  The amp grid is peak-to-peak percent (notebook x-axis:
+        # "100 |dmu/mu0| [%]").
         idx_amp = min(4, len(ref["amp"]) - 1)
-        amp_sph = float(ref["amp"][idx_amp])
-        if m_lv == 0:
-            amp_c = amp_sph / math.sqrt(4 * math.pi)
-        else:
-            amp_c = amp_sph / math.sqrt(2) / math.sqrt(4 * math.pi)
+        p2p_percent = float(ref["amp"][idx_amp])
+        entries = _p2p_to_mu_variable(n_lv, m_lv, p2p_percent)
 
         raw_model = _build_weber_moon_model()
+        # Td=1.0 vs the notebook's lunar period is a verified no-op: the
+        # model is elastic (no eta), so the response is frequency-independent.
         forcing = make_forcing(Td=1.0, n=2, m=0, F=1.0)
+        # Notebook numerics: variable grid, Nrbase=50.  perturbation_order=2
+        # (notebook: 3) keeps runtime sane; order-3 reference modes simply
+        # find no (n, m) match and are skipped, and order<=2 mode values are
+        # perturbatively insensitive to the truncation at these amplitudes.
         numerics = make_numerics(
-            n_layers=9, method="fixed", Nrbase=100, perturbation_order=2,
+            n_layers=10, method="variable", Nrbase=50, perturbation_order=2,
         )
         numerics, model = set_boundary_indices(numerics, raw_model)
         model = get_rheology(model, forcing)
 
-        # Lateral variation lives in a mantle layer (UM/LM); use the upper
-        # mantle (layer index 4) as a representative host — TASK-007 review can
-        # refine the exact host layer against the notebook if needed.
-        mu_variable = {4: [(n_lv, m_lv, amp_c)]}
-        if m_lv != 0:
-            mu_variable[4].append((n_lv, -m_lv, (-1) ** m_lv * amp_c))
+        # The lateral variation spans the full mantle region (notebook:
+        # UM = layers 6:9, LM = 4:5, 1-based).
+        host = "UM" if "_UM_" in stem else "LM"
+        mu_variable = {lay: list(entries) for lay in _HOST_LAYERS[host]}
 
         model, lateral = process_lateral_variations(
             model, forcing, mu_variable=mu_variable,
@@ -225,31 +303,41 @@ class TestMoonCoupledOceanValidation:
             perturbation_order=numerics.perturbation_order,
         )
 
-        try:
-            y_sol, _r, _Y, _aux = _get_solution_coupled(
-                model, forcing, numerics, couplings, lateral,
-            )
-        except NotImplementedError as exc:
-            pytest.skip(
-                "coupled ocean solver not yet implemented (TASK-007): "
-                f"{exc}"
-            )
+        y_sol, _r, _Y, _aux = _get_solution_coupled(
+            model, forcing, numerics, couplings, lateral,
+        )
 
         love = extract_love_numbers(y_sol, model, forcing, couplings=couplings)
 
         compared = 0
         for i in range(len(ref["n"])):
             n_m, m_m = int(ref["n"][i]), int(ref["m"][i])
+            if m_m < 0:
+                continue  # notebook drops negative-m reference rows
             idx_py = np.where((love.n == n_m) & (love.m == m_m))[0]
             if len(idx_py) == 0:
                 continue
             k_py = love.k[idx_py[0]]
             k_ref = ref["k"][i, idx_amp]
-            if abs(k_ref) < 1e-8:
-                continue
+            # Real -> complex SH basis for Qin's data (notebook Qin-transform
+            # cell): zonal forcing divides m>0 reference modes by sqrt(2);
+            # non-zonal forcing divides m==0 modes instead.
+            if forcing.m == 0 and m_m > 0:
+                k_ref /= math.sqrt(2.0)
+            elif forcing.m != 0 and m_m == 0:
+                k_ref /= math.sqrt(2.0)
+            if n_m == forcing.n and m_m == forcing.m:
+                # The reference stores the forcing mode as the DEVIATION
+                # (k - k2_uniform) — notebook: k2ST(iforcing) = k - k2_uniform.
+                k_py = k_py - ref["k2_uniform"]
+            if abs(k_ref) < 1e-7 * ref["k2_uniform"]:
+                continue  # below the reference's own noise floor
             rel_error = abs(k_py - k_ref) / abs(k_ref)
             order_m = int(ref["order"][i])
-            tol = 0.01 if order_m == 1 else 0.05 if order_m == 2 else 0.10
+            # Measured errors: order-1 modes agree to 2e-6..5e-6 relative and
+            # the forcing (order-2-behaved) deviation to ~0.3%; tolerances
+            # keep ~100x/15x headroom rather than the siblings' 1%/5%.
+            tol = 0.001 if order_m == 1 else 0.05 if order_m == 2 else 0.10
             assert rel_error < tol, (
                 f"{stem} mode (n={n_m}, m={m_m}): py={k_py:.6e}, "
                 f"ref={k_ref:.6e}, rel_error={rel_error:.2%} > {tol:.2%}"
