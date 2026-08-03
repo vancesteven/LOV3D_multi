@@ -28,6 +28,9 @@ compat = ["PlanetProfile", "pyalma3"]
 
 [tool.pytest.ini_options]
 testpaths = ["pylov3d/tests"]
+markers = [
+    "slow: exercises the get_love solver multiple times (e.g. bisection reproducibility checks); not run by default in CI-fast configs.",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

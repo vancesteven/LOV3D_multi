@@ -26,6 +26,19 @@ _CATALOG: dict[int, dict[str, Any]] = {
         hlid=50e3, hocean=50e3,
         E=170e9, nu=0.33, rho_o=2800,
     ),
+    # Mars (TASK-011 reference model; see pylov3d/mars.py, docs/MARS_MODEL.md)
+    40: dict(
+        name="Mars", abbr="Ma",
+        Mp=1.98892e30,  # Sun mass [kg] (primary body = Sun)
+        r=3389.5e3,  # mean radius [m], Seidelmann et al. (2007) / MOLA
+        Mass=6.4169e23,  # [kg], Konopliv et al. (2016) GM / G (CODATA 2018)
+        a=2.27939e11,  # semi-major axis [m] (~1.524 AU)
+        e=0.0934,  # orbital eccentricity
+        # Supplementary orbital elements (standard astronomical values, not
+        # part of the TASK-011 fit constraints; not required by get_body()'s
+        # derived-quantity computations since raan/peri are unused here):
+        i=1.850, obli=25.19,  # inclination to ecliptic / axial tilt [deg]
+    ),
     # Jupiter ──────────────────────────────────────────────────────────────
     51: dict(
         name="Io", abbr="Io",
@@ -190,8 +203,9 @@ _CATALOG: dict[int, dict[str, Any]] = {
 def get_body(moon_id: int) -> dict[str, Any]:
     """Return orbital/physical parameters for *moon_id*.
 
-    Moon-ID convention: first digit = planet (3=Earth, 5=Jupiter, 6=Saturn,
-    7=Uranus, 8=Neptune, 9=Pluto), second digit = satellite index.
+    Moon-ID convention: first digit = planet (3=Earth, 4=Mars, 5=Jupiter,
+    6=Saturn, 7=Uranus, 8=Neptune, 9=Pluto), second digit = satellite index
+    (0 = the planet itself, orbiting the Sun, for TASK-011's Mars entry).
 
     Derived quantities added to the returned dict:
       grav   — surface gravity [m/s^2]
