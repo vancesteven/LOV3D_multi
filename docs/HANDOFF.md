@@ -40,6 +40,8 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-008 | **M5:** MATLAB reference for ocean+lateral validation — Weber Moon case (`data/tests/moon/*.mat` exists, unused) + optionally regenerate/extend via `tests/Test_Moon_MultiLayered_Lateral_Variations.mlx` and Europa case. Machine B (MATLAB) | B | DONE (uncommitted) — parser+model tests live, 5 solver checks auto-skip until 007 | `test_matlab_validation_ocean.py` |
 | TASK-009 | **M5:** JAX coupled ocean support (three-segment scan) | free | VERIFIED — committed `6374640` | log entry below |
 | TASK-010 | ocean energy dissipation (ocean-ceiling node in `energy.py`) | free | **ON HOLD — B STAND DOWN** (user direction 2026-08-03, supersedes "work the candidate list"). Recon preserved in spec; resume later | `docs/tasks/TASK-010-ocean-energy.md` |
+| TASK-011 | **M6:** Mars 1D reference model — layered profile fit to published bulk constraints (GM/mass, mean radius, MoI factor, tidal k2, InSight core radius), full citations, k2 through the 1D solver within observational error; `bodies.py` entry + fit script + tests + `docs/MARS_MODEL.md` | A | IN-PROGRESS | — |
+| TASK-012 | **M6:** Mars lateral variations from gravity/topography fields (crustal dichotomy/Tharsis → mu_variable maps → coupled Love spectrum). Data-source decision at ticketing | free | QUEUED — after 011 | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
@@ -109,7 +111,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 - ✅ **M4 COMPLETE** (JAX coupled port + validation + benchmark)
 - ✅ **M5 COMPLETE** (`b871153` README): oceans in 1D (TASK-005, incl. 3-bug repair), coupled NumPy (006+007, Weber Moon MATLAB/Qin spectra to ppm), coupled JAX (009, three-segment scan). Suite **377** confirmed on BOTH machines (A `6374640`; B on pull to `52621b3`).
 - **ON HOLD (user decision 2026-08-03) — ALL ocean-world follow-ons**, resume later: (1) TASK-010 ocean energy dissipation (B's recon preserved in `docs/tasks/TASK-010-ocean-energy.md`); (2) Europa thick-shallow-ocean coupled MATLAB case (constrains gO — B/MATLAB); (3) chunked-vmap for large-N memory; (4) GPU-backend benchmark; (5) aux NaN-factory cleanup (compute_aprop_aux_coupled evaluates the elastic propagator at in-ocean nodes and discards it).
-- **NEW DIRECTION: M6 = Mars model** matching gravity + topographic constraints. Scoping on A; tickets to follow. B: stand down from TASK-010, await Mars tickets.
+- **NEW DIRECTION: M6 = Mars model**, staged: TASK-011 first (1D radial model fit to published bulk constraints — mass/MoI/k2/InSight core — with full source citations and a science-accuracy review), then TASK-012 (lateral variations from gravity/topography fields; data-source decision deferred to its ticketing). B: stand down from TASK-010, await Mars tickets.
 
 ---
 
