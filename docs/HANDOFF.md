@@ -41,8 +41,10 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-009 | **M5:** JAX coupled ocean support (three-segment scan) | free | VERIFIED — committed `6374640` | log entry below |
 | TASK-010 | ocean energy dissipation (ocean-ceiling node in `energy.py`) | free | **ON HOLD — B STAND DOWN** (user direction 2026-08-03, supersedes "work the candidate list"). Recon preserved in spec; resume later | `docs/tasks/TASK-010-ocean-energy.md` |
 | TASK-011 | **M6:** Mars 1D reference model | free | VERIFIED — committed `4836150` (2 science-review rounds) | `docs/MARS_MODEL.md`, `pylov3d/mars.py` |
-| TASK-012 | **M6:** body-agnostic forward-model + MC framework + mapping + Mars fit map | A | DONE — uncommitted, awaiting user commit approval (2 Opus rounds, final APPROVE) | log below |
-| TASK-013 | **M6:** Mars SH data loaders (GMM-3 SHADR + MarsTopo719) | A (review done) | VERIFIED (Opus: loaders bitwise vs independent parses) — uncommitted; 3 nits folded into the 012 fix round | `docs/tasks/TASK-013-codex-mars-sh-loaders.md` |
+| TASK-012 | **M6:** body-agnostic forward-model + MC framework + mapping + Mars fit map | free | VERIFIED — committed `ecef078` (with 013) | log below |
+| TASK-015 | **M6:** full pocoMC Mars posterior production run (n_active≥256, Nrbase=100, tens of minutes; publish corner plot + medians vs point fit). **Machine B** — compute-heavy, token-light | free | QUEUED — claimable now (`scripts/mars_pocomc.py`, everything committed) | — |
+| TASK-016 | **M6:** lateral-field stage — dichotomy/Tharsis crustal fields (via sh_data + mapping) → `mu_variable` amplitudes → coupled Mars Love spectrum; science design first | free | QUEUED — next on A | — |
+| TASK-013 | **M6:** Mars SH data loaders (GMM-3 SHADR + MarsTopo719) | free | VERIFIED — committed `ecef078` (with 012) | `docs/tasks/TASK-013-codex-mars-sh-loaders.md` |
 | TASK-014 | **M6:** Machine B — part 1 (NOW, independent of 012/013): MATLAB LOV3D cross-check of the Mars 1D model in `docs/MARS_MODEL.md` (same 4 layers/densities/mu; confirm k2=0.169, h2=0.3156, l2=0.0516 — gives Mars the same MATLAB anchor the Moon has, and adjudicates the h2/k2=1.87 open item). Part 2 (after 012): heavy coupled Mars lateral spectra sweeps + MATLAB coupled cross-validation | B | QUEUED — part 1 claimable immediately | — |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
