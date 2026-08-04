@@ -43,7 +43,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-011 | **M6:** Mars 1D reference model | free | VERIFIED — committed `4836150` (2 science-review rounds) | `docs/MARS_MODEL.md`, `pylov3d/mars.py` |
 | TASK-012 | **M6:** body-agnostic forward-model + MC framework + mapping + Mars fit map | free | VERIFIED — committed `ecef078` (with 013) | log below |
 | TASK-015 | **M6:** full pocoMC Mars posterior production run (n_active≥256, Nrbase=100, tens of minutes; publish corner plot + medians vs point fit). **Machine B** — compute-heavy, token-light | free | QUEUED — claimable now (`scripts/mars_pocomc.py`, everything committed) | — |
-| TASK-016 | **M6:** lateral-field stage (Airy, n_lv≤4, fixed forward — user-approved design) | A | IN-PROGRESS | `docs/tasks/TASK-016-design.md` |
+| TASK-016 | **M6:** lateral-field stage (Airy + areoid correction, n_lv≤4) | A | DONE — uncommitted, awaiting user commit approval (2 Opus rounds, final APPROVE; suite 465) | `docs/tasks/TASK-016-design.md` |
 | TASK-013 | **M6:** Mars SH data loaders (GMM-3 SHADR + MarsTopo719) | free | VERIFIED — committed `ecef078` (with 012) | `docs/tasks/TASK-013-codex-mars-sh-loaders.md` |
 | TASK-014 | **M6:** MATLAB Mars cross-checks | B (pt 2 open) | **part 1 VERIFIED — committed `a07bbf8`**: MATLAB↔Python k2/h2/l2 to ~1e-12; h2/k2=1.8676 CONFIRMED real (coarse-4-layer feature, not a port bug); eta0 empty-vs-NaN convention gotcha documented. Part 2 (coupled Mars lateral sweeps + MATLAB coupled cross-val) claimable | `scripts/mars_1d_cross_check.m` |
 
