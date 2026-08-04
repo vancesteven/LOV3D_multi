@@ -1,6 +1,8 @@
 # TASK-016 — Design: Mars lateral-variation stage (draft for user approval)
 
-**Status:** DESIGN DRAFT — no implementation until approved
+**Status:** APPROVED (user, 2026-08-04): Airy (fewer assumptions; the
+interpreted seismic crustal model can be imposed later), n_lv <= 4, fixed
+forward runs first. IMPLEMENTATION IN PROGRESS (A/Sonnet).
 **Owner:** A (design); implementation split proposed below
 
 ## Goal
