@@ -440,3 +440,326 @@ finiteness and local near-maximality at the point fit; out-of-bounds ->
 `_delta_unit_map` values exactly; degree-2 zonal pattern symmetry checks;
 no-Condon-Shortley-convention and high-degree-stability regressions; the
 MarsTopo719 Hellas/Olympus Mons integration check).
+
+## Lateral variations (TASK-016)
+
+Turns the committed MarsTopo719 shape model into laterally varying crust
+rigidity for the TASK-011 4-layer model above, and runs it through the
+coupled (mode-coupling) solver already cross-validated against MATLAB on
+the Weber Moon (`pylov3d/tests/test_matlab_validation_ocean.py`, fig5) to
+produce the Mars Love-number *spectrum* -- response modes beyond the (2,0)
+tide that lateral crustal structure excites. Implementation:
+`pylov3d/mars_lateral.py` (full derivation in its module docstring; this
+section states the approved design, the exact formulas, and the measured
+numbers). Tests: `pylov3d/tests/test_mars_lateral.py`. Figure:
+`scripts/proposal_figures/fig6_mars_lateral_spectrum.py` ->
+`docs/figures/proposal/fig6_mars_lateral_spectrum.{pdf,png}`. Approved
+design: `docs/tasks/TASK-016-design.md` (Airy compensation, `n_lv <= 4`,
+fixed-amplitude forward runs -- no free lateral-amplitude MC parameter
+yet).
+
+### 1. Crustal thickness variation (Airy, areoid-referenced)
+
+`crustal_thickness_variation(lmax=4)` loads MarsTopo719
+(`pylov3d.sh_data.load_shape`), truncates to degree 4, drops C00 (mean
+radius) and C20 (dominant rotational flattening -- an equilibrium-figure
+effect, not a crustal load; same areoid-proxy precedent as fig3/the Hellas
+integration test).
+
+**Revision D2 (post-review): reference to the low-degree areoid, not the
+bare sphere.** Airy compensation is properly a statement about topography
+relative to a *level* (equipotential) surface, not a sphere with only the
+rotational term subtracted. The first implementation skipped this: it
+compensated the raw (C00/C20-dropped) MOLA shape directly. The correction
+computes the low-degree areoid height from the committed GMM-3 gravity
+field (`pylov3d.sh_data.load_shadr`, `data/mars/gmm3_120_sha.tab`, r0 =
+3396 km) via the first-order Bruns relation: at the reference sphere r0,
+the disturbing potential is `T(r0) = (GM/r0) * sum [Clm cos + Slm sin]
+Pbar_nm`, and normal gravity there is (spherical approximation) `gamma0 =
+GM/r0^2`, so the geoid undulation is `N = T/gamma0 = r0 * sum [Clm cos +
+Slm sin] Pbar_nm` -- i.e. the SH *coefficient* of N is simply `r0 * C_lm`
+(`r0 * S_lm` for the sine term). C00/C20 are dropped from the gravity field
+too (matching the topography side), and `N` is subtracted from the shape
+residual *before* the Airy factor:
+
+```
+dt = (h - N) * rho_c / (rho_m - rho_c),  rho_c = 2900, rho_m = 3400 kg/m^3
+   = (h - N) * 5.8
+```
+
+**Measured** (`crustal_thickness_diagnostics(lmax=4)`): max|dt| = 34.2 km
+(34.225 km at 180x360 grid resolution, converges to 34.230 km at 360x720)
+-- down from 40.65 km pre-correction, and now much closer to the design
+doc's ~20-30 km rule-of-thumb. Comfortably inside the `|dt| < 50 km`
+shell-thickness bound (ratio 0.684, checked by `crustal_thickness_diagnostics`,
+which raises `ValueError` -- not a bare `assert`, so it survives
+`python -O` -- if this is ever violated). The peak sits at lat -8.4, lon
+-106.4: **Tharsis**, precisely where the linearized-Airy approximation is
+weakest in reality (Tharsis is known to be substantially flexurally/
+dynamically supported, not purely Airy-compensated) -- so this single
+largest excursion in the field is also the location the model's own
+approximation is least trustworthy; reported, not hidden. Per-degree RMS
+amplitude (post-D2): degree 1 = 11.06 km (unchanged -- GMM-3's C10/S10 are
+identically zero by the center-of-mass coordinate convention, so the
+areoid correction has no degree-1 term), degree 2 = 5.83 km, degree 3 =
+5.69 km, degree 4 = 3.25 km. Degree 1 is now more clearly the largest
+single degree; degrees 2-3 shrank relative to the pre-D2 numbers (7.70,
+6.43 km) because part of what was being attributed to topographic load at
+those degrees was actually the (now-subtracted) geoid signal. Two
+compounding caveats on this dichotomy, both a direct consequence of what
+this stage does and does not model: (a) it is somewhat *under-predicted*,
+because a real crustal-density-contrast contribution to the low-degree
+gravity field (not modeled here -- this stage uses a single fixed
+`rho_c`) would, if included, partially cancel against the geoid
+subtraction and restore some of degrees 2-3's amplitude; (b) Tharsis
+itself (degrees 2-3-heavy) is *over-predicted* by the linearized-Airy
+treatment for the reason above. Both push in the same direction: this
+dichotomy measurement is not a precision result, only a rough,
+order-of-magnitude "degree 1 comparable to 2-3" check, as the design doc
+asked for.
+
+One further dropped signal, stated explicitly: this analysis discards the
+*entire* C20 term as rotational flattening. Mars's observed C20 is not
+purely hydrostatic -- roughly 7% of it is a non-hydrostatic (real
+mass-anomaly) contribution, equivalent to about a 2.4 km crustal root,
+which this stage therefore also discards along with the hydrostatic 93%.
+Not corrected in this pass; a literal (not proportional) hydrostatic-C20
+model is the natural follow-up.
+
+### 2. Crust-layer rigidity variation
+
+The reference model's crust is a *fixed* 50 km shell (3339.5-3389.5 km,
+`LAYER_MU_CRUST` = 30 GPa). `mu_variable_from_topography(lmax=4)`
+linearizes the shell's crust fraction `f = t/50 km` in `dt`, giving the
+fractional rigidity perturbation relative to the crust layer's own
+reference modulus:
+
+```
+d(mu)/mu_bar = (mu_crust - mu_um_eff(mu_scale)) * dt / (50 km * mu_bar)
+mu_bar = mu_crust = LAYER_MU_CRUST = 30 GPa
+mu_um_eff(mu_scale) = _MU_UM_BASE * mu_scale = 70 GPa * mu_scale
+```
+
+`mu_bar = LAYER_MU_CRUST` because the crust *is* the model's surface layer
+(index 3 of 4): `process_lateral_variations`'s elastic branch sets
+`muC_amp[ilayer] = model.mu[ilayer] * amplitude`, and `model.mu` is
+normalized to the surface layer's own `mu0` -- so `model.mu[3] == 1.0`
+exactly and the supplied amplitude passes through unchanged. Sign: thicker
+crust displaces stiffer effective-upper-mantle material out of the shell,
+so mu *decreases* (dt > 0 -> d(mu) < 0, since mu_crust < mu_um_eff); this
+is the literal design formula, applied with **no clipping** of `f` to
+`[0, 1]` (a deliberate stage-1 choice, not an oversight).
+
+**Revision D3 (post-review): `mu_scale` threading.** `mu_um_eff` depends
+on the mantle shear-modulus scale factor `mu_scale` (`pylov3d.mars_mc`
+samples this in `[0.3, 3.0]`); the first implementation froze it at the
+fitted default `MARS_MU_SCALE` = 0.9648 at import time. Found in review:
+this silently mismatches model and lateral amplitude whenever a caller
+passes a non-default `mu_scale` to `build_mars_model` without *also*
+threading it into `mu_variable_from_topography` -- a 7.5x error in the
+lateral amplitude at `mu_scale=0.5` (since `mu_crust - mu_um_eff` changes
+sign of magnitude sharply as `mu_um_eff` approaches `mu_crust`).
+`_mu_um_eff`/`_dmu_ddt_coeff` are now plain functions of `mu_scale`
+(default `MARS_MU_SCALE`, matching the previous frozen behavior exactly
+when unspecified), and `mu_scale` is a parameter on
+`dmu_over_mu_real`/`mu_variable_from_topography`/`mars_lateral_love_spectrum`/
+`export_mu_variable_lateral`, forwarded consistently to `build_mars_model`.
+This stage-1 harness itself only ever calls these at the fitted default;
+the threading exists for `pylov3d.mars_mc` callers and any future
+lateral-amplitude MC extension (design doc "Open decisions", item 3).
+
+**Measured** (post-D2 areoid correction, at the fitted `MARS_MU_SCALE`):
+peak |d(mu)/mu_bar)| = 0.857 at the same Tharsis grid point -- **down from
+1.017 pre-D2**, so the elastic-positivity violation (the linearized
+`mu_eff` implying a slightly negative crust shear modulus) is gone. This
+was the D2 correction's primary motivation, not a side effect: the
+original 40.65 km/1.017 result mixed real topographic load with
+uncompensated long-wavelength gravity signal, exaggerating the peak
+perturbation past a physically meaningful bound. Still reported, not
+hard-guaranteed for all future inputs -- `crustal_thickness_diagnostics`
+computes and returns `max_abs_dmu_over_mubar` every call (pinned `< 1.0`
+by `test_mars_lateral.py::TestAiryNumbers::test_dmu_over_mu_below_elastic_positivity_bound`),
+but does not itself clip -- a physically-clipped `f in [0,1]` version
+remains a natural stage-2 follow-up (design doc "Open decisions").
+
+### 3. Real -> complex spherical harmonics (the delicate part)
+
+The shape file gives real, 4pi-normalized `(C_nm, S_nm)`
+(`pylov3d.mapping` convention, no Condon-Shortley phase). The coupled
+solver's `mu_variable` wants complex-SH amplitudes in the convention
+*implicitly* defined by MATLAB `get_rheology.m`'s peak-to-peak conversion
+(lines ~517-589), generalized here from a single-mode percent input to
+arbitrary `(C_nm, S_nm)` pairs:
+
+```
+amp(n, 0)  = C_n0
+amp(n, +m) = (C_nm - i*S_nm) / sqrt(2)          (m > 0)
+amp(n, -m) = (-1)**m * (C_nm + i*S_nm) / sqrt(2)
+```
+
+With `S_nm = 0` this is *exactly*
+`test_matlab_validation_ocean.py::_p2p_to_mu_variable` -- the formula
+already end-to-end validated against native MATLAB Love numbers on the
+Weber Moon (~2e-6 relative, 5 published cases), whose model is purely
+elastic, the same `process_lateral_variations` code path (direct
+`muC_amp = model.mu[ilayer] * amplitude` passthrough, no grid synthesis)
+the Mars crust layer uses.
+
+**Round-trip validation** (`pylov3d/tests/test_mars_lateral.py::TestCSHRoundTrip`,
+the load-bearing test): the complex `Y_n^m` this amplitude convention
+implicitly assumes was *derived*, not guessed, by requiring
+self-consistency between the `S_nm = 0` case above and its `C_nm = 0`
+sibling (from `get_rheology.m`'s `m < 0` branch) against the known real
+fields `C_nm * Pbar_n^m * cos(m*phi)` and `S_nm * Pbar_n^m * sin(m*phi)`:
+
+```
+Y_n^0    =        Pbar_n^0(sin lat)
+Y_n^{+m} =        Pbar_n^m(sin lat) * exp(+i*m*lon) / sqrt(2)   (m > 0)
+Y_n^{-m} = (-1)^m Pbar_n^m(sin lat) * exp(-i*m*lon) / sqrt(2)
+```
+
+using the same no-Condon-Shortley, 4pi-normalized `Pbar_n^m` as
+`pylov3d.mapping.fully_normalized_legendre` (`complex_sh_synthesis`).
+Synthesizing a random degree-4 test field (and, separately, the actual
+Mars `dt` field) this way and comparing pointwise against the direct
+real-SH synthesis via `pylov3d.mapping.sh_to_latlon` on an independent
+lat/lon grid: **max relative error ~6.6e-16** (random field) / machine
+precision (Mars field) -- both far inside the required < 1e-10. This is
+explicitly a *different* convention from the `scipy.special.sph_harm_y`
+orthonormal convention used by `pylov3d.rheology._sh_synthesis` (that
+helper is exercised only by `process_lateral_variations`'s *viscoelastic*
+nonlinear-Maxwell grid path, never touched by the purely-elastic Mars
+crust layer): an early probe that instead synthesized against
+`_sh_synthesis` directly (the wrong convention for this, purely-elastic
+code path) failed to reconstruct the real field, which is exactly the
+failure mode this derived-not-assumed round trip exists to catch -- do not
+conflate the two conventions.
+
+### 4. Coupled solve
+
+`mars_lateral_love_spectrum(lmax=4, forcing=(2,0), perturbation_order=2)`
+builds `build_mars_model()`, applies `mu_variable_from_topography`, and
+solves with `get_love(..., mu_variable=...)` (NumPy coupled path).
+
+**Measured**: real MarsTopo719 at degree 4 has 23 nonzero rheology `(n,
+m)` modes (cosine *and* sine are generically both nonzero, unlike a
+synthetic single-mode test case) -- substantially more than the design
+doc's assumption of a handful of dominant modes. This activates **N = 115**
+coupled solution modes at `perturbation_order=2` (42 at
+`perturbation_order=1`) -- well above the design's `N~15-30` rule-of-thumb,
+reported rather than forced to fit; the D2 areoid correction changes *which*
+real-valued amplitudes feed those 23 modes, not which `(n, m)` are
+nonzero, so N is unchanged (115) pre- and post-correction. `get_couplings`
+itself is cheap (~6.5 s); the radial solve dominates. `Nrbase=30` (the
+production default) is converged to **1.4e-11 relative** in k2 against
+`Nrbase=15` (re-measured after the D2 correction; corrects an earlier,
+looser ~3e-9 figure from a different run). Wall time is machine-dependent
+-- measured 91-181 s for Nrbase=15/30 respectively on one run of the
+development machine, ~70-140 s on another -- comfortably inside the
+design's 5-minute runtime guard either way (`Nrbase=100`, the 1D fit's own
+resolution, is unnecessary at N=115 and was not used as the default for
+that reason).
+
+Forcing-mode (2,0) perturbation (post-D2): k2 shifts from the uniform
+0.169000... to **0.1690552...** -- a shift of **~5.52e-5**, under 1% of
+the observational uncertainty (0.006) and far inside the "<<0.006"
+requirement: the lateral rigidity variation is a perturbation on the
+fixed-forcing response, not a re-fit of it. See section 5 below for what
+actually drives this shift.
+
+### 5. Linearity check, its subtlety, and the forcing-mode's first-order term
+
+Scaling the Airy `mu_variable` amplitude by `eps in {1e-3, 1e-2}`, the
+*dominant* (largest-amplitude) order-1 coupled modes scale linearly in
+`eps` to < 0.3% (ratio ~10.00-10.03 vs. the exact-linear 10.0). A wider
+probe across all 38 order-1-*discoverable* modes with resolvable amplitude
+found 30 cleanly linear, 4 scaling ~quadratically (ratio ~100), and 4
+ambiguous/near the float64 noise floor.
+
+**Why "order-1-discoverable" is only an upper bound on the true leading
+order, and what actually causes it (D4, corrected from an earlier, partly
+wrong explanation).** `get_couplings.get_active_modes` discovers a mode's
+*reachability* order by tracking `(n, m, ST)` triples (`ST` = spheroidal/
+toroidal) through `next_coupling`, then collapses to `(n, m)` keeping the
+*minimum* order and discarding `ST` (`pylov3d/couplings.py:143-147`). A
+mode reachable as toroidal at order 1 (or with a genuinely-zero order-1
+coupling coefficient) but spheroidal only at order 2 is therefore labeled
+"order 1" even though its *visible* response -- `k`, which by construction
+comes only from the potential/spheroidal branch, since toroidal
+deformation carries no gravitational potential perturbation -- is actually
+order 2. Two distinct mechanisms produce this in the Mars rheology set,
+verified directly against `coupling_coefficients` (not just inferred from
+the response curve):
+- **(3, +/-2)**: its only order-1 *spheroidal* channel (rheology mode
+  `(3, +/-2)` coupling with the forcing mode) has a coupling coefficient
+  of **~7.6e-17** -- a genuine, isolated selection-rule zero (not a
+  parity/toroidal artifact; its other order-1 channels, via rheology
+  `(2, +/-2)` and `(4, +/-2)`, *are* toroidal, but this one is spheroidal
+  and simply numerically vanishes).
+- **(5, +/-4)**: its only order-1 channel (rheology mode `(4, +/-4)`) has
+  a *significant* coupling coefficient, **0.632** -- not small at all --
+  but forcing degree 2 + rheology degree 4 + response degree 5 has odd
+  parity (2+4+5=11), which `next_coupling` assigns to the toroidal branch.
+  So `k` is zero at that order regardless of the coefficient's size, for a
+  completely different reason than (3, +/-2).
+
+The test (`test_mars_lateral.py::TestLinearity`) restricts its strict
+linearity assertion to the *dominant* modes, where this ambiguity does not
+arise (measured: the top ~20 by amplitude all agree with linear scaling to
+<0.3%).
+
+**D5: the forcing mode's own k2 shift is first order, not second, and is
+dominated by one harmonic.** Naively, the forcing mode's own response
+"should" be second order (it must return to `(2,0)` via two coupling
+steps, since a single rheology coupling generically changes `(n,m)`). This
+holds for most harmonics -- e.g. isolating rheology mode `(3,0)` alone and
+fitting the shift's `eps`-scaling exponent between `eps=1e-3` and
+`eps=1e-2` gives **2.002**, second order, as expected. But isolating
+`(4,0)` alone gives exponent **1.000**: *first* order. The mechanism is
+even parity self-coupling -- forcing degree 2 + rheology degree 4 +
+response degree 2 has even parity (2+2+4=8, spheroidal), so `(4,0)`
+rheology couples the forcing mode directly back to itself at order 1, the
+one rheology degree in the `n_lv<=4` set for which this is possible for a
+degree-2 zonal tide. Measured absolute contribution: the `(4,0)`-alone
+shift, extrapolated linearly to the harmonic's full physical amplitude, is
+**~1.75e-5** -- about a third of the total measured shift (~5.52e-5, all
+23 harmonics together) -- confirming it is the dominant single contributor,
+not a curiosity. Consequences worth stating plainly for the proposal: (1)
+the forcing-mode shift scales ~1:1 (not quadratically) with the Airy
+calibration for this component, so it is comparatively sensitive to the
+Airy factor / crust density assumptions; (2) Mars's observed k2 itself
+therefore carries a genuine, if small (~5.5e-5 out of k2=0.169, i.e.
+~3e-4 relative), first-order signature of degree-4 zonal crustal
+structure -- a novel, proposal-relevant point distinct from the
+non-forcing-mode spectrum shown in fig6. Pinned by
+`test_mars_lateral.py::TestLinearity::test_forcing_mode_scaling_exponents`
+(exponent bounds [0.9,1.1] for `(4,0)`, [1.8,2.2] for `(3,0)`).
+
+### 6. Truncation sensitivity (lmax=5 spot check)
+
+The design doc asked for cutoff sensitivity to be *reported*, not assumed.
+`(4,0)` -- the harmonic identified in section 5 as driving the
+forcing-mode k2 shift to first order -- sits right at the `n_lv<=4`
+truncation edge, making the forcing-mode shift the sharpest available
+probe of whether that cutoff is adequate. Recomputing the full spectrum at
+lmax=5 (34 nonzero rheology modes, N=163 coupled modes, ~188 s at
+Nrbase=15 on the development machine): the (2,0) k2 shift moves from
+5.517e-5 (lmax=4) to 5.973e-5 (lmax=5), a **8.3% relative change** --
+comfortably under the 20% bound `test_mars_lateral.py::TestTruncationSensitivity`
+checks (marked `@pytest.mark.slow`). `n_lv<=4` is adequate for this
+forward-run stage; a degree-5 crustal harmonic is not about to overturn
+the qualitative first-order-shift result of section 5.
+
+### 7. Export for MATLAB cross-check
+
+`export_mu_variable_lateral()` writes
+`data/mars/mars_mu_variable_lateral.npz`: the crust-layer `mu_variable`
+entries (layer/n/m/complex amplitude), the real (areoid-corrected) `dt` SH
+coefficients, provenance constants (including the `mu_scale` actually
+used -- D3 threading, section 2), and an embedded README string --
+including the eta0 empty-vs-NaN convention warning (`docs/HANDOFF.md`,
+TASK-014 part 1: Python uses `eta0 = NaN` for elastic, MATLAB requires
+`eta0` *empty*, not NaN) and a 1-based-vs-0-based layer-index clause
+(`crust_layer_index` is 0-based Python numbering, 3; the same layer is
+MATLAB `Interior_Model(4)`, 1-based) -- for machine B's native-MATLAB
+coupled cross-check (TASK-014 part 2).

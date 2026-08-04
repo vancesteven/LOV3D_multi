@@ -156,6 +156,46 @@ section if space is tight in the main text.
 
 ---
 
+## Figure 6 — `fig6_mars_lateral_spectrum`
+
+**Size:** full-width (7.6 in), two panels (map + spectrum).
+
+**Draft caption:** *TASK-016: the Mars Love-number spectrum excited by
+laterally varying crustal rigidity. Left: the crust shell's fractional
+rigidity perturbation delta-mu/mu-bar (%), from Airy-compensated
+MarsTopo719 topography (degree <= 4, C00 and C20 removed, referenced to
+the low-degree GMM-3 areoid rather than the bare sphere; Airy factor
+rho_c/(rho_m - rho_c) = 5.8; max|delta_t| = 34.2 km, at Tharsis (lat -8,
+lon -106) — precisely where real Mars is known to be substantially
+flexurally/dynamically supported rather than Airy-compensated, so this is
+also where the model's own approximation is least trustworthy). Right:
+the resulting coupled Love-number spectrum |k_nm|, computed live via
+`pylov3d.mars_lateral.mars_lateral_love_spectrum` (NumPy coupled path,
+`pylov3d.love.get_love` with `mu_variable`), modes labeled (n, m) and
+colored by perturbation order (0 = the forcing mode itself, 1 = direct
+forcing-rheology coupling, 2 = second-order); +/-m pairs are always shown
+or dropped together (they carry identical |k| by rotational covariance).
+Real MarsTopo719 has both cosine and sine content at essentially every
+(n, m) up to degree 4, which activates N=115 coupled modes at
+perturbation_order=2 — well above the design doc's N~15-30 estimate; the
+panel shows the forcing mode plus the largest-amplitude modes per order
+(of 115 total), annotated in the title. The forcing mode (2,0) dominates
+by ~3 orders of magnitude over the largest order-1 mode and ~6 over
+order-2, and its own value shifts by only ~5.5e-5 from the uniform
+k2 = 0.169 (the lateral rigidity variation is a perturbation on the tidal
+response, not a re-fit of it) — driven in part (~a third) by the (4,0)
+crustal harmonic alone, the one degree in this cutoff that self-couples
+the degree-2 tide at *first* order (see docs/MARS_MODEL.md section 5).
+Wall time ~130-180 s at the production grid (Nrbase=30, machine-dependent;
+converged to 1.4e-11 relative in k2 against Nrbase=15).*
+
+**Suggested placement:** After Fig. 4/5, as the "proposed work" figure —
+this is the Mars application of the mode-coupling machinery Fig. 5
+validates against MATLAB, applied to the real MOLA/Airy crustal load
+rather than a synthetic test case.
+
+---
+
 ## Notes on reproducing
 
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig1_mars_interior_model.py`
@@ -167,5 +207,7 @@ section if space is tight in the main text.
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig3_mars_topography_pipeline.py`
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig4_mars_tidal_response.py`
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig5_validation_pedigree.py`
+- `venvLOV3Dconv/bin/python scripts/proposal_figures/fig6_mars_lateral_spectrum.py`
+  (coupled solve at N=115 modes, ~130-180 s wall, machine-dependent)
 
 No file under `pylov3d/` was modified to produce any of these figures.
