@@ -290,3 +290,139 @@ kg/m^3), `rho_lm` (3893.2 → 4136.5 kg/m^3), and `MARS_MU_SCALE`
 (0.9191861808300019 → 0.964824766102174, and correspondingly h2/l2). Mass
 and the (now mean, not polar) MoI factor remain exact by construction; k2
 remains fit to 0.169 to a similarly tight tolerance.
+
+## Monte Carlo framework (TASK-012)
+
+TASK-011's fit above is a deterministic point estimate (exact 2x2 linear
+solve for the densities, bisection for the shear-modulus scale). TASK-012
+adds a body-agnostic Bayesian layer on top of the same physics, instantiated
+here for Mars, so the same machinery also serves the Moon and (behind a
+different Stage-2 solver) other bodies later.
+
+**Three stages**, implemented in `pylov3d/forward.py`:
+
+1. **Parameters -> model.** `LayerSpec`/`BodyParameterization` describe an
+   ordered layer stack whose scalars are each FIXED (a float) or FREE
+   (resolved from a named entry of a flat `theta` vector, optionally as a
+   `Scaled` multiplicative factor shared across several layers).
+   `build_model(parameterization, theta)` resolves this into an
+   `InteriorModel` via `make_interior_model` — no body-specific code.
+2. **Model -> observables.** `compute_observables(model, forcing, numerics,
+   which=...)` returns a dict of `{"mass", "moi_mean", "core_radius_km",
+   "k2", "h2", "l2"}`: mass/moi_mean/core_radius_km analytically from the
+   shell density profile (mass/moi_mean via the same 4pi/3, 8pi/15 shell
+   formulas as `pylov3d.mars._mass_and_moi`; core_radius_km is simply
+   `model.R0[0]` — cheap, no tidal solve for any of the three); k2/h2/l2 via
+   `get_love`. Accepts *any* `InteriorModel`, including ones built by
+   `pylov3d.compat.planetstruct_to_interior_model` from a
+   PlanetProfile/Perple_X output — this is the seam future petrological
+   models plug into. Caveat: this stage assumes LOV3D's solid-body,
+   fluid-core formulation (`boundary_conditions.py` always treats layer 0 as
+   a fluid core); a fluid-dominated body (gas giants) will need a different
+   Stage-2 implementation behind the same dict-returning interface.
+   `numerics.method == "fixed"` is rejected outright
+   (`NotImplementedError`): that grid method rewrites the solver's layer
+   radii internally, which would silently decouple the analytic observables
+   (read from the caller's original `model.R0`) from the Love numbers
+   (computed on the solver's rewritten radii) — two slightly different
+   bodies sharing one `theta` (found in review: ~2.2 sigma mass
+   inconsistency). Use `"combination"` or `"variable"`.
+3. **Likelihood/posterior.** `Constraint(name, value, sigma)` +
+   `log_likelihood` (Gaussian, compares complex/viscoelastic observables by
+   real part only) + `log_prior` (uniform-box bounds gate) +
+   `make_log_posterior(...)` build a `callable(theta) -> float` that returns
+   `-inf` outside the prior box or on any forward-model exception (guarded
+   with a warning counter) — usable directly as `pocomc`'s `likelihood`
+   argument (paired with a separate `pocomc.Prior` built from the same
+   bounds for the properly normalized density and SMC proposal).
+   `build_model` also rejects (`ValueError`) any `theta` that produces
+   non-strictly-increasing layer radii (e.g. a free core radius exceeding
+   the next fixed layer) — a zero/negative-volume shell that would
+   otherwise silently reach the solver and could score a finite posterior.
+
+**Mars instantiation** (`pylov3d/mars_mc.py`) reuses `pylov3d.mars`'s four
+layers and every constant verbatim (no re-typed numbers) with 4 free
+parameters and 4 constraints:
+
+| Parameter | Bounds | Basis |
+|---|---|---|
+| `rho_core` | [5700, 6300] kg/m^3 | `pylov3d.mars.MARS_CORE_DENSITY_BOUNDS` — Stähler et al. (2021) core-density range, single source shared with `pylov3d.mars._solve_densities`'s own guard rail |
+| `rho_lm` | [3400, 4400] kg/m^3 | around the TASK-011 fitted value |
+| `mu_scale` | [0.3, 3.0] | shared `Scaled` factor on both mantle shear moduli |
+| `R_core` | [1750, 1910] km | core_radius ± 2·sigma (Stähler et al. 2021, 1830 ± 40 km) |
+
+Constraints: mass (`GM/G`, sigma = 0.1% — dominated by G's uncertainty, far
+looser than the MoI/k2 constraints below), `moi_mean` (0.36310 ± 0.0005),
+`k2` (0.169 ± 0.006), and **`core_radius_km`** (1830 ± 40 km) — same
+citations as the table at the top of this document. `mars_log_posterior()`
+wires these together; `mars_point_fit_theta()` returns the TASK-011 point
+fit as a `theta` vector for comparison/initialization.
+
+**Identifiability: why `core_radius_km` is a 4th constraint, not just a free
+parameter.** With 4 free parameters and only the 3 TASK-011 constraints
+(mass, moi_mean, k2), the Jacobian of those 3 observables with respect to
+the 4 parameters generically has a 1-dimensional null space: a combined
+shift of all four parameters along that direction leaves mass, moi_mean,
+and k2 exactly unchanged to first order, so the posterior is flat along that
+ridge — a genuine, not merely wide, non-identifiability (found in review:
+"zero likelihood spread along the ridge"). This is *not* visible by probing
+a single free parameter's axis alone while holding the other three fixed
+(e.g. perturbing only `R_core` from the point fit *does* decrease the
+posterior, because that axis-aligned direction is generically not aligned
+with the flat ridge) — the degeneracy only shows up in the full 4-D
+structure a sampler actually explores. The fix is a 4th observable/
+constraint whose Jacobian row is independent of the other three's span:
+`core_radius_km = model.R0[0]`, constrained at 1830 ± 40 km (Stähler et al.
+2021) — this is exactly the seismological information that motivated
+`R_core`'s bounds in the first place, previously left as a prior-box edge
+only and never fed to the likelihood. `R_core`'s box was correspondingly
+widened from ±1σ to ±2σ so this Gaussian constraint — not a hard box edge —
+is what actually carries that information into the posterior.
+
+**Sampler driver**: `scripts/mars_pocomc.py` runs `pocomc` (Preconditioned
+Monte Carlo) over the 4 free parameters, saves the chain (`.npz`) and a
+hand-rolled pairplot (no `corner` dependency), and prints posterior medians
+± 1 sigma (3 significant figures) plus the effective sample size (ESS) next
+to the point fit. `--quick` (n_active=16, coarse solver grid Nrbase=15,
+non-dynamic termination) is a smoke run — it prints an explicit "NOT
+CONVERGED — demo only" banner, since its marginal widths run measurably too
+narrow (about 2x) relative to a converged/reference posterior (e.g.
+propagating just the mass+moi_mean constraints analytically already implies
+sigma(rho_core) ≈ 90 kg/m^3, larger than `--quick`'s own marginal). A full
+run (`n_active=256` default, dynamic SMC annealing to beta=1) takes far
+longer since the annealing schedule always runs to completion regardless of
+particle count (measured: ~25 ms/forward-eval at Nrbase=15 warm, ~150
+ms/eval at the fit's `Nrbase=100`; a full run is O(10^3-10^4) evaluations).
+
+**Surface map**: `pylov3d/mapping.py` provides `sh_to_latlon`, backed by
+`fully_normalized_legendre` — a direct port of the MATLAB reference
+recursion `src/SPH_Tools/Legendre.m` (Rapp 1982), replacing an earlier
+`norm(n,m) * scipy.special.lpmv(m,n,t)` implementation that (found in
+review) carried `lpmv`'s Condon-Shortley `(-1)^m` phase (sign-flipping every
+odd-m map — a 180° rotation — relative to the documented no-CS convention)
+and underflowed its `norm(n,m)` factor to exactly 0.0 beyond `n+m ≈ 170`
+(`0 * inf = NaN`, poisoning maps at real gravity/shape data's degree, 120
+and 719) — both invisible to a peak-to-peak-only check, which is how they
+survived the original MATLAB-validated harness; see
+`pylov3d/tests/test_mapping.py::TestMarsTopoHellasIntegration` for an
+end-to-end regression against real MarsTopo719 data that catches this bug
+class directly (recovers Hellas as the global minimum and Olympus Mons's
+real elevation, not just a peak-to-peak number). Plus `plot_map` for quick
+Agg-safe rendering. `scripts/mars_fit_map.py` renders the fitted model's
+degree-2, zonal (n=2, m=0) tidal pattern in two normalized-unit panels (h2-
+and k2-scaled, 4pi-normalized `P̄_2^0(sin(lat))` — polar value ≈ h2·√5 /
+k2·√5, *not* h2/k2 themselves; see that script's docstring for the exact
+scaling convention, its m=0-vs-Mars's-actual-m=2-tide caveat, and its
+caveat vs. an absolute physical amplitude), annotated with the fitted
+parameters and each constraint's target/achieved/residual — output PNG at
+`scripts/output/mars_fit_map.png` by default.
+
+Tests: `pylov3d/tests/test_forward.py` (a body-agnostic toy 3-layer body
+exercising all three stages independently of Mars, including the
+radius-monotonicity and `method="fixed"` guard rails; the Mars posterior's
+finiteness and local near-maximality at the point fit; out-of-bounds ->
+`-inf`; a `@pytest.mark.slow` micro `pocomc` run) and
+`pylov3d/tests/test_mapping.py` (`sh_to_latlon` reproduces the original
+`_delta_unit_map` values exactly; degree-2 zonal pattern symmetry checks;
+no-Condon-Shortley-convention and high-degree-stability regressions; the
+MarsTopo719 Hellas/Olympus Mons integration check).

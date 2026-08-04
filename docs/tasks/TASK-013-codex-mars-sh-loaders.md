@@ -87,4 +87,13 @@ what you built, measured baseline/after counts, line counts, deviations.
 
 ## Completion notes
 
-_(Codex appends here.)_
+- `[CODEX][2026-08-04]` Added direct NumPy loaders for normalized PDS SHADR
+  gravity fields and plain/gzipped Wieczorek shape expansions, including
+  structural/index/finite/duplicate/uncertainty validation and independent
+  coefficient-dictionary truncation. Added eight tests covering GMM-3 header
+  and C20, MarsTopo719 C00 and manually parsed degree-1 rows, gzip/plain
+  identity, both truncation variants, repeat-load determinism, and J2 product
+  consistency. Full-suite baseline before changes: 426 passed; focused: 8
+  passed; full suite after: 434 passed, zero failures (`426 + 8`). Final line
+  counts: `sh_data.py` 133, `test_sh_data.py` 118. No deviations; all
+  concurrent-agent files and read-only Mars data were left untouched.

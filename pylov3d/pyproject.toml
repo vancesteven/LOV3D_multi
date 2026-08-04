@@ -25,6 +25,7 @@ dependencies = [
 test = ["pytest>=7.0", "scipy>=1.10"]
 viz = ["matplotlib>=3.7", "cartopy>=0.21"]
 compat = ["PlanetProfile", "pyalma3"]
+mc = ["pocomc>=1.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["pylov3d/tests"]

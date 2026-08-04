@@ -202,6 +202,13 @@ LAYER_MU_CRUST = 30e9  # Pa, fixed (Vs ~ 3.2 km/s)
 # is retained only because ``make_forcing`` requires a value.
 MARS_FORCING_TD = 44387.62  # s
 
+# Plausible liquid Fe-alloy core-density range: mean core density
+# 5.7-6.3 g/cm^3, Stahler et al. (2021), Science 373. Single source for both
+# the deterministic-fit guard rail in ``_solve_densities`` below and the
+# Monte Carlo ``rho_core`` prior box (``pylov3d.mars_mc.MARS_BOUNDS``) — do
+# not duplicate this range elsewhere.
+MARS_CORE_DENSITY_BOUNDS: tuple[float, float] = (5700.0, 6300.0)
+
 
 # ---------------------------------------------------------------------------
 # Step 1: exact 2x2 linear solve for (rho_core, rho_lm)
@@ -313,12 +320,14 @@ def _solve_densities(moi_factor: float | None = None) -> tuple[float, float]:
     rho_core = float(rho_core)
     rho_lm = float(rho_lm)
 
-    if not (5700.0 <= rho_core <= 6300.0):
+    _rho_lo, _rho_hi = MARS_CORE_DENSITY_BOUNDS
+    if not (_rho_lo <= rho_core <= _rho_hi):
         raise ValueError(
             f"Fitted core density {rho_core:.1f} kg/m^3 is outside the "
-            "plausible liquid Fe-alloy core-density range "
-            "[5700, 6300] kg/m^3 (mean core density 5.7-6.3 g/cm^3, "
-            "Stahler et al. 2021, Science 373); check MARS constraints."
+            f"plausible liquid Fe-alloy core-density range "
+            f"[{_rho_lo:.0f}, {_rho_hi:.0f}] kg/m^3 (mean core density "
+            "5.7-6.3 g/cm^3, Stahler et al. 2021, Science 373); check "
+            "MARS constraints."
         )
     if not (rho_lm > rho_um):
         raise ValueError(

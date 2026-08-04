@@ -150,26 +150,20 @@ _HOST_LAYERS = {"UM": [5, 6, 7, 8], "LM": [3, 4]}
 def _delta_unit_map(n, m, l_max=30):
     """Peak-to-peak of the unit-coefficient real SH map, MATLAB-style.
 
-    Replicates ``SPH_LatLon`` (4pi-normalized Legendre, half-cell-offset
-    lat/lon grid with resolution 180/(2*lmax), lmax = 2*l_max-1) so the
-    peak-to-peak normalization matches ``get_rheology.m:520-560`` exactly.
+    Thin wrapper around :func:`pylov3d.mapping.sh_to_latlon` (TASK-012
+    generalized this function's original body into that module — same grid
+    construction and 4pi normalization, with the Legendre evaluation now a
+    stable Rapp-recursion port of MATLAB's Legendre.m — so this just
+    evaluates a single unit coefficient and takes the peak-to-peak).
+    Replicates ``SPH_LatLon`` (4pi-normalized Legendre,
+    half-cell-offset lat/lon grid with resolution 180/(2*lmax),
+    lmax = 2*l_max-1) so the peak-to-peak normalization matches
+    ``get_rheology.m:520-560`` exactly.
     """
-    from scipy.special import lpmv
-    from math import factorial
+    from pylov3d.mapping import sh_to_latlon
 
-    lmax = 2 * l_max - 1
-    d = 180.0 / (2 * lmax)
-    lat = np.arange(-90.0 + d / 2.0, 90.0 - d / 2.0 + 1e-9, d)
-    lon = np.arange(-180.0 + d / 2.0, 180.0 - d / 2.0 + 1e-9, d)
-    t = np.sin(np.radians(lat))
-
-    # 4pi-normalized associated Legendre (no Condon-Shortley; scipy's lpmv
-    # includes (-1)^m, cancelled by the notebook's explicit (-1)^m factor).
-    norm = math.sqrt((2 - (1 if m == 0 else 0)) * (2 * n + 1)
-                     * factorial(n - m) / factorial(n + m))
-    P = norm * lpmv(m, n, t)
-    z = P[:, None] * np.cos(m * np.radians(lon))[None, :]
-    return float(z.max() - z.min())
+    grid = sh_to_latlon({(n, m): 1.0}, lmax=l_max)
+    return float(grid.z.max() - grid.z.min())
 
 
 def _p2p_to_mu_variable(n_lv, m_lv, p2p_percent):
