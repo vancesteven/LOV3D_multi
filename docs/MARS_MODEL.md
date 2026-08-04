@@ -220,6 +220,20 @@ solid/liquid-core body). `rho_core` sits comfortably inside the
 above the lower bound) — not edge-of-range, but on the dense side of the
 guard, consistent with the "large-core/lower-density branch" caveat above.
 
+**MATLAB cross-validation (TASK-014 part 1).** The same 4-layer model, run
+through the native MATLAB LOV3D 1D solver (`scripts/mars_1d_cross_check.m`,
+identical radii/densities/mu/Ks, purely elastic), reproduces all three Love
+numbers to ~1e-12 relative: k2 = 0.169000000000 (2.0e-12), h2 =
+0.315632205682 (1.2e-12), l2 = 0.051595952202 (8.6e-13). This gives Mars the
+same independent MATLAB anchor the Moon has. In particular the elevated
+**h2/k2 = 1.8676** — above the ~1.6-1.7 typical of published Mars models —
+is reproduced bit-for-bit by MATLAB, confirming it as a genuine feature of
+this coarse 4-layer / purely-elastic parameterization rather than a Python
+port artifact. (Porting note: MATLAB's `get_rheology` treats a layer as
+elastic only when `eta0` is *empty/absent*; `eta0 = NaN` — pylov3d's elastic
+sentinel — would instead enter the viscoelastic branch and yield a singular
+BC matrix, so the MATLAB driver omits `eta0` for elastic layers.)
+
 ## Tests
 
 `pylov3d/tests/test_mars.py` checks (against the full suite, run with
