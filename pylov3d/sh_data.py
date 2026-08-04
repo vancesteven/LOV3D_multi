@@ -83,7 +83,7 @@ def load_shadr(path) -> dict:
     # PDS SHADR files conventionally omit the trivial (l=0, m=0) row (its
     # coefficient is normalized to exactly 1.0 by definition -- GM already
     # carries the degree-0 term). Only fill that convention in when the row
-    # is genuinely absent; a file that *does* carry an explicit l=0 row is
+    # is absent; a file that *does* carry an explicit l=0 row is
     # unexpected for this format and must not be silently clobbered with the
     # convention value.
     if np.any(degrees == 0):

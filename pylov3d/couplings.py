@@ -132,7 +132,7 @@ def get_active_modes(
                 coupled = next_coupling(n0, m0, st, n1, m1, current_order)
                 new_modes.extend(coupled)
 
-        # Add only genuinely new (n, m) pairs
+        # Add only new (n, m) pairs
         existing_nm = {(m[0], m[1]) for m in all_modes}
         for nm in new_modes:
             if (nm[0], nm[1]) not in existing_nm:

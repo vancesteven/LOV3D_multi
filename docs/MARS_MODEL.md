@@ -227,7 +227,7 @@ numbers to ~1e-12 relative: k2 = 0.169000000000 (2.0e-12), h2 =
 0.315632205682 (1.2e-12), l2 = 0.051595952202 (8.6e-13). This gives Mars the
 same independent MATLAB anchor the Moon has. In particular the elevated
 **h2/k2 = 1.8676** — above the ~1.6-1.7 typical of published Mars models —
-is reproduced bit-for-bit by MATLAB, confirming it as a genuine feature of
+is reproduced bit-for-bit by MATLAB, confirming it as a feature of
 this coarse 4-layer / purely-elastic parameterization rather than a Python
 port artifact. (Porting note: MATLAB's `get_rheology` treats a layer as
 elastic only when `eta0` is *empty/absent*; `eta0 = NaN` — pylov3d's elastic
@@ -378,7 +378,7 @@ parameter.** With 4 free parameters and only the 3 TASK-011 constraints
 the 4 parameters generically has a 1-dimensional null space: a combined
 shift of all four parameters along that direction leaves mass, moi_mean,
 and k2 exactly unchanged to first order, so the posterior is flat along that
-ridge — a genuine, not merely wide, non-identifiability (found in review:
+ridge — an exact, not merely wide, non-identifiability (found in review:
 "zero likelihood spread along the ridge"). This is *not* visible by probing
 a single free parameter's axis alone while holding the other three fixed
 (e.g. perturbing only `R_core` from the point fit *does* decrease the

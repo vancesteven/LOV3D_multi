@@ -53,7 +53,7 @@ TASK-011 constraints (mass, moi_mean, k2), the Jacobian of those 3
 observables with respect to the 4 parameters generically has a 1-dimensional
 null space: a combined shift of all four parameters along that direction
 leaves mass, moi_mean, and k2 exactly unchanged to first order, so the
-posterior is flat along that ridge -- not merely "wide", but genuinely
+posterior is flat along that ridge -- not merely "wide", but
 unidentifiable in that direction (an axis-aligned perturbation of R_core
 alone, holding the other three fixed, does *not* lie along this ridge and
 does show a posterior decrease, which is why a naive single-axis probe can
@@ -67,8 +67,8 @@ R_core's bounds in the first place, previously left as a prior-box edge
 only and never actually fed to the likelihood. To be precise about what
 this buys: the bulk/tidal data (mass, MoI, k2) contribute NO information
 about R_core anywhere on the ridge; the R_core marginal IS the (box-
-truncated) Stahler Gaussian. The constraint makes the posterior proper and
-honest about its provenance -- it does not make R_core data-constrained by
+truncated) Stahler Gaussian. The constraint makes the posterior proper, with the
+provenance stated -- it does not make R_core data-constrained by
 the tidal observables.
 """
 

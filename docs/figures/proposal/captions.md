@@ -61,8 +61,8 @@ histograms; off-diagonal panels are 2-D density (hexbin, single-hue blue).
 The orange cross marks the TASK-011 deterministic point fit in every
 panel. On the core-radius diagonal, the dashed curve is the independent
 Stahler et al. (2021) InSight-seismology prior (1830 +/- 40 km) — the
-posterior closely tracks it. This is by design and should be read
-honestly: core density, lower-mantle density, and the shear-modulus scale
+posterior closely tracks it. This is by design and should be stated
+plainly in the text: core density, lower-mantle density, and the shear-modulus scale
 are constrained by the mass + mean moment-of-inertia + k2 data; the core
 radius itself carries essentially no information from those three
 observables (a documented degeneracy — see `pylov3d.mars_mc`,
