@@ -1,0 +1,103 @@
+Inside set_boundary_indices: 
+Nrlayer: 0  132  164  103
+BCindices: 133  297  400
+Nr: 399
+ 
+Obtaining Couplings....
+Only uniform layers so coupling matrix is zero
+------------- INTERIOR MODEL ----------- 
+AVERAGE PROPERTIES (dimensional)
+Layer#     R[m]    rho[kg.m^{-3}]    mu[Pa]    K[Pa]    eta[Pa.s]
+1    1.83000e+03    6.12808e+03    0    -
+2    2.34000e+03    4.13650e+03    9.64825e+10    1.60000e+11 
+3    3.33950e+03    3.40000e+03    6.75377e+10    1.15000e+11 
+4    3.38950e+03    2.90000e+03    3.00000e+10    7.00000e+10 
+AVERAGE PROPERTIES (non-dimensional)
+Layer#     R[-]    rho[-]    mu[-]    K [-]     eta[-]
+1    0.5399    2.1131    0    -
+2    0.69037    1.4264    3.2161    5.3333 NaN
+3    0.98525    1.1724    2.2513    3.8333 NaN
+4    1    1    1    2.3333 NaN
+RHEOLOGY  VARIATIONS
+Shear Modulus
+Layer#      (n,m)           amplitude[mu_n^m/mu_0^0]
+2    (0,0)   0.00000e+00
+Layer#      (n,m)           amplitude[mu_n^m/mu_0^0]
+3    (0,0)   0.00000e+00
+Layer#      (n,m)           amplitude[mu_n^m/mu_0^0]
+4    (0,0)   0.00000e+00
+Bulk Modulus
+Layer#      (n,m)           amplitude[K_n^m/K_0^0]
+2    (0,0)   0.00000e+00
+Layer#      (n,m)           amplitude[K_n^m/K_0^0]
+3    (0,0)   0.00000e+00
+Layer#      (n,m)           amplitude[K_n^m/K_0^0]
+4    (0,0)   0.00000e+00
+Viscosity
+Layer#      (n,m)          amplitude[eta_n^m/eta_0^0]
+2    (0,0)   0.00000e+00
+Layer#      (n,m)          amplitude[eta_n^m/eta_0^0]
+3    (0,0)   0.00000e+00
+Layer#      (n,m)          amplitude[eta_n^m/eta_0^0]
+4    (0,0)   0.00000e+00
+Complex Shear Modulus
+Layer#      (n,m)         amplitude[\hat\mu_n^m/mu_0^0]
+2    (0,0)    0.00000e+00
+Layer#      (n,m)         amplitude[\hat\mu_n^m/mu_0^0]
+3    (0,0)    0.00000e+00
+Layer#      (n,m)         amplitude[\hat\mu_n^m/mu_0^0]
+4    (0,0)    0.00000e+00
+ 
+----------- FORCING ----------
+TIDAL POTENTIAL
+Period [s]
+4.43876e+04
+(n,m)
+(2,0)
+ 
+-----------  RESPONSE SPECTRUM -----------
+0th Order Modes
+1 modes
+(2,0),   
+1th Order Modes
+0 modes
+2th Order Modes
+0 modes
+----------- NUMERICAL INFORMATION ----------
+Number of Modes 1
+Radial Points 399
+Time Spent computing the propagation matrix 0.14816 s
+Time Spent Integrating radially 0.0048837 s
+Time Spent rearranging the solution vector 0.00039146 s
+ ###########################################################################
+ Propagating Solution ...
+Time Spent assembling the boundary conditions matrix 0.0018829 s
+Time Spent calculating the coefficients 0.0001455 s
+Time Spent assembling the solution 0.0026014 s
+Mode (n,m) (2,0)
+CMB:9.7145e-17, 0,0, 0
+Surface: -2.7756e-16, 4.1633e-16, 0, 5
+Time Spent calculating the auxilliary variables 0.010604 s
+Time Spent rearranging the solution vector 0.00028888 s
+Time Spent: 0.2654s
+#####################################
+---------- RESPONSE ----------------
+k Love numbers
+(n,m)           k_n^m
+(2,0)           1.69000e-01
+h Love numbers
+(n,m)           h_n^m
+(2,0)           3.15632e-01
+
+================ MARS 1D CROSS-CHECK (MATLAB LOV3D) ================
+  k2 = 0.169000000000  (imag 0.000e+00)
+  h2 = 0.315632205682  (imag 0.000e+00)
+  l2 = 0.051595952202  (imag 0.000e+00)
+  h2/k2 = 1.867646
+-------------------------------------------------------------------
+  Python (pylov3d) reference: k2=0.169000000000  h2=0.315632205682  l2=0.051595952202
+  rel err  k2=1.979e-12  h2=1.164e-12  l2=8.604e-13
+===================================================================
+
+  saved artifact: /Users/svance/Library/CloudStorage/Dropbox/LOV3D_multi/data/tests/mars/mars_1d_cross_check.mat
+

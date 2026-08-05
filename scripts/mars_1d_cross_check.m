@@ -110,3 +110,23 @@ fprintf('  rel err  k2=%.3e  h2=%.3e  l2=%.3e\n', ...
     abs(real(h2)-0.315632205682)/0.315632205682, ...
     abs(real(l2)-0.051595952202)/0.051595952202);
 fprintf('===================================================================\n\n');
+
+%% SAVE VERIFICATION ARTIFACT (TASK-020)
+% Persist the computed Love numbers to a small .mat so a MATLAB-less reader
+% (or a future regression check) can verify the numbers above without re-
+% running MATLAB. Mirrors the data/tests/moon/*.mat practice.
+out_dir = fullfile(repo_root, 'data', 'tests', 'mars');
+if ~isfolder(out_dir)
+    mkdir(out_dir);
+end
+mars_1d.k2 = k2;
+mars_1d.h2 = h2;
+mars_1d.l2 = l2;
+mars_1d.h2_over_k2   = real(h2) / real(k2);
+mars_1d.model_R0_km  = [Interior_Model.R0];
+mars_1d.model_rho0   = [Interior_Model.rho0];
+mars_1d.forcing_n    = Forcing(1).n;
+mars_1d.forcing_m    = Forcing(1).m;
+mars_1d.matlab_version = version;
+save(fullfile(out_dir, 'mars_1d_cross_check.mat'), '-struct', 'mars_1d');
+fprintf('  saved artifact: %s\n\n', fullfile(out_dir, 'mars_1d_cross_check.mat'));

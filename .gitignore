@@ -12,6 +12,7 @@ __pycache__/
 data/*
 !/data/tests
 !/data/tests/moon
+!/data/tests/mars
 !/data/README.md
 !/data/mars
 /files/couplings

@@ -161,6 +161,30 @@ for j = 1:nshow
 end
 fprintf('========================================================================\n\n');
 
+%% SAVE VERIFICATION ARTIFACT (TASK-020)
+% Persist the computed coupled spectrum to a small .mat so a MATLAB-less
+% reader (or a future regression check) can verify the N=115 / 2.95e-13
+% numbers above without re-running MATLAB. Mirrors data/tests/moon/*.mat.
+out_dir = fullfile(repo_root, 'data', 'tests', 'mars');
+if ~isfolder(out_dir)
+    mkdir(out_dir);
+end
+mars_lat.N_modes      = length(n_s);
+mars_lat.k2_uniform   = k2_uniform;
+mars_lat.k2_forcing   = k2_forcing;
+mars_lat.k2_shift     = k2_shift;
+mars_lat.n            = n_s;          % mode degrees
+mars_lat.m            = m_s;          % mode orders
+mars_lat.k            = k_s;          % complex k per mode (forcing mode is absolute)
+mars_lat.forcing_n    = Forcing(1).n;
+mars_lat.forcing_m    = Forcing(1).m;
+mars_lat.Nrbase       = Numerics.Nrbase;
+mars_lat.perturbation_order = Numerics.perturbation_order;
+mars_lat.method       = Numerics.method;
+mars_lat.matlab_version = version;
+save(fullfile(out_dir, 'mars_lateral_cross_check.mat'), '-struct', 'mars_lat');
+fprintf('  saved artifact: %s\n\n', fullfile(out_dir, 'mars_lateral_cross_check.mat'));
+
 
 %% ------------------------------------------------------------------------
 %% local function: minimal .npz reader for the committed lateral field

@@ -232,7 +232,11 @@ this coarse 4-layer / purely-elastic parameterization rather than a Python
 port artifact. (Porting note: MATLAB's `get_rheology` treats a layer as
 elastic only when `eta0` is *empty/absent*; `eta0 = NaN` — pylov3d's elastic
 sentinel — would instead enter the viscoelastic branch and yield a singular
-BC matrix, so the MATLAB driver omits `eta0` for elastic layers.)
+BC matrix, so the MATLAB driver omits `eta0` for elastic layers.) The driver's
+full console output and a small `.mat` of the computed Love numbers are
+committed at `data/tests/mars/mars_1d_cross_check.{log,mat}` (MATLAB
+R2025b, 25.2.0.3150157 Update 4) so the numbers above are verifiable without
+re-running MATLAB.
 
 ## Tests
 
@@ -686,7 +690,12 @@ model has (part 1). The driver reads the committed npz directly (a minimal
 in-script `.npy` parser -- no Python bridge) and feeds the complex-SH
 amplitudes to MATLAB's `mu_variable` path directly, bypassing the
 peak-to-peak percent conversion; `eta0` is omitted on all four layers
-(elastic -- the part-1 NaN-poisons-the-solve gotcha).
+(elastic -- the part-1 NaN-poisons-the-solve gotcha). The driver's full
+console output and a small `.mat` of the computed coupled spectrum (all 115
+modes: `n`, `m`, complex `k`, plus `k2_uniform`/`k2_forcing`/`k2_shift`) are
+committed at `data/tests/mars/mars_lateral_cross_check.{log,mat}` (MATLAB
+R2025b, 25.2.0.3150157 Update 4) so the numbers above are verifiable without
+re-running MATLAB.
 
 ### 5. Linearity check, its subtlety, and the forcing-mode's first-order term
 
