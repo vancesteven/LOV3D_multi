@@ -365,7 +365,7 @@ parameters and 4 constraints:
 | `mu_scale` | [0.3, 3.0] | shared `Scaled` factor on both mantle shear moduli |
 | `R_core` | [1750, 1910] km | core_radius ± 2·sigma (Stähler et al. 2021, 1830 ± 40 km) |
 
-Constraints: mass (`GM/G`, sigma = 0.1% — dominated by G's uncertainty, far
+Constraints: mass (`GM/G`, sigma = 0.1% — a deliberate modelling-error allowance (G and GM are both known far more precisely), far
 looser than the MoI/k2 constraints below), `moi_mean` (0.36310 ± 0.0005),
 `k2` (0.169 ± 0.006), and **`core_radius_km`** (1830 ± 40 km) — same
 citations as the table at the top of this document. `mars_log_posterior()`

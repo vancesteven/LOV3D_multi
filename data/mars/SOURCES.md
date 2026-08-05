@@ -38,3 +38,12 @@ not be silently mixed for the same quantity.
   https://zenodo.org/api/records/6475460/files/MarsTopo719.shape.gz/content
 - Quick check: degree-0 term = 3.38950012207057e6 m (mean radius 3389.5 km).
 - sha256 (of the .gz as stored): 37a98efae5eab7c85260f4b43315fe9fcf44247a61581bed1b6f7f10f79adea0
+
+## mars_mu_variable_lateral.npz — derived lateral rigidity model (TASK-016)
+
+- Product of this repository (not fetched): the crust-layer complex-SH
+  `mu_variable` amplitudes derived from the two datasets above (Airy,
+  areoid-referenced, lmax=4), exported as the exact input contract for the
+  MATLAB coupled cross-check (`scripts/mars_lateral_cross_check.m`).
+- Regenerate: `pylov3d.mars_lateral.export_mu_variable_lateral()`.
+- sha256: fa9391fee8b4196156ffaf4a522e1beb50a3e598e910ed4a07b249f8391f851b

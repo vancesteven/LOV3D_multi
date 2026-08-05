@@ -19,7 +19,9 @@ data/*
 *.asv
 **/*.asv
 /tests/Io_SS.m
-/scripts
+# Scripts: ignore outputs/caches, track sources
+scripts/output/
+scripts/**/__pycache__/
 pylov3d/tests/output/
 .obsidian/
 graphify-out/

@@ -127,7 +127,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-377 tests across 31 test files, covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
+496 tests across 37 test files (483 in the default fast lane; run the full set with `-m ""`), covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
 
 #### Models tested
 
@@ -279,9 +279,9 @@ This software have been developed by:
 
 ## License
 
-The contents in the `docs/` directory together with all `png` files present in this repository are licensed under a **CC-BY 4.0** (see [CC-BY-4.0](LICENSES/CC-BY-4.0.txt) file). 
+The contents in the `docs/` directory together with all `png` files present in this repository are licensed under a **CC-BY 4.0** (see [CC-BY-4.0](licenses/CC-BY-4.0.txt) file). 
 
-The source code, data files and example scripts are licensed under an **Apache License v2.0** (see [Apache-License-v2.0](LICENSES/Apache-License-v2.0.txt) file).
+The source code, data files and example scripts are licensed under an **Apache License v2.0** (see [Apache-License-v2.0](licenses/Apache-License-v2.0.txt) file).
 
 The following copyright notice is applicable to employees of Technische Universiteit Delft only (**Marc Rovira-Navarro** and **Allard Veenstra**):  
 
@@ -294,7 +294,7 @@ Henri Werij, Dean of Faculty of Aerospace Engineering, Technische Universiteit D
 
 The code uses the following third party libraries:
 
-Licenses and copyright statements for [cmocean](https://github.com/chadagreene/cmocean), [export_fig](https://github.com/altmany/export_fig/releases/tag/v3.40), [harmonicY](https://www.mathworks.com/matlabcentral/fileexchange/74069-wigner-3j-6j-9j) and [Wigner 3j-6j-9j]((https://www.mathworks.com/matlabcentral/fileexchange/74069-wigner-3j-6j-9j))  can be found in the [LICENSES](LICENSES/) folder.
+Licenses and copyright statements for [cmocean](https://github.com/chadagreene/cmocean), [export_fig](https://github.com/altmany/export_fig/releases/tag/v3.40), [harmonicY](https://www.mathworks.com/matlabcentral/fileexchange/74069-wigner-3j-6j-9j) and [Wigner 3j-6j-9j]((https://www.mathworks.com/matlabcentral/fileexchange/74069-wigner-3j-6j-9j))  can be found in the [licenses](licenses/) folder.
 
 
 

@@ -1,0 +1,18 @@
+pylov3d — Python/JAX port of LOV3D
+Copyright (c) 2026 Steven Vance (port and extensions)
+
+This product is a derivative work of LOV3D:
+  https://github.com/mroviranavarro/LOV3D_multi
+  Copyright (c) 2023 M. Rovira-Navarro, I. Matsuyama, A. Veenstra
+  Licensed under the Apache License, Version 2.0 (see licenses/Apache-License-v2.0.txt)
+  Method reference: Rovira-Navarro, Matsuyama & Berne (2024),
+  "A Spectral Method to Compute the Tides of Laterally-Heterogeneous Bodies,"
+  Planetary Science Journal, 5, doi:10.3847/PSJ/ad381f
+
+The Python package pylov3d/ is a line-by-line algorithmic translation and
+extension of the MATLAB source in src/, and is likewise distributed under
+the Apache License, Version 2.0. Documentation under docs/ follows the
+upstream CC-BY-4.0 terms where derived from upstream documentation.
+
+Changes relative to upstream are recorded in the git history of the
+python-conversion branch and summarized in README.md.

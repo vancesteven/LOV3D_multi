@@ -7,7 +7,7 @@ name = "pylov3d"
 version = "0.1.0"
 description = "GPU-accelerated tidal Love number computation for planetary bodies"
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"  # pylov3d is a derivative work of LOV3D (Rovira-Navarro et al.), Apache-2.0
 requires-python = ">=3.10"
 authors = [
     {name = "Steven Vance"},
