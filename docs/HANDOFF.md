@@ -48,7 +48,7 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-017 | test-suite runtime lanes | A (verified) | DONE — uncommitted, awaiting commit gate. Fast lane 483/~2min, full lane 491 (`-m ""`); additions-only diff confirmed | `docs/tasks/TASK-017-codex-suite-runtime.md` |
 | TASK-018 | **M7 (roadmap): Moon instantiation** of the forward-model framework — `pylov3d/moon.py` constraints (GRAIL k2, lunar MoI, mass) + `moon_mc.py` parameterization reusing the Weber profile already in `data/tests/moon/`, tests, doc; same dual review standard as Mars | A | IN-PROGRESS | — |
 | TASK-013 | **M6:** Mars SH data loaders (GMM-3 SHADR + MarsTopo719) | free | VERIFIED — committed `ecef078` (with 012) | `docs/tasks/TASK-013-codex-mars-sh-loaders.md` |
-| TASK-014 | **M6:** MATLAB Mars cross-checks | B (pt 2 open) | **part 1 VERIFIED — committed `a07bbf8`**: MATLAB↔Python k2/h2/l2 to ~1e-12; h2/k2=1.8676 CONFIRMED real (coarse-4-layer feature, not a port bug); eta0 empty-vs-NaN convention gotcha documented. Part 2 (coupled Mars lateral sweeps + MATLAB coupled cross-val) claimable | `scripts/mars_1d_cross_check.m` |
+| TASK-014 | **M6:** MATLAB Mars cross-checks (both parts) | free | **VERIFIED (A, 2026-08-05)** — pt 1 `a07bbf8` (1D, ~1e-12); pt 2 `8a134e3` (coupled lateral: N=115 exact, k2 rel 2.95e-13, spectrum mode-for-mode; A checked the Python-side anchors, the npz contract in the driver, and that pylov3d/ is untouched — MATLAB execution B-attested per part-1 precedent) | `scripts/mars_1d_cross_check.m`, `scripts/mars_lateral_cross_check.m` |
 
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
