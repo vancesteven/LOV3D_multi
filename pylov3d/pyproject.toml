@@ -29,6 +29,9 @@ mc = ["pocomc>=1.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["pylov3d/tests"]
+# Default lane excludes measured long-running coupled/Monte Carlo tests.
+addopts = "-m 'not slow'"
+# Full lane (verified): venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q -m ""
 markers = [
     "slow: exercises the get_love solver multiple times (e.g. bisection reproducibility checks); not run by default in CI-fast configs.",
 ]

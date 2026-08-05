@@ -53,3 +53,53 @@ count + wall, full-lane count + wall, the verified full-lane command.
 ## Completion notes
 
 _(Codex appends here.)_
+
+### 2026-08-05 — completed on the live Machine A tree
+
+Untouched-suite measurement command:
+`venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q --durations=40`
+
+Result: **491 passed, 2 warnings in 990.12 s**. Top 10 durations:
+
+1. 296.57 s call — `tests/test_mars_lateral.py::TestTruncationSensitivity::test_lmax5_k2_shift_within_20_percent`
+2. 239.26 s call — `tests/test_mars_lateral.py::TestLinearity::test_order1_mode_scales_linearly`
+3. 152.92 s call — `tests/test_mars_lateral.py::TestJaxEquivalence::test_jax_matches_numpy_coupled`
+4. 91.74 s call — `tests/test_mars_lateral.py::TestForcingModePerturbation::test_k2_shift_much_smaller_than_observational_uncertainty`
+5. 35.99 s call — `tests/test_moon.py::TestPocoMCSmoke::test_micro_run_completes_and_recovers_k2`
+6. 20.85 s call — `tests/test_forward.py::TestPocoMCSmoke::test_micro_run_completes_and_recovers_k2`
+7. 15.27 s call — `tests/test_jax_propagator.py::TestJaxScan::test_scan_matches_python_loop_jax`
+8. 14.60 s call — `tests/test_jax_propagator.py::TestJaxPropagator::test_k2_analytic`
+9. 14.53 s call — `tests/test_jax_propagator.py::TestJaxPropagator::test_k2_matches_numpy`
+10. 10.25 s setup — `tests/test_mapping.py::TestPlotMapSmoke::test_returns_figure_no_exception`
+
+Newly marked `slow` after measurement:
+
+- `tests/test_mars_lateral.py::TestLinearity::test_order1_mode_scales_linearly`
+- `tests/test_mars_lateral.py::TestJaxEquivalence::test_jax_matches_numpy_coupled`
+- `tests/test_mars_lateral.py::TestForcingModePerturbation::test_k2_shift_much_smaller_than_observational_uncertainty`
+
+The other measured tests over 20 s were already marked `slow`: the Mars
+truncation-sensitivity test and the Moon and forward PocoMC smoke tests.
+The pre-existing two-test `TestFitReproducibility` slow class was retained.
+Every affected test module still has unmarked tests; no exception to the
+module-touch constraint was needed. The test-file diff contains only the
+three decorator additions above and no test logic changes.
+
+Fast default lane:
+`venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q`
+
+- **483 passed, 8 deselected, 2 warnings in 213.92 s** (215.33 s real wall),
+  0 failures.
+
+Verified full lane:
+`venvLOV3Dconv/bin/python -m pytest pylov3d/tests/ -q -m ""`
+
+- **491 passed, 2 warnings in 1204.33 s** (1206.11 s real wall), 0 failures.
+
+Ambiguity/deviation: the spec says the current full total is exactly 465,
+but the live tree already contained concurrent untracked Moon work at task
+start, including `pylov3d/tests/test_moon.py`. The untouched measurement and
+verified full lane both collected **491**, 26 more than the stated baseline.
+No tests were deleted, hidden from the full lane, or altered to manufacture
+the stale 465 count; the exact required full-lane command is green on all
+tests present in the live tree.

@@ -180,6 +180,7 @@ class TestZeroAmplitudeReduction:
 
 class TestLinearity:
 
+    @pytest.mark.slow
     def test_order1_mode_scales_linearly(self):
         model = build_mars_model()
         forcing = make_forcing(Td=MARS_FORCING_TD, n=2, m=0, F=1.0)
@@ -303,6 +304,7 @@ class TestLinearity:
 
 class TestJaxEquivalence:
 
+    @pytest.mark.slow
     def test_jax_matches_numpy_coupled(self):
         model = build_mars_model()
         forcing = make_forcing(Td=MARS_FORCING_TD, n=2, m=0, F=1.0)
@@ -382,6 +384,7 @@ class TestAiryNumbers:
 
 class TestForcingModePerturbation:
 
+    @pytest.mark.slow
     def test_k2_shift_much_smaller_than_observational_uncertainty(self):
         model = build_mars_model()
         forcing = make_forcing(Td=MARS_FORCING_TD, n=2, m=0, F=1.0)

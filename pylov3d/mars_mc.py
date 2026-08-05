@@ -167,11 +167,14 @@ MARS_PARAMETERIZATION = BodyParameterization(
 # ---------------------------------------------------------------------------
 
 MARS_CONSTRAINTS: tuple[Constraint, ...] = (
-    # sigma dominated by G's uncertainty (CODATA 2018 relative uncertainty
-    # ~2.2e-5), not GM's (MRO120D GM is known to ~1e-6 relative); 0.1% is a
-    # conservative round number well above either, so mass barely
-    # constrains (rho_core, rho_lm) relative to the much tighter MoI/k2
-    # constraints -- intentional, matches TASK-012 spec.
+    # sigma = 0.1%, a conservative round number, NOT a propagated
+    # measurement error: both GM (MRO120D, ~1e-6 relative) and G (CODATA
+    # 2018, ~2.2e-5 relative) are known far tighter than this. 0.1% is
+    # instead a deliberate MODELLING-ERROR allowance -- this stage-1 model's
+    # own structural/discretization uncertainty (4 homogeneous layers, a
+    # single fit) swamps the underlying data's actual precision -- so mass
+    # barely constrains (rho_core, rho_lm) relative to the much tighter
+    # MoI/k2 constraints -- intentional, matches TASK-012 spec.
     Constraint(name="mass", value=MARS["GM"] / MARS["G"], sigma=0.001 * (MARS["GM"] / MARS["G"])),
     Constraint(name="moi_mean", value=MARS["MoI_factor"], sigma=MARS["MoI_factor_sigma"]),
     Constraint(name="k2", value=MARS["k2"], sigma=MARS["k2_sigma"]),

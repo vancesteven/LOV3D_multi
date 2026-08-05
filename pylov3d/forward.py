@@ -127,12 +127,22 @@ class BodyParameterization:
         referenced anywhere in ``layers`` (validated in ``__post_init__``).
     bounds : ``{name: (lo, hi)}`` prior box per free parameter; keys must
         match ``free_params`` exactly.
+    core_layer_index : which layer's outer radius :func:`compute_observables`
+        reads for the ``"core_radius_km"`` observable (default 0, i.e. LOV3D
+        layer 0 — correct whenever the physically free "core" being tracked
+        *is* the LOV3D-solver core layer, e.g. Mars's 4-layer model). Set
+        this to a different layer index for a parameterization where layer 0
+        is an inert placeholder rather than the physically free core (e.g.
+        an artificial numerically-inert buffer layer ahead of a real free
+        fluid-core boundary a few layers out — see :mod:`pylov3d.moon_mc`,
+        which sets this to 2).
     """
 
     name: str
     layers: tuple[LayerSpec, ...]
     free_params: tuple[str, ...]
     bounds: dict[str, tuple[float, float]]
+    core_layer_index: int = 0
 
     def __post_init__(self) -> None:
         referenced: set[str] = set()
@@ -158,6 +168,11 @@ class BodyParameterization:
         for nm, (lo, hi) in self.bounds.items():
             if not (lo < hi):
                 raise ValueError(f"bounds for {nm!r} must have lo < hi, got ({lo}, {hi})")
+        if not (0 <= self.core_layer_index < len(self.layers)):
+            raise ValueError(
+                f"core_layer_index={self.core_layer_index} out of range for "
+                f"{len(self.layers)} layers"
+            )
 
     @property
     def n_free(self) -> int:
@@ -265,6 +280,7 @@ def compute_observables(
     forcing: Forcing,
     numerics: NumericsConfig,
     which: Sequence[str] = DEFAULT_OBSERVABLES,
+    core_layer_index: int = 0,
 ) -> dict[str, float | complex]:
     """Compute named observables from any ``InteriorModel``.
 
@@ -277,6 +293,11 @@ def compute_observables(
         rejected outright (see below), independent of ``which``.
     which : subset of ``{"mass", "moi_mean", "core_radius_km", "k2", "h2",
         "l2"}``.
+    core_layer_index : which layer's outer radius ``"core_radius_km"`` reads
+        (default 0). Pass ``parameterization.core_layer_index`` when calling
+        this on a :class:`BodyParameterization`-built model where the
+        physically free core layer is not LOV3D layer 0 (see that field's
+        docstring).
 
     Returns
     -------
@@ -284,8 +305,8 @@ def compute_observables(
     are cast to their real part) or complex (viscoelastic model: Love
     numbers are returned complex, propagating the dissipative phase lag).
     "mass" is in kg; "moi_mean" is the dimensionless factor I/(M R_surface^2);
-    "core_radius_km" is the layer-0 (core) outer radius in km, read directly
-    off the model (no solve) — a cheap, generic (not Mars-specific)
+    "core_radius_km" is layer ``core_layer_index``'s outer radius in km, read
+    directly off the model (no solve) — a cheap, generic (not Mars-specific)
     identifiability handle for any parameterization with a free core radius.
 
     Raises
@@ -331,7 +352,7 @@ def compute_observables(
                 R_surface_m = float(np.asarray(model.R0[n - 1])) * 1e3
                 out["moi_mean"] = I / (M * R_surface_m**2)
         if "core_radius_km" in which:
-            out["core_radius_km"] = float(np.asarray(model.R0[0]))
+            out["core_radius_km"] = float(np.asarray(model.R0[core_layer_index]))
 
     love_wanted = [k for k in which if k in _LOVE]
     if love_wanted:
@@ -451,7 +472,10 @@ def make_log_posterior(
             return -np.inf
         try:
             model = build_model(parameterization, theta)
-            obs = compute_observables(model, forcing, numerics, which=which)
+            obs = compute_observables(
+                model, forcing, numerics, which=which,
+                core_layer_index=parameterization.core_layer_index,
+            )
         except Exception as exc:  # noqa: BLE001 - deliberately broad: any
             # solver failure (LinAlgError, bracketing failures, NaNs, ...)
             # on an unphysical theta must degrade to -inf, not crash a sampler.
