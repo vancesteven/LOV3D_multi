@@ -667,6 +667,27 @@ requirement: the lateral rigidity variation is a perturbation on the
 fixed-forcing response, not a re-fit of it. See section 5 below for what
 actually drives this shift.
 
+**MATLAB cross-validation (TASK-014 part 2).** The same lateral model --
+the exact 4-layer Mars body plus the crust-layer complex-SH `mu_variable`
+field committed in `data/mars/mars_mu_variable_lateral.npz` -- run through
+the native MATLAB LOV3D *coupled* solver
+(`scripts/mars_lateral_cross_check.m`, `method='variable'`, `Nrbase=30`,
+`perturbation_order=2`) reproduces the Python spectrum essentially
+bit-for-bit: **N = 115 coupled modes (exact match)**; k2_uniform =
+0.169000000002 (identical to 12 digits); forcing-mode k2 =
+0.169055174106 (**rel err 2.95e-13**); k2 lateral shift = 5.517410e-5 vs
+Python 5.517410435e-5 (the 7.9e-8 residual on the *shift* is pure
+float64 cancellation from differencing two near-equal ~0.169 values -- the
+raw k2 agrees to 2.95e-13). The non-forcing response spectrum matches mode
+for mode -- (3,0) largest at -7.29e-5, then the (2,+/-2) conjugate pair at
++3.22e-5 +/- 2.03e-5i, the (3,+/-1) and (3,+/-3) pairs, etc. This gives the
+Mars *lateral* model the same independent native-MATLAB anchor the 1D
+model has (part 1). The driver reads the committed npz directly (a minimal
+in-script `.npy` parser -- no Python bridge) and feeds the complex-SH
+amplitudes to MATLAB's `mu_variable` path directly, bypassing the
+peak-to-peak percent conversion; `eta0` is omitted on all four layers
+(elastic -- the part-1 NaN-poisons-the-solve gotcha).
+
 ### 5. Linearity check, its subtlety, and the forcing-mode's first-order term
 
 Scaling the Airy `mu_variable` amplitude by `eps in {1e-3, 1e-2}`, the
