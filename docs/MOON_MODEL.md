@@ -433,15 +433,29 @@ reference posterior**: with only 8 active particles and 32 total draws in
 4-D this run is badly under-resolved (the tell: its spread is narrower
 than the prior, which an under-sampled SMC run systematically produces) —
 it exists only to check `moon_log_posterior` + `pocomc.Sampler` wire
-together correctly and finish in seconds. **The reference posterior for
-`R_fluid_core`** is instead the reviewer-verified, properly-resolved run
-(`n_active=64`, `n_effective=128`, `n_total=512`, pre-M3 unphysical
-[0.75, 1.25] `core_rho_scale` range): **363.7 ± 33.2 km** (quoted above,
-"Anelastic bias"). A properly-resolved run under the *current* (floored)
-bounds has not been performed in this round — given the MAP shift to
-~327 km once the floor is active, that resolved number should **not** be
-assumed to still apply; a fresh production run under the physically-floored
-parameterization is future work (mirrors Mars's TASK-015).
+together correctly and finish in seconds.
+
+**The reference posterior (converged, under the shipped floored bounds)**
+is the TASK-019 production run (`scripts/moon_pocomc.py`: `n_active=64`,
+`n_effective=128`, `Nrbase=50`, dynamic termination; 4105 samples, Kish
+ESS = 4087.7; chain archived as
+`docs/figures/proposal/moon_posterior_chain.npz` with pairplot alongside).
+Weighted medians ±1σ:
+
+| parameter | median | 16%/84% |
+|---|---|---|
+| core_rho_scale | 0.900 | 0.886 / 0.928 (lower tail touches the 0.88 floor) |
+| mu_scale | 0.965 | 0.955 / 0.975 |
+| **R_fluid_core** | **321 km** | 308 / 340 km |
+| mantle_rho_scale | 1.006 | 1.005 / 1.007 |
+
+Median-model observables satisfy all four constraints (mass 7.344e22 kg,
+moi_mean 0.3929, core_radius 321.2 km, k2 0.02419). As the module
+docstring predicts, `R_fluid_core` lands near the as-built Weber ~327 km
+— pulled DOWN from the Garcia prior mean by the residual mass/MoI
+mechanism under the density floor (not by anelasticity). The historical
+pre-floor run (363.7 ± 33.2 km, unphysical [0.75, 1.25] core-density
+range) is superseded and retained above only as review context.
 
 ## Relationship to the Milestone 5 ocean-harness validation
 
