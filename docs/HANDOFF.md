@@ -52,6 +52,8 @@ One row per task. Owner ∈ {A, B, CODEX, free}. Never work a task you don't own
 | TASK-013 | **M6:** Mars SH data loaders (GMM-3 SHADR + MarsTopo719) | free | VERIFIED — committed `ecef078` (with 012) | `docs/tasks/TASK-013-codex-mars-sh-loaders.md` |
 | TASK-014 | **M6:** MATLAB Mars cross-checks (both parts) | free | **VERIFIED (A, 2026-08-05)** — pt 1 `a07bbf8` (1D, ~1e-12); pt 2 `8a134e3` (coupled lateral: N=115 exact, k2 rel 2.95e-13, spectrum mode-for-mode; A checked the Python-side anchors, the npz contract in the driver, and that pylov3d/ is untouched — MATLAB execution B-attested per part-1 precedent) | `scripts/mars_1d_cross_check.m`, `scripts/mars_lateral_cross_check.m` |
 
+| TASK-021 | **Hydration-front tidal signature (proposal RQ1 made quantitative):** serpentinization front in the crust shell (hydrated-fraction parameter f_h, serpentinite mu/K reductions, lateral distribution tied to the ingested crustal-thickness fields) -> mu_variable + K_amp through the validated lateral machinery -> predicted k2 shift + Love spectrum vs f_h, honest detectability statement vs sigma_k2=0.006. A design -> Sonnet impl -> Opus dual review; B sweeps after | A | IN-PROGRESS | — |
+
 Statuses: `QUEUED → IN-PROGRESS → DONE → VERIFIED` (verification by an Opus-tier
 reviewer, done by a *different* driver than the implementer when practical).
 
