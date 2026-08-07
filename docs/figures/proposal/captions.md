@@ -196,6 +196,52 @@ rather than a synthetic test case.
 
 ---
 
+## Figure 7 — `fig7_hydration_signature`
+
+**Size:** full-width (7.6 in), two panels (curve + map).
+
+**Draft caption:** *TASK-021: the quantitative hydration-front tidal
+signature — the proposal's core hypothesis made numeric. Left:
+Delta-k2(f_h), the total (mean-softened crust + coupled lateral) shift of
+the observable degree-2 tidal Love number k2 from the uniform k2 = 0.169
+baseline, against the global hydrated-fraction parameter f_h in [0, 0.5],
+central web-verified serpentinite-property ratio (mu_serp/mu_crust = 0.48,
+K_serp/K_crust = 0.69; solid) with the literature bracket shaded
+(mu_serp/mu_crust in [0.26, 0.81], Christensen 1966/2004; Falcon-Suarez et
+al. 2017), against the current observational 1-sigma, sigma_k2 = 0.006
+(Konopliv, Park & Folkner 2016). Right: the lateral (degree>=1) rigidity
+perturbation delta-mu/mu_crust (%) at f_h = 0.3, central ratio — the same
+Airy crustal-thickness geometry as Fig. 6, now driving a serpentinite
+(not crust/mantle) volume mix; the mean (degree-0) softening is not shown
+spatially, since it uniformly shifts the crust's reference modulus rather
+than varying it laterally (see docs/MARS_MODEL.md, "Hydration-front tidal
+signature (TASK-021)", section 2). Computed live via
+`pylov3d.mars_hydration.hydration_forward_sweep` (NumPy coupled path, the
+module's documented reduced-lmax=2/Nrbase=30 default — see
+docs/MARS_MODEL.md section 4 for the lmax=2-vs-4 spot check).
+**k2 measures the globally-averaged (bulk) hydrated fraction, not WHERE
+the hydration is:** the lateral (front-shaped) contribution shown on the
+right is a small fraction of the left panel's total curve at every
+sampled point (~57-64:1 mean:lateral at the validated lmax=4) — a lateral
+front and a uniform hydration of equal total water content are nearly
+indistinguishable in k2; the front's actually diagnostic signature is
+the off-(2,0) Love spectrum (the Fig. 6 machinery), whose own
+detectability is future work. Honest detectability statement:
+Delta-k2 never approaches sigma_k2 over the sampled f_h<=0.5 range at
+any bracket ratio, and the 30 GPa reference-crust denominator (not just
+the serpentinite bracket) drives this conclusion at least as much (see
+docs/MARS_MODEL.md section 5a) — current MRO120D/MRO120F
+k2 precision cannot detect this signal as parameterized. The k2 precision
+that would resolve f_h=0.1 (central ratio) is 6.3e-5, about 95x tighter
+than today's 0.006 — stated as a precision number, not a mission claim.*
+
+**Suggested placement:** After Fig. 6, as the culminating "proposed work"
+figure — this is where the lateral machinery Fig. 5 validates and Fig. 6
+applies to real topography turns into the proposal's actual scientific
+claim, with an explicit, non-oversold precision number attached.
+
+---
+
 ## Notes on reproducing
 
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig1_mars_interior_model.py`

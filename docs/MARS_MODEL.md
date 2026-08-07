@@ -793,3 +793,362 @@ TASK-014 part 1: Python uses `eta0 = NaN` for elastic, MATLAB requires
 (`crust_layer_index` is 0-based Python numbering, 3; the same layer is
 MATLAB `Interior_Model(4)`, 1-based) -- for machine B's native-MATLAB
 coupled cross-check (TASK-014 part 2).
+
+## Hydration-front tidal signature (TASK-021)
+
+Quantifies the proposal's core hypothesis directly: a downward-propagating
+crustal hydration (serpentinization) front produces laterally varying
+crust rigidity with a tidal signature, at the scale a real gravity/tidal
+measurement could in principle constrain. Built entirely on the
+already-validated TASK-016 lateral machinery above and the TASK-011 1D
+model -- no `pylov3d` module is modified to build this. Implementation:
+`pylov3d/mars_hydration.py` (full derivation in its module docstring; this
+section states the numbers, the web-verified serpentinite property
+sources, and the deviations). Tests: `pylov3d/tests/test_mars_hydration.py`.
+Figure: `scripts/proposal_figures/fig7_hydration_signature.py` ->
+`docs/figures/proposal/fig7_hydration_signature.{pdf,png}`.
+
+### 1. Serpentinite elastic properties (web-verified, not from memory)
+
+`mu_serp/mu_crust` and `K_serp/K_crust` ratios against this model's crust
+reference (`mu_crust` = `LAYER_MU_CRUST` = 30 GPa, `K_crust` =
+`LAYER_KS[3]` = 70 GPa), from published Vp/Vs/density via
+`mu = rho*Vs^2`, `K = rho*(Vp^2 - 4/3*Vs^2)`:
+
+| Property | Source | Vp, Vs [km/s] | rho [kg/m^3] | Value | Ratio |
+|---|---|---|---|---|---|
+| mu central | Christensen, N.I. (1966), "Elasticity of ultrabasic rocks," *J. Geophys. Res.*, 71(24), 5921-5931 (serpentine monomineralic-aggregate) | Vs=2.35 | 2600 (a) | 14.36 GPa | 0.48 |
+| mu low | Falcon-Suarez, I., Bayrakci, G., Minshull, T.A., North, L.J., Best, A.I., Roumejon, S., & IODP Exp. 357 Science Party (2017), "Elastic and electrical properties and permeability of serpentinites from Atlantis Massif, Mid-Atlantic Ridge," *Geophys. J. Int.*, 211(2), 686-699 (most-fractured core sample S2) | Vs=1.8 (f) | 2374 (b) | 7.69 GPa | 0.26 |
+| mu high | Christensen, N.I. (2004), "Serpentinites, peridotites, and seismology," *Int. Geol. Rev.*, 46(9), 795-816 | Vs=3.0 (c) | 2700 | 24.3 GPa | 0.81 |
+| K central | Christensen (1966), same sample as mu central | Vp=5.10, Vs=2.35 | 2600 (a) | 48.48 GPa | 0.69 |
+| K low | Falcon-Suarez et al. (2017), same sample as mu low | Vp~3.5 (d), Vs=1.8 (f) | 2374 (b) | 18.83 GPa | 0.27 |
+| K high | Christensen (2004), antigorite endmember, computed from measured rho/Vp/Vs | Vp=6.52, Vs=3.57 | n/a (e) | 71.2 GPa | 1.02 |
+
+(a) Christensen (1966) does not give a density for that sample in the
+passages found; 2600 kg/m^3 is a representative mid-range serpentinite
+bulk density, bracketed by Falcon-Suarez et al.'s (2017) measured
+2374-2786 kg/m^3 and the serpentinization density decrease from ~3300
+(fresh peridotite) to ~2500-2600 kg/m^3 (fully serpentinized) reported
+across the literature. (b) Falcon-Suarez et al. (2017), Table 1, bulk
+density of sample S2 (most fractured/altered of their four Atlantis
+Massif cores). (c) Christensen (2004) reports serpentinite Vs spanning
+roughly 2.3-3.6 km/s depending on serpentine polymorph (lizardite/
+chrysotile at the low end, antigorite at the high end); 3.0 km/s is
+adopted as a representative *upper* value for lizardite/chrysotile
+serpentinite, deliberately short of the antigorite endmember. (d) Not
+separately reported for sample S2; taken from Falcon-Suarez et al.'s
+(2017) stated Vp at low confining pressure (~3.5 km/s at 45 MPa) to pair
+with their low Vs. (e) Christensen (2004) computes mu and K for
+antigorite from measured rho/Vp/Vs (mu=34.7, K=71.2 GPa) rather than
+reporting them as independently measured quantities -- Vp, Vs, and
+density are the directly measured quantities; mu and K are derived from
+them via the standard isotropic-elastic relations, here and throughout
+this table. No paired density was found in the passages consulted. (f)
+The Vs=1.8 km/s value for sample S2 was read off a figure in Falcon-
+Suarez et al. (2017), not taken from a tabulated number -- an
+approximate, not exact, input.
+
+**Adopted:** `MU_SERP_RATIO_CENTRAL` = 0.48, `MU_SERP_RATIO_BRACKET` =
+[0.26, 0.81]; `K_SERP_RATIO_CENTRAL` = 0.69, `K_SERP_RATIO_BRACKET` =
+[0.27, 1.02]. K is far less reduced than mu -- physically expected:
+serpentinization is well known seismologically for depressed Vs and
+*elevated* Vp/Vs (Poisson's ratio), i.e. mu drops faster than K
+(Christensen 2004 is the classic reference for using Vp/Vs to detect
+serpentinite bodies on exactly this basis). The K-bracket high endpoint
+(1.02) is at/above 1.0, i.e. essentially no K softening in this corner of
+the bracket, for the same underlying reason as the antigorite caveat
+below (that source's antigorite K value *is* the adopted K-high
+endpoint, unlike mu).
+
+**Antigorite caveat, stated prominently.** Christensen (2004)'s
+antigorite bulk-rock values, computed from measured rho/Vp/Vs (mu=34.7,
+K=71.2 GPa), give `mu_serp/mu_crust` = 1.16 -- *stiffer* than this
+model's 30 GPa crust reference, essentially no softening signal in mu.
+Antigorite is the higher-temperature (~300-500 C) serpentine polymorph;
+if a real Mars hydration front is antigorite- rather than
+lizardite/chrysotile-dominated (the mineralogy most of the cited data
+describes, more plausible at shallow/cooler depths), the true detectable
+mu signal could be much weaker than modeled here, down to essentially
+zero. Not folded into the mu bracket above; recorded as an honest failure
+mode of the mineralogy assumption, independent of everything below.
+
+**Reference-crust caveat (added in review, section 5a below).** The
+30 GPa `LAYER_MU_CRUST` denominator itself -- a Christensen-Mooney
+average-basalt value, not specific to Mars -- turns out to drive the
+result at least as much as the serpentinite bracket does; see section 5a
+for a dedicated sensitivity table against InSight's actual in-situ
+crustal modulus and against unaltered gabbro/peridotite protoliths.
+
+### 2. Hydration geometry and the mean/lateral split
+
+Hydrated thickness within the fixed 50 km crust shell:
+`t_h(theta,phi) = f_h * t_crust(theta,phi)`, `f_h` in [0,1] the global
+hydrated-fraction parameter, `t_crust = 50 km + dt` reusing TASK-016's
+`crustal_thickness_variation` (Airy, areoid-referenced) as-is. Rationale:
+thicker crust hosts proportionally more hydratable volume -- a
+deliberately simple stage-1 coupling; a water-table-controlled hydration
+depth is the stated stage-2 alternative.
+
+Because `dt` has zero spatial mean by construction (its (0,0) term is
+dropped), the effective-rigidity formula splits cleanly into a mean
+(degree-0) and a lateral (degree>=1) term:
+
+```
+delta_mu/mu_crust(theta,phi) = (mu_serp-mu_crust)/mu_crust * t_h/50km
+                              = f_h*(mu_serp-mu_crust)/mu_crust                          [mean]
+                              + f_h*(mu_serp-mu_crust)/(mu_crust*50km) * dt(theta,phi)   [lateral]
+```
+
+(same form for K). The **mean term** -- first-order important, not
+dropped -- becomes a modified crust `mu0`/`Ks0` for a fresh 1D solve:
+`mu0_soft = (1-f_h)*mu_crust + f_h*mu_serp` (`build_hydrated_mars_model`,
+crust layer only, verified in `test_mars_hydration.py::TestMeanShiftConsistency`
+against an independently rebuilt model). The **lateral term** feeds
+`get_love`'s `mu_variable`/`K_variable` coupled path, converted to the
+solver's complex-SH convention by reusing
+`mars_lateral._real_sh_to_complex_mu_variable` unchanged. Its
+normalization is *not* the same as the human-readable/plotting form
+above: `process_lateral_variations`'s elastic branch injects
+`muC_amp = mu_i * mu_map[nm]` with `mu_i` the layer's own normalized
+modulus (=1.0 exactly for the crust, the model's surface layer), so the
+fractional amplitude actually passed to the solver is normalized by the
+*softened* `mu0_soft`/`Ks0_soft`, not the original 30/70 GPa
+(`hydration_lateral_variables`; `hydration_dmu_over_mu_bar_real` is the
+separate, mu_crust-normalized version used only for fig7's map).
+
+**Clip vs. spectral formulation (deviation, documented).** The spec asks
+both for clipping `t_crust` to [0, 50 km] (shell residency) and for
+evaluating the perturbation "spectrally (linear in t_crust's SH
+coefficients)" -- in tension, since clipping is nonlinear/pointwise and
+not expressible as a rescaling of `dt`'s existing SH coefficients. Given
+`dt`'s zero mean, clipping `t_crust=50+dt` at 50 km would bind over
+roughly *half* the sphere (everywhere `dt>0`) for any `f_h > 0` -- not a
+rare edge case. Adopted interpretation: use the linear/spectral form
+exactly as specified for the actual mu/K SH coefficients, and enforce the
+clip as a **checked bound** instead (`hydration_geometry_diagnostics`,
+same pattern as `crustal_thickness_diagnostics`'s existing `|dt|<50km`
+check). Verified, not assumed: over the swept range used here (`f_h` <=
+0.5, measured max|dt| = 34.2 km, TASK-016), the bound is never violated
+(max `t_h_linear` = 0.5*(50+34.2) = 42.1 km < 50 km) -- confirmed
+numerically by `hydration_geometry_diagnostics` and pinned by
+`test_mars_hydration.py::TestGeometryDiagnostics`. It would start to bind
+above `f_h` ~0.59 at the measured peak |dt|; not swept here.
+
+### 3. K_variable gap in every rheology branch, its row-0 normalization, and a silent-collapse bug (all found in review)
+
+**The gap is not elastic-specific (corrected from an earlier draft).**
+`pylov3d.rheology.process_lateral_variations` hardcodes `K_amp = 0`
+regardless of the `K_variable` argument in *both* its elastic branch
+(`rheology.py` ~line 424) *and* its viscoelastic branch (~line 480, same
+pattern) -- `LateralRheology.K_amp`'s own docstring: "currently set to 0;
+placeholder for future use"; confirmed by
+`test_lateral_rheology.py::test_elastic_K_amp_zero`. All four Mars layers
+are elastic, so this module only exercises the elastic branch, but the
+gap itself is not elastic-specific. `get_love(..., K_variable=...)` would
+silently have no effect here. The low-level `K_amp` channel *is* wired
+through the NumPy coupled propagator/solver (`solver.py`; validated by
+`test_jax_coupled_scan.py::test_nonzero_K_amp_selection`, which injects
+`K_amp` post hoc via `LateralRheology._replace`). `get_love_hydrated`
+(`mars_hydration.py`) reproduces `get_love`'s pipeline and adds the
+missing step by hand. No `pylov3d` module is modified.
+
+**Row-0 normalization convention (review finding, resolved by reading
+`pylov3d.propagator` source directly, not assumed).** `_a1a2_geometric`'s
+own docstring states: "Row 0 uses `(3*lambda+2*mu)=1` -> multiply by
+actual `(3*lambda+2*mu)` for diagonal, or `K_nm` for coupling." Its
+partner, `_coupling_A1_A2`, applies `K_nm` to row 0 with **no** extra
+factor (`A1c[0,:] += K_nm * Cp[0] * A1g[0,:]`) -- contrast rows 1-5,
+where the code itself multiplies `mu_nm` by 2 to match the diagonal's
+`2*mu` scaling. For the row-0 coupling amplitude to represent the same
+normalized quantity as the diagonal's `(3*lambda+2*mu) = 3*K` (since
+`lambda = K - 2*mu/3`), `K_nm` must equal `delta(3*lambda+2*mu) =
+3*delta_K`, not plain `delta_K`. The originally shipped code used plain
+`delta_K` (`K_amp = Ks_i * K_map[nm]`); corrected to
+`K_amp = 3 * Ks_i * K_map[nm]` (`mars_hydration.py`'s `K_ROW0_FACTOR`
+constant). No validated reference pins this convention -- every
+`pylov3d` rheology branch zeroes `K_amp` unconditionally, so nothing
+upstream ever exercised this row for a nonzero K perturbation -- but the
+3x reading is the one internally consistent with the diagonal case.
+**Impact band, stated for the record:** at `f_h=0.3`, `lmax=2`, central
+ratio, four defensible readings of the row-0 K convention span only
+3.8x (no `K_variable` at all: +5.47e-7; plain `delta_K`, the original
+code: +3.73e-7; `3*delta_K`, adopted: +1.45e-7; an alternative
+un-rescaled-fractional reading: +4.68e-7). Because the lateral
+contribution is already a small fraction of the total `Delta k2` at
+every sampled point (section 5), none of these four readings changes any
+conclusion in this document.
+
+**Silent-collapse bug (review finding, fixed).** The original
+`get_love_hydrated` passed only `mu_variable` into
+`process_lateral_variations`, never `K_variable`. Whenever `mu_variable`
+was empty but `K_variable` was not (reachable via `mu_ratio=1.0` with
+`K_ratio != 1.0`: `mu_serp == mu_crust` makes the mu coefficient exactly
+0.0, filtering all mu entries away, while the K coefficient stays
+nonzero), `process_lateral_variations`'s `(n,m)` union saw no variation
+in *any* property and silently returned the trivial, uncoupled
+`LateralRheology` -- discarding the entire K perturbation without a
+warning or error. Fixed by passing `K_variable` into
+`process_lateral_variations` as well (its own K_amp output for that call
+is still exactly 0, both branches hardcode that regardless -- the
+row-0-corrected overwrite immediately after is what does the real work).
+Regression-guarded:
+`test_mars_hydration.py::TestGetLoveHydratedRegression` (mu-only matches
+plain `get_love` bit-for-bit; K_variable demonstrably changes the
+solution; the `mu_ratio=1.0` edge case no longer collapses to N=1 mode).
+
+### 4. Runtime, grid reduction (spec explicitly permits this)
+
+The "validated config" (`perturbation_order=2`, NumPy path, `lmax=4`,
+`Nrbase=30`) costs ~130-140 s per coupled solve (TASK-016); a full `f_h` x
+ratio-bracket sweep at that cost runs tens of minutes, over the ~5 min
+guard. Measured on the development machine: `lmax=2, Nrbase=30` -> 10.0
+s/solve (N=43 coupled modes); `lmax=4, Nrbase=30` (full validated
+config) -> ~139 s/solve (N=115 modes). `mars_hydration.py`'s default
+sweep keeps `Nrbase=30` (the validated value) and reduces `lmax` 4 -> 2
+(degree-1 dominant in `dt`'s RMS per TASK-016's own degree dichotomy, so
+degrees 1-2 retain most of the lateral structure); the full 5-nonzero-`f_h`
+x 3-scenario coupled sweep (`DEFAULT_F_H_GRID`, `RATIO_SCENARIOS`) costs
+~153 s at this default, well inside the guard
+(`test_mars_hydration.py::TestRuntimeGuard` asserts < 480 s -- raised
+from an earlier 300 s cap that left only 15% headroom on a reviewer's
+slower machine, measured 254 s there).
+
+**lmax=2 vs. lmax=4 spot check (D1, review -- BLOCKING finding: the
+originally reported "mean dominates lateral by 2.5-3 orders of
+magnitude" was an lmax=2 truncation artifact, not a converged result).**
+Three coupled solves at the full `lmax=4, Nrbase=30` config, central
+ratio, all K_ROW0_FACTOR-corrected (section 3):
+
+| f_h | lateral, lmax=2 | lateral, lmax=4 | mean (lmax-independent) | mean:lateral, lmax=4 |
+|---|---|---|---|---|
+| 0.1 | 1.35e-08 | 9.89e-07 | 6.336e-05 | 64:1 |
+| 0.3 | 1.45e-07 | 3.14e-06 | 1.911e-04 | 61:1 |
+| 0.5 | 5.00e-07 | 5.62e-06 | 3.203e-04 | 57:1 |
+
+`lmax=2` underestimates the lateral contribution by **11x to 73x**
+(largest underestimate at the smallest `f_h`, where the missing
+linear-in-amplitude channel matters relatively most) -- because it drops
+the (4,0) crustal harmonic, the *only* first-order (linear-in-amplitude)
+self-coupling channel back to the forced (2,0) mode (section 5 above);
+every other harmonic couples back only at second order. At the
+validated `lmax=4`, the mean term dominates the
+lateral term by **~57-64:1** (roughly flat across the sampled `f_h`, not
+growing) -- one to two orders of magnitude smaller than the originally
+reported (and wrong) ~500:1. This still does not change the qualitative
+conclusion: even the largest lateral value found (5.62e-6 at `f_h=0.5`)
+is under 0.1% of `sigma_k2`=0.006, so the total (mean+lateral) barely
+moves between `lmax=2` and `lmax=4` -- e.g. at `f_h=0.5`, total/sigma_k2
+goes from 5.35% (`lmax=2`) to 5.43% (`lmax=4`) (section 5). The
+corrected ~60:1 dominance ratio is itself the basis for section 5's
+"k2 is blind to WHERE the hydration is" statement: the front's lateral
+signature is a small, roughly constant fraction of the total response,
+not something that grows into detectability as `f_h` increases.
+
+### 5. Forward sweep and detectability
+
+`hydration_forward_sweep()` at the reduced-`lmax`=2 default: `f_h` in
+{0, 0.1, 0.2, 0.3, 0.4, 0.5} x {low, central, high} ratio scenarios (18
+points, 15 coupled solves, 153.4 s measured wall time). Central-ratio
+`Delta k2` (relative to the exact `f_h=0` baseline k2=0.169000000000):
+
+| f_h | mean contribution | lateral contribution (lmax=2) | total Delta k2 | total / sigma_k2 |
+|---|---|---|---|---|
+| 0.1 | 6.336e-05 | 1.35e-08 | 6.337e-05 | 1.06% |
+| 0.2 | 1.270e-04 | 5.89e-08 | 1.271e-04 | 2.12% |
+| 0.3 | 1.911e-04 | 1.45e-07 | 1.912e-04 | 3.19% |
+| 0.4 | 2.555e-04 | 2.86e-07 | 2.558e-04 | 4.26% |
+| 0.5 | 3.203e-04 | 5.00e-07 | 3.208e-04 | 5.35% |
+
+The **mean term dominates the lateral term by ~57-64:1 at the validated
+lmax=4** (section 4; the `lmax=2` column above underestimates the
+lateral term 70-100x, a truncation artifact, not a physical result --
+do not read a "500:1" or "orders of magnitude" dominance ratio from the
+table above). Bracket range at `f_h=0.5` (total, `lmax=2`): low-ratio
+(softer, `mu_serp/mu_crust=0.26`) gives 5.10e-4 (8.49% of `sigma_k2`);
+high-ratio (stiffer, 0.81) gives 9.32e-5 (1.55%) -- both still well
+under `sigma_k2`, and at `lmax=4` the total barely shifts either way
+(section 4).
+
+**Honest detectability statement.** Across the entire explored range
+(`f_h` <= 0.5, full ratio bracket), `Delta k2` **never approaches**
+`sigma_k2` = 0.006 -- the largest value found (low-ratio bracket,
+`f_h=0.5`) is 5.10e-4, ~8.5% of `sigma_k2`. The central-ratio curve is
+very close to linear in `f_h` over the sampled range, so linearly
+extrapolating to the full physical range `f_h=1` gives `Delta k2`
+~6.4e-4, still only ~11% of `sigma_k2`; even the most favorable corner
+of the whole parameter space explored here (low-ratio bracket
+extrapolated to `f_h=1`) gives ~1.0e-3, ~17% of `sigma_k2` -- **current
+MRO120D/MRO120F k2 precision (sigma_k2=0.006) cannot detect this
+hydration-front signal, as parameterized here, at any physically allowed
+hydrated fraction, and this conclusion is not sensitive to the lmax=2
+truncation** (section 4). No mission or future-precision claim is made
+here -- only the number that *would* resolve a specific, modest
+hydration scenario: the k2 precision needed to resolve `f_h=0.1` at
+1-sigma (central ratio) is **6.34e-5** -- about 95x tighter than the
+current 0.006 uncertainty.
+
+**k2 measures the bulk hydrated fraction, not WHERE the hydration is
+(S2, review).** The ~57-64:1 mean:lateral dominance at the validated
+`lmax=4` (section 4) means k2 is set almost entirely by the
+*globally-averaged* hydrated fraction; a laterally uniform hydration of
+the same total water content and a front-shaped one (this module's
+actual geometry) would produce nearly indistinguishable k2 shifts (to
+within that ~1-2%). k2 alone therefore cannot confirm the "front" part
+of the hydration-front hypothesis, only its bulk magnitude. The
+front's actual lateral signature -- WHERE the hydration is, not just how
+much -- lives almost entirely in the off-(2,0) Love spectrum (the
+TASK-016 fig6 machinery: mode amplitudes at `(n,m) != (2,0)`), which
+this document does not attempt to assess for detectability; that is
+explicitly future work, not claimed here.
+
+### 5a. Reference-crust sensitivity (S1, review)
+
+The 30 GPa `LAYER_MU_CRUST` denominator (section 1) is itself a
+Christensen-Mooney *average basalt* value -- not a Mars-specific,
+InSight-measured number. `crust_reference_sensitivity()` holds the
+absolute serpentinite modulus fixed at 14.4 GPa (the central-ratio
+value) and varies the crust *reference* instead, computing `Delta k2` as
+**self-referenced per row** -- `k2(mu0_soft) - k2(mu_crust_ref,
+unsoftened)` -- *not* relative to the single global fitted k2=0.169
+(which is tied to the 30 GPa reference specifically; sharing that
+baseline would conflate the hydration signal with the separate,
+physically real baseline-k2 drift from swapping crust references alone):
+
+| Crust reference | mu_crust_ref | k2 baseline (unsoftened) | k2 softened (f_h=0.5) | Delta k2 | Delta k2 / shipped-30GPa Delta k2 |
+|---|---|---|---|---|---|
+| InSight in-situ crust (Knapmeyer-Endrun et al. 2021, Science 373) | 17 GPa | 0.169482 | 0.169537 | 5.53e-05 | x0.20 |
+| Shipped default (Christensen-Mooney average basalt) | 30 GPa | 0.169000 | 0.169275 | 2.75e-04 | x1.00 |
+| Oceanic gabbro (unaltered protolith) | 45.3 GPa | 0.168545 | 0.169005 | 4.60e-04 | x1.67 |
+| Unaltered peridotite (unaltered protolith) | 68 GPa | 0.167998 | 0.168659 | 6.60e-04 | x2.40 |
+
+The shipped 30 GPa reference is **too stiff relative to InSight's actual
+in-situ crust** (the real crust is softer, closer to the serpentinite
+endmember already, so a given hydrated fraction produces a *smaller*
+relative contrast and a smaller signal -- x0.20) and **too soft relative
+to an unaltered igneous protolith** (gabbro/peridotite start stiffer, so
+the same hydration is a *larger* relative softening -- x1.67/x2.40).
+This denominator choice spans a wider range (x0.20-x2.40, a 12x span)
+than the serpentinite mu-property bracket itself does: computing the
+same mu-only, `f_h=0.5` comparison for section 1's low/central/high
+`mu_serp/mu_crust` ratios (0.26/0.48/0.81) at the shipped 30 GPa
+reference gives x1.47/x1.00/x0.35 of the central value -- a ~4.2x span
+(0.35 to 1.47), about a third as wide as the reference-crust span above
+-- **the reference-crust modulus drives the result at least as much as,
+and arguably more than, the serpentinite bracket.**
+
+**The null-detectability conclusion (section 5) survives the full 12x
+span.** Even the best case for detectability -- unaltered peridotite,
+the stiffest reference, giving the largest signal -- reaches only 6.60e-4
+at `f_h=0.5` (11% of `sigma_k2`) and, linearly extrapolated, ~1.32e-3 at
+`f_h=1` (22% of `sigma_k2`); still well short of 1-sigma.
+
+**mu_crust is not freely adjustable, stated plainly.** This table is a
+sensitivity study, not a proposal to swap the shipped reference:
+`MARS_MU_SCALE` (`pylov3d.mars`) was fit so that the *elastic* k2 of the
+whole 4-layer model matches the observed k2=0.169 at the shipped 30 GPa
+crust; changing the crust reference alone (without refitting the mantle
+shear-modulus scale to compensate) shifts the *baseline* k2 away from
+0.169 -- visibly, by row, in the table above (0.1695/0.1690/0.1685/0.1680
+across the four references) -- which is exactly why this table reports
+self-referenced deltas rather than deltas against the single global
+0.169 constant.
