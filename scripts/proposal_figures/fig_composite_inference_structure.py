@@ -1,18 +1,27 @@
-"""Composite two-panel figure for the SSS proposal's Figure 3 (fig:ai).
+"""Composite three-panel figure for the SSS proposal's Figure 3 (fig:ai).
 
 Top: 1-D posterior marginals of the four Mars interior parameters from the
 converged pocomc run (chain archived in docs/figures/proposal/
 mars_posterior_chain.npz), with the deterministic point fit overlaid.
-Bottom: the crust-shell lateral rigidity variation derived from MOLA shape
+Middle: the crust-shell lateral rigidity variation derived from MOLA shape
 + GMM-3 gravity spherical-harmonic coefficients (Airy compensation,
 areoid-referenced; pylov3d.mars_lateral).
+Bottom: the TASK-021 hydration-front tidal signature — predicted Delta-k2
+vs the global hydrated fraction f_h (central serpentinite properties,
+literature bracket shaded) against the current observational 1-sigma
+(pylov3d.mars_hydration.hydration_forward_sweep; ~150 s of coupled
+solves at the module's documented reduced-grid default).
 
 Sized for a sidecaption figure at ~0.6\\linewidth (portrait-ish stack).
 Output: --out (default: the SSS proposal repo's figures/fig3_composite.pdf).
 """
 
 import argparse
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import matplotlib
 
@@ -39,9 +48,9 @@ def main(out: Path) -> None:
     samples, point = d["samples"], d["point_fit"]
     names = [str(n) for n in d["free_params"]]
 
-    fig = plt.figure(figsize=(4.6, 5.4))
+    fig = plt.figure(figsize=(4.6, 7.4))
     gs = fig.add_gridspec(
-        2, 1, height_ratios=[1.0, 1.9], hspace=0.34,
+        3, 1, height_ratios=[1.0, 1.9, 1.15], hspace=0.42,
     )
 
     # --- Top: posterior marginals (1x4) -------------------------------
@@ -84,6 +93,45 @@ def main(out: Path) -> None:
     cb = fig.colorbar(im, ax=ax, shrink=0.85, pad=0.02)
     cb.set_label(r"$\delta\mu/\bar\mu$ [%]", fontsize=7)
     cb.ax.tick_params(labelsize=6)
+
+    # --- Bottom: hydration-front Delta-k2 vs f_h ----------------------
+    from pylov3d.mars_hydration import SIGMA_K2, hydration_forward_sweep  # noqa: E402
+
+    rows = hydration_forward_sweep()
+    by_scenario: dict[str, list[dict]] = {}
+    for r in rows:
+        by_scenario.setdefault(r["scenario"], []).append(r)
+    for rs in by_scenario.values():
+        rs.sort(key=lambda r: r["f_h"])
+    f_h = np.array([r["f_h"] for r in by_scenario["central"]])
+    k2_base = by_scenario["central"][0]["k2_total"].real
+    d_central = np.array([r["k2_total"].real - k2_base for r in by_scenario["central"]])
+    d_low = np.array([r["k2_total"].real - k2_base for r in by_scenario["low"]])
+    d_high = np.array([r["k2_total"].real - k2_base for r in by_scenario["high"]])
+
+    ax = fig.add_subplot(gs[2])
+    ax.fill_between(
+        f_h, d_low, d_high, color=COLORS[0], alpha=0.18, linewidth=0,
+        label="serpentinite property bracket",
+    )
+    ax.plot(f_h, d_central, color=COLORS[0], lw=1.4, marker="o", markersize=2.8,
+            label="central properties")
+    ax.axhline(SIGMA_K2, color="0.4", lw=0.9, ls="--")
+    ax.annotate(
+        r"current $1\sigma$ on observed $k_2$",
+        xy=(f_h[-1], SIGMA_K2), xytext=(-2, -3), textcoords="offset points",
+        ha="right", va="top", fontsize=6, color="0.4",
+    )
+    ax.set_xlabel(r"global hydrated crust fraction $f_h$", fontsize=7)
+    ax.set_ylabel(r"$\Delta k_2$", fontsize=7)
+    ax.tick_params(labelsize=6)
+    ax.set_title(
+        "Predicted tidal signature of a crustal hydration front",
+        fontsize=8,
+    )
+    ax.legend(loc="center left", fontsize=6, frameon=False)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
 
     fig.savefig(out, bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")
