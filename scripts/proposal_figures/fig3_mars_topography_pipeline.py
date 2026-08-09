@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """F3 — mars_topography_pipeline: MOLA topography through the committed pipeline.
 
 ``pylov3d.sh_data.load_shape`` -> ``truncate`` to lmax=90 -> subtract C00

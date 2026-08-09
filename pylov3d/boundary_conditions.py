@@ -1,3 +1,10 @@
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """Boundary condition assembly — translated from get_solution.m lines 604-850.
 
 Assembles the linear system ``B · C = B2`` whose solution gives the

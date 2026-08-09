@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """F4 — mars_tidal_response: degree-2 tidal pattern of the fitted Mars model.
 
 Improves on ``scripts/mars_fit_map.py``: two panels on a SHARED diverging

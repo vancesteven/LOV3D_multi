@@ -1,3 +1,10 @@
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """Radial integration via Cash-Karp RK5 — translated from get_solution.m.
 
 Integrates the 8×8 fundamental matrix ODE ``dY/dr = Aprop(r) · Y`` from the

@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """F2 — mars_posterior: 4x4 corner plot from a REAL pocomc run.
 
 Runs ``pocomc`` (Preconditioned Monte Carlo) over the 4 free parameters of

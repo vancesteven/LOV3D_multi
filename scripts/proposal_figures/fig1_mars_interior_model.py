@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+# Copyright (c) 2026 pylov3d contributors.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Part of pylov3d, a Python/JAX port of LOV3D
+# (https://github.com/mroviranavarro/LOV3D_multi, Apache-2.0).
+# See LICENSE and NOTICE at the repository root.
+
 """F1 — mars_interior_model: TASK-011 fitted 1-D Mars profile + fit residuals.
 
 Two-panel vertical profile (radius on the y-axis, 0 at bottom, surface
