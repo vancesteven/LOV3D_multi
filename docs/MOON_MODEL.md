@@ -511,3 +511,343 @@ Also affected by this round: `pylov3d/forward.py` (D8:
 `core_layer_index` kwarg, `make_log_posterior` forwarding it — Mars
 unaffected, see "Framework fix" above) and `pylov3d/mars_mc.py` (D9: the
 mass-sigma rationale comment fix, text-only, no behavior change).
+
+## Anelasticity (TASK-025a)
+
+Stage a of TASK-025: validate pylov3d's viscoelastic solver path and
+produce forward anelastic Love-number calculations for the as-built Moon
+model. New modules `pylov3d/anelastic.py` (shared machinery + Mars) and
+`pylov3d/anelastic_moon.py` (Moon-specific -- split into two files to
+keep both under this repo's 500-line-per-file convention); tests
+`pylov3d/tests/test_anelastic.py` (30 tests: 19 fast + 11 `slow`,
+covering both modules). No `pylov3d` solver module was modified. Stage b
+(threading anelasticity into `pylov3d.moon_mc`'s Bayesian fit) is
+separate, future work; every function in `pylov3d.anelastic_moon` (and
+`pylov3d.anelastic`) takes a plain scalar parameter and returns a
+complex Love number, the call shape a stage-b log-likelihood would need.
+
+### What the solver actually supports
+
+`pylov3d` implements **Maxwell** viscoelasticity only, via per-layer
+`eta0` → `pylov3d.rheology.compute_complex_rheology` (`muC = mu / (1 -
+i/MaxTime)`). A repo-wide check (`grep -rln -i andrade` across both
+`pylov3d/` and the vendored MATLAB source under `src/`, now a live guard
+in `TestSolverCapabilityAudit`) finds **no Andrade implementation
+anywhere in either codebase checked into this repository** — only prose
+noting it as future work (this module's own docstring, plus pre-existing
+notes in `pylov3d/moon.py` and `pylov3d/moon_mc.py`). Where this
+document needs Andrade, the numbers below come from **PyALMA3** (`alma`,
+optional dependency), called directly as an external reference — never
+routed through `pylov3d.love.get_love`.
+
+Building the validation harness surfaced two more load-bearing facts
+about PyALMA3 itself (v1.0.1, as installed): (1) its propagator is
+**incompressible** — `alma.build_model` takes no bulk-modulus argument at
+all, and neither `direct_matrix` nor `complex_rigidity` in
+`alma/__init__.py` reference one; comparing it against pylov3d's
+realistically compressible Moon model at face value disagrees by several
+percent on Re(k2), a compressibility artifact, not a rheology bug — fixed
+by driving pylov3d's own `Ks0` to the incompressible limit
+(`1e7 * mu0_surface`) for the comparison only, which recovers < 1e-4
+relative agreement (below); (2) it supports a **fluid layer only at the
+center** (`complex_rigidity` has no branch for rheology code 0 at all
+except the special-cased core boundary condition), so it cannot represent
+the Weber profile's internal ocean (the fluid outer core, layer index 2,
+sandwiched between the solid inner core and the solid mantle) — exactly
+the feature pylov3d's own dedicated ocean/coupled solver (TASK-005/006/007)
+was built to add.
+
+### Validation
+
+**Maxwell, real structure vs. simplified structure (internal
+cross-check).** Because of finding (2) above, the real 10-layer Weber
+structure cannot be given to PyALMA3 directly. `moon_simplified_body()`
+merges the three innermost layers (artificial core + solid inner core +
+fluid outer core, 0-330 km) into a single fluid layer (mean density —
+combined mass over combined volume of the three, 6215.55 kg/m³), keeping
+layers 3-9 (partial melt zone through crust) exactly as built — a
+fluid-core + viscoelastic-mantle + elastic-crust body PyALMA3 can
+represent, at Moon-relevant radii/densities/rigidities and the draconic-
+month forcing period (below). `pylov3d`'s own Maxwell solver, run on
+this simplified body, matches its gap-closing viscosity and implied Q to
+the *real*-structure result (next section) to 5% / 10% respectively
+(`TestSimplifiedBodyCrossCheck`) — the simplification does not distort
+the rheology being tested.
+
+**Maxwell, pylov3d vs. PyALMA3 (both incompressible-limit).** On the
+simplified body, at `Td` = the draconic month (below) and `eta_mantle`
+∈ {1e15, 1e17, 1e19} Pa s (`TestMoonMaxwellPyALMA3Validation`):
+
+| eta [Pa s] | pylov3d k2 | PyALMA3 k2 | rel. diff Re | rel. diff Im |
+|---|---|---|---|---|
+| 1e15 | 0.244279 − 0.428312i | 0.244264 − 0.428300i | 6.1e-5 | 3.0e-5 |
+| 1e17 | 0.022946 − 0.005495i | 0.022945 − 0.005495i | 4.4e-5 | 4.4e-5 |
+| 1e19 | 0.022908 − 5.497e-5i | 0.022907 − 5.496e-5i | 4.4e-5 | 4.3e-5 |
+
+All within the test's stated 1e-3 (0.1%) tolerance — the same tolerance
+the pre-existing toy-body benchmark (`test_benchmark_pyalma3.py`) already
+uses — by more than an order of magnitude. This is the deliverable-1
+validation: the Maxwell complex-modulus mechanics agree with an
+independent reference implementation on a Moon-relevant body at the
+Moon-relevant forcing period. (These numbers were recomputed for this
+revision after fixing the forcing-period error described below — see
+"Forcing-period provenance"; an earlier draft of this table used the
+wrong period and is superseded.)
+
+**Andrade: validated only where a comparison is possible at all.**
+Since pylov3d has no Andrade path, no pylov3d-vs-PyALMA3 agreement check
+exists for it. `TestAndradeExternalSanity` instead anchors PyALMA3's
+Andrade branch to the one place a comparison *is* possible — the elastic
+limit (`eta → ∞`), where Andrade's complex modulus is real by
+construction and must equal the incompressible-elastic k2 pylov3d
+computes independently (matches to 1e-3 relative) — plus sign-convention
+and forward-response sanity checks. The Andrade numbers below (Q vs.
+alpha) are therefore reported as an **external-tool estimate**, not a
+pylov3d-validated result, exactly as the task calls for ("do not fake an
+Andrade capability").
+
+### Forcing-period provenance
+
+**Correction (this revision): the period below was previously wrong.**
+An earlier draft of this section closed the 4.6% elastic k2 gap
+(`WEBER_K2_UNIFORM` = 0.023159 vs. observed `MOON["k2"]` = 0.02422 ±
+0.00022) at the **anomalistic month** (perigee-to-perigee), 27.55455
+days. That is not the period Williams & Boggs (2015) report Q = 38 ± 4
+at. The correct period is the **draconic (nodical) month** — the period
+of the Moon's argument of latitude F (node-crossing period) — 27.212
+days = 2,351,116.8 s (`pylov3d.anelastic_moon.MOON_DRACONIC_MONTH_TD`,
+renamed from `MOON_ANOMALISTIC_MONTH_TD`) — still **not** the sidereal
+month (27.32166 d) `pylov3d.moon.MOON_FORCING_TD` uses elsewhere in this
+repo for the (frequency-irrelevant, purely elastic) k2 anchor. Every
+Moon anelastic number in this section was recomputed under the corrected
+period; see "Headline" below for the new values.
+
+**Williams, J. G., & Boggs, D. H. (2015), "Tides on the Moon: Theory and
+determination of dissipation," *JGR Planets*, 120(4), 689-724,
+doi:10.1002/2014JE004755**, report the lunar monthly tidal quality
+factor **Q = 38 ± 4** at their reference period Pref = 27.212 days. Per
+web search of the primary source in this session (the paper is
+paywalled; the following is a paraphrase of what the search returned
+from its own text, not a verbatim quotation retrieved directly), Pref is
+described there as the period of the largest latitude libration, due to
+the tilt of the equator plane to the orbit plane — i.e. the draconic
+month, not the anomalistic month. This is corroborated by **Williams,
+J. G., Konopliv, A. S., Boggs, D. H., et al. (2014)**, *JGR Planets*,
+119, 1546-1578 (the GRAIL interior-properties paper already cited
+throughout this document for k2 and the fluid-core radius), which (same
+caveat: paraphrased from a web search of the paywalled primary text, not
+a direct verbatim retrieval) writes its monthly (k2/Q)_F relation over a
+27.212-day period and defines "P_F" in its own notation table as the
+27.212-day period of argument of latitude. The 27.55455-day anomalistic
+period does appear in this literature, but attached to the
+ΔJ2/ΔC22/ΔS22 tide amplitude rather than to the Q = 38 ± 4 value used
+here — verified verbatim in **Williams et al. (2014)** ("the 27.555 day
+anomalistic period of ΔJ2, ΔC22, and ΔS22"); an earlier draft of this
+paragraph attributed that statement to Williams & Boggs (2015) instead,
+which the re-verification pass could not confirm. Two further
+independent corroborations of the 27.212-day reference period were
+retrieved directly: **Briaud, A., et al. (2023)**, "Constraints on the
+lunar core viscosity from tidal deformation," *Icarus* (arXiv:2301.04035),
+states that per Williams & Boggs (2015) "the major periods of interest
+... are F = 27.212 days and l_0 = 365.260 days"; and **Walterová,
+Běhounková & Efroimsky (2023)** restate W&B's results as "Q = 38 ± 4 at
+the period of 1 month, Q = 41 ± 9 at 1 year, and lower bounds of
+Q ≥ 74 at 3 years and Q ≥ 58 at 6 years", matching the period list below.
+(A citation initially considered here, **Tan & Harada (2021)**, "Tidal
+constraints on the low-viscosity zone of the Moon," *Icarus* 365,
+114361, was briefly dropped after an earlier draft cited it under
+arXiv:2301.04035 — an id that in fact resolves to the Briaud et al.
+paper above. The Tan & Harada paper itself is verified to exist and is
+cited here under its journal reference.) Elsewhere, Williams & Boggs (2015) also report a mild period
+dependence beyond the monthly value: Q = 41 ± 9 at 1 year, Q ≥ 74 at 3
+years, Q ≥ 58 at 6 years (again per web search of the primary source,
+not a direct verbatim retrieval).
+
+**27.55455 days itself** (where still legitimately mentioned above as
+the anomalistic month, for contrast) is an Astronomical Almanac / NASA
+value, not a Williams & Boggs (2015) one — an earlier draft of this
+section implied otherwise by using it as if it were the paper's own
+reference period.
+
+**Citation correction, and a correction to that correction.** The
+pre-existing "Anelastic bias" section above attributes Q = 38 ± 4 to
+"Williams et al. (2014) Section 6." An earlier draft of this
+Forcing-period-provenance section asserted that Williams et al. (2014)
+"does not itself contain this Q determination" as the reason that
+attribution was wrong. That stated reason is itself false: per web
+search of the primary source in this session, Williams et al. (2014)
+*does* report a monthly tidal Q determination — Q = 37.5 ± 4 (in both
+the abstract and body), alongside Q_365 = 37 ± 9 and Q_F = 45 ± 5 (their
+own notation for the values at the 365-day and F/draconic-month
+reference periods respectively). The attribution's actual problem is
+narrower: the pre-existing text's *value*, 38 ± 4, is Williams & Boggs
+(2015)'s number, not Williams et al. (2014)'s — the two papers report
+close but distinct monthly Q values (37.5 ± 4 vs. 38 ± 4) at overlapping
+but not identical reference periods, and the pre-existing text combined
+Williams et al. (2014)'s citation with Williams & Boggs (2015)'s value.
+The *correction's conclusion* (cite Williams & Boggs 2015, a separate,
+later paper specifically about lunar tidal dissipation, for 38 ± 4)
+still stands; only the stated *reasoning* for it was wrong, and is
+corrected here. The pre-existing "Anelastic bias" section's attribution
+is left as-is above per this task's append-only scope.
+
+### Headline: Maxwell vs. Andrade gap-closing, and the Q-consistency check
+
+`fit_moon_maxwell_gap()` bisects the uniform mantle Maxwell viscosity
+(layers 3-8, the same six layers `pylov3d.moon_mc`'s `mu_scale` scales)
+that raises the real 10-layer structure's Re(k2) from 0.023159 up to the
+observed 0.02422, using pylov3d's own (validated above) solver directly
+— **no PyALMA3 needed for this number**, since the internal-ocean
+structure is exactly what pylov3d's own solver already handles natively.
+
+All numbers below were recomputed under the corrected draconic-month
+forcing period (see "Forcing-period provenance" above); an earlier draft
+of this table used the wrong period (27.55455 d) and is superseded.
+
+| Rheology | eta_mantle [Pa s] | k2 | Q_implied | vs. Williams & Boggs (38 ± 4) |
+|---|---|---|---|---|
+| Maxwell (real 10-layer structure, native pylov3d) | 1.783e16 | 0.024219 − 0.030633i | **0.79** | 9.3σ away — grossly inconsistent |
+| Maxwell (simplified body, native pylov3d, structure control) | 1.798e16 | 0.023956 − 0.030379i | 0.79 | (confirms the row above) |
+| Maxwell (simplified body, PyALMA3, independent code path) | 1.797e16 | 0.023957 − 0.030399i | 0.79 | (confirms the two rows above) |
+| Andrade, alpha=0.15 (PyALMA3, simplified body) | 9.306e24 | 0.023955 − 0.000251i | 95.3 | 14.3σ away |
+| Andrade, alpha=0.20 | 5.486e22 | 0.023956 − 0.000341i | 70.3 | 8.1σ away |
+| Andrade, alpha=0.25 | 2.497e21 | 0.023955 − 0.000434i | 55.2 | 4.3σ away |
+| Andrade, alpha=0.30 | 3.127e20 | 0.023956 − 0.000536i | 44.7 | 1.7σ away |
+| Andrade, alpha=0.35 | 6.994e19 | 0.023956 − 0.000650i | 36.8 | **0.3σ away** |
+| Andrade, alpha=0.40 | 2.252e19 | 0.023955 − 0.000785i | 30.5 | 1.9σ away |
+
+**On the second and third rows above.** An earlier draft of this table
+had a single "Maxwell (simplified body, PyALMA3, cross-check)" row whose
+digits were actually pylov3d's own `moon_simplified_maxwell_k2()` result
+(0.023956...) mislabeled as PyALMA3's, and the only test backing it
+called that pylov3d function, never `moon_alma_k2()` — so the "fully
+independent code path" claim made below was asserted, not demonstrated.
+Fixed here by splitting into two rows: the middle row is what the
+original row actually was — a pylov3d **structure** control (same
+solver, same Maxwell rheology, simplified body instead of the real
+10-layer one) — and the third row is a new PyALMA3 result, obtained by
+actually calling `moon_alma_k2(rheology="maxwell")` and bisecting for
+the same fractional-gap target
+(`TestMoonMaxwellPyALMA3Validation::test_maxwell_gap_closing_via_alma_matches_headline_row`).
+The "fully independent code path" claim below now refers to this third
+row specifically.
+
+(The Andrade rows use the exact elastic-limit baseline, computed with an
+actual PyALMA3 ``rheology="elastic"`` run — `moon_simplified_elastic_k2_alma()`,
+k2 = 0.022907 (PyALMA3's own incompressible-elastic value; note the
+Maxwell rows' simplified-body elastic limit, 0.022908, is pylov3d's own
+incompressible-elastic number — the two agree to 4 significant figures
+but are not the same computation, an earlier draft of this document
+conflated them) — rather than a large-``eta`` Andrade/Maxwell limit. The
+latter converges slowly at small alpha, e.g. still ~0.8% off true
+elastic at ``eta = 1e30`` for ``alpha = 0.15`` — the residual term
+decays as ``(s·eta/mu)^(-alpha)``, so smaller alpha converges more
+slowly — and this biased the fractional-gap target enough to matter at
+low alpha in an earlier draft of this table; caught and fixed while
+building this section.)
+
+(Andrade rows target the same *fractional* gap on the simplified body —
+its own elastic k2, 0.022907 (PyALMA3), differs slightly from the real
+structure's 0.023159, so the absolute target is rescaled by the same
+1.0458 ratio; see `fit_moon_andrade_gap()` docstring.)
+
+**Maxwell alone cannot simultaneously match the observed k2 gap and a
+plausible Q.** Closing the gap with Maxwell rheology requires sitting
+almost exactly at the Maxwell dissipation peak (omega·tau_M ~ 1 at this
+forcing period), which forces catastrophic dissipation — Q ≈ 0.79, off
+by more than 9σ from the measured 38 ± 4. This is not a numerical
+artifact: both the pylov3d-only simplified-body structure control and
+the PyALMA3 (independent code path) cross-check reproduce the same
+viscosity (1.798e16 / 1.797e16 vs. 1.783e16 Pa s) and the same Q to 2
+significant figures. It is also not a new claim — it is the quantified,
+pylov3d-computed version of a documented, narrower result in the
+literature: Nimmo, F., Faul, U. H., & Garnero, E. J. (2012), "Dissipation
+at tidal and seismic frequencies in a melt-free Moon," *JGR Planets*,
+117, E09005, doi:10.1029/2012JE004160 (already cited in this document's
+"Anelastic bias" section above) show, using a laboratory-based extended
+Burgers model, that the Moon's observed k2 and low tidal Q can be
+matched *without* invoking mantle melt — i.e. their conclusion is the
+opposite of "melt/an implausible basal low-viscosity zone is required."
+What they *do* find, and what is cited for here, is narrower: their
+models could not reproduce the Moon's observed (weak) frequency
+dependence of Q — a limitation Maxwell shares in the more extreme form
+quantified above (Maxwell forces a single relaxation peak, i.e.
+effectively alpha=1 in the Andrade sense, and so cannot reproduce a
+weak, broad frequency dependence at all). (An earlier draft of this
+section cited Nimmo et al. (2012) for the claim that Maxwell "requires
+an implausible basal low-viscosity zone or an additional dissipation
+mechanism" — that disjunction is actually Walterová, Běhounková &
+Efroimsky (2023)'s sentence about their own Model 1 (a homogeneous
+Andrade mantle, not Maxwell; see "Literature parameter ranges" below),
+citing Khan, A., Connolly, J. A. D., Pommier, A., & Noir, J. (2014), "Geophysical evidence for melt in the deep lunar interior and implications for lunar evolution," *JGR Planets*, 119(10), 2197-2221, for the low-viscosity-zone branch and Nimmo et
+al. (2012) only for the "additional dissipation mechanism" branch —
+retrieved and corrected in this session by fetching the paper directly.)
+
+**Andrade at literature-favored alpha is consistent with the measured
+Q, but alpha=0.35 is not squarely inside this document's own
+commonly-adopted range.** This document's own `ANDRADE_ALPHA_COMMON_RANGE`
+constant, its headline table (immediately below), and a test comment all
+put the commonly-adopted range at 0.2-0.3 (Efroimsky 2012; see
+"Literature parameter ranges" below) — alpha=0.35 sits above that range,
+in the upper part of the broader 0.2-0.4 laboratory range instead. Both
+values are reported in the table above so the sensitivity is visible: at
+alpha=0.30 (inside the document's own commonly-adopted range), Q ≈ 44.7,
+1.7σ from the measured 38 ± 4; at alpha=0.35 (above that range, inside
+the broader laboratory range), Q ≈ 36.8, 0.3σ away. Both are consistent
+with the measurement at the few-sigma level; neither is a precise
+determination of alpha, and the closer agreement at 0.35 is not evidence
+that 0.35 is the "correct" value — it is one gap-closing point per alpha
+on a strongly alpha-dependent curve (Q spans 30-95 across the swept
+0.15-0.40 range), so finding *some* alpha in the broader laboratory range
+that reproduces the known Q is not surprising by itself.
+
+**A fixed-mantle-rigidity caveat, made prominent.** Every row in the
+table above holds mantle rigidity at its as-built value and attributes
+the entire 4.6% k2 gap to anelastic softening. That attribution is not
+unique: this document's own TASK-019 reference posterior (see "Posterior
+smoke run" above) finds that the *elastic*, zero-anelasticity 4-parameter
+fit already closes almost all of this gap by adjusting `mu_scale` alone
+— its shipped median is `mu_scale` = 0.965 with k2 = 0.02419, and an
+independent scan run for this revision confirms a purely elastic
+`mu_scale` in [0.955, 0.96] reproduces k2 = 0.0242 ± 0.0001, the full
+target, with **zero** anelasticity. In other words: the shipped Moon fit
+already absorbs this gap into rigidity, not into rheology. This is the
+same point the pre-existing "Anelastic bias" section above makes for the
+Monte Carlo stage ("this gap is consistent-with, not diagnostic-of,
+anelasticity") — the headline table here should be read the same way:
+it establishes that Andrade rheology at literature-plausible parameters
+*can* explain the gap and the measured Q simultaneously, and that Maxwell
+*cannot*, not that anelasticity *is* what closes the as-built gap. A
+joint (mu_scale, eta, alpha) fit that could separate the two contributions
+is TASK-025b scope, not attempted here.
+
+**Caveats.** (1) The Andrade numbers are computed on the simplified
+body, not the real 10-layer structure (see "Validation" above) — the
+Maxwell cross-check suggests this does not materially change the
+result, but it has not been directly confirmed for Andrade specifically.
+(2) Both rheology forms here use a single uniform mantle viscosity
+across all six mantle layers; a depth-dependent viscosity (e.g. a basal
+low-viscosity zone, as Khan et al. 2014 and Williams et al. 2014
+Section 7 both discuss) is not explored. (3) This is a forward
+consistency check at one gap-closing point per alpha, not a joint
+(eta, alpha) posterior — that is exactly the TASK-025b scope. (4) See
+"A fixed-mantle-rigidity caveat" immediately above — this whole table is
+computed at fixed as-built mantle rigidity, and the shipped elastic fit
+already closes most of the gap without any anelasticity at all.
+
+### Literature parameter ranges for stage b priors
+
+| Parameter | Range | Source |
+|---|---|---|
+| Andrade alpha (silicate mantles, general) | 0.2 - 0.4 | Walterová, M., Běhounková, M., & Efroimsky, M. (2023), "Is There a Semi-Molten Layer at the Base of the Lunar Mantle?", *JGR Planets*, e2022JE007652 (arXiv:2301.02476v2) -- three authors, an earlier draft of this table omitted Efroimsky. Retrieved and quoted directly (arXiv PDF fetched in this session): alpha "typically lies in the interval 0.2−0.4, although values outside this range have also been observed... Geodetic measurements performed on the Earth favour a narrower interval of 0.14−0.2, and the currently accepted model of tides in the solid Earth, presented in the IERS Conventions on Earth Rotation, employs the value of α = 0.15." (An earlier draft of this table attributed a different quotation to this paper -- "experiments with samples of different minerals most often furnish values... from 0.15 to 0.4, while geodetic measurements give slightly lower values" -- which does not appear in it; that fabricated quotation is removed here.) |
+| Andrade alpha (commonly adopted) | 0.2 - 0.3 | Efroimsky, M. (2012), "Bodily tides near spin-orbit resonances," *Celestial Mechanics and Dynamical Astronomy*, 112, 283-330 (arXiv:1105.6086v9, fetched directly in this session). Its own stated range is broader than "0.2-0.3" in isolation -- "for all minerals (including ices) the values of α belong to the interval from 0.14 through 0.4 (more often, through 0.3)" -- but that "more often, through 0.3" framing is the basis for treating 0.2-0.3 as the commonly-adopted narrower range here. (An earlier draft cited Castillo-Rogez et al. (2011) for this range; that citation could not be verified in this session and is dropped.) Dumoulin, C., Tobie, G., Verhoeven, O., Rosenblatt, P., & Rambaux, N. (2017), "Tidal constraints on the interior of Venus," *JGR Planets*, 122(6), 1338-1352, doi:10.1002/2016JE005249: they *adopt* alpha in 0.2-0.3 for their prospective Venus interior models because it "frames the typical value required to explain the Q factor of the Earth's mantle". **Provenance caveat:** the metadata and the substance of this row were confirmed, but an independent re-verification pass could not retrieve the paper's full text (every PDF route blocked), so the quoted wording above is **not** independently confirmed verbatim and should be treated as a paraphrase-grade attribution until someone retrieves the PDF -- i.e. the range is imported from Earth, not derived from or shown to explain any Venus tidal measurement, and the paper's own conclusion is that a future mission (EnVision) is needed before Venus tidal data can constrain mantle rheology at all. (An earlier draft of this table claimed Dumoulin et al. "find" this range "explains Venus's short-period tidal response" -- overstated, corrected here.) |
+| Andrade alpha (Moon-specific fits, upper-range value) | 0.35 | This document's own headline table above sweeps this value alongside 0.30 because it gives the closest Q match to the measured 38 ± 4 (0.3σ) -- see "Headline" above for why this is not the same as 0.35 being independently favored by the literature; 0.35 sits above, not inside, the 0.2-0.3 commonly-adopted range in the row above. |
+| Andrade alpha (Model 1 in Walterová et al. 2023 -- a homogeneous mantle, no basal layer -- rejected by the authors) | 0.08 (+0.03/-0.02) | Walterová et al. (2023), Section 5.5/7 (retrieved directly in this session): fitting the Moon's selenodetic data with "a model consisting of a fluid core and a viscoelastic mantle governed by the Andrade rheology" (their Model 1 -- homogeneous, no basal low-viscosity layer) gives alpha = 0.08+0.03/-0.02, well below the literature range; the authors use this low value, plus the model's unrealistically low predicted seismic Q, as evidence *against* Model 1, concluding the Moon's tidal response "probably cannot be explained by the Andrade model alone and requires either a basal low-viscosity zone (in line with the conclusion of Khan et al., 2014) or an additional dissipation mechanism in the mantle (similar to Nimmo et al., 2012)." (An earlier draft of this table described alpha=0.08 as coming from "a semi-molten basal-mantle-layer model" that "fits the Moon's data" -- backwards: it is the homogeneous *no*-basal-layer model's result, used to reject that model, not a basal-layer model's fit.) |
+| Lunar mantle viscosity (monthly + yearly tide inversion) | not a single number; implies a low-viscosity LOWER mantle | Goossens, S., et al. (2024), "A Low-Viscosity Lower Lunar Mantle Implied by Measured Monthly and Yearly Tides," *AGU Advances*, e2024AV001285 — independent support for depth-dependent (not uniform) mantle viscosity, relevant to caveat (2) above. |
+| Lunar monthly tidal Q | 38 ± 4 (at the draconic month, 27.212 d) | Williams & Boggs (2015), *JGR Planets*, 120(4), 689-724 (see "Forcing-period provenance" above; `pylov3d.anelastic_moon.MOON_MONTHLY_Q` / `MOON_MONTHLY_Q_SIGMA`). |
+| Lunar yearly/multi-year tidal Q | 41 ± 9 (1 yr), ≥ 74 (3 yr), ≥ 58 (6 yr) | Williams & Boggs (2015), same source — context for any future frequency-dependent (Andrade, not single-frequency Maxwell) stage-b likelihood. |
+
+All values also collected as plain constants: `ANDRADE_ALPHA_RANGE` /
+`ANDRADE_ALPHA_COMMON_RANGE` in `pylov3d/anelastic.py` (body-agnostic),
+`MOON_MONTHLY_Q` / `MOON_MONTHLY_Q_SIGMA` in `pylov3d/anelastic_moon.py`
+-- for stage-b reuse; this table is the citation record of provenance.

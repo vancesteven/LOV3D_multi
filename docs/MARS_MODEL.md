@@ -1152,3 +1152,263 @@ shear-modulus scale to compensate) shifts the *baseline* k2 away from
 across the four references) -- which is exactly why this table reports
 self-referenced deltas rather than deltas against the single global
 0.169 constant.
+
+## Anelasticity (TASK-025a)
+
+Stage a of TASK-025: validate pylov3d's viscoelastic solver path and
+produce forward anelastic Love-number calculations for the as-built Mars
+model. New modules `pylov3d/anelastic.py` (shared machinery + all Mars
+functions) and `pylov3d/anelastic_moon.py` (Moon-specific -- split into
+two files to keep both under this repo's 500-line-per-file convention);
+tests `pylov3d/tests/test_anelastic.py` (30 tests: 19 fast + 11 `slow`,
+Mars+Moon combined). No `pylov3d` solver module was modified. Stage b
+(threading anelasticity into `pylov3d.mars_mc`'s Bayesian fit) is
+separate, future work -- every function in `pylov3d.anelastic` takes a
+plain scalar parameter and returns a complex Love number, the call shape
+a stage-b log-likelihood would need. The Moon-side headline result
+(Q-consistency check against Williams & Boggs 2015) lives in
+`docs/MOON_MODEL.md`, "Anelasticity (TASK-025a)" -- read that section
+for the full solver-capability audit and PyALMA3-validation methodology,
+summarized only briefly here; this section covers the Mars-specific
+forward numbers and forcing-period provenance.
+
+### Solver capability (summary; full audit in MOON_MODEL.md)
+
+`pylov3d` implements **Maxwell** viscoelasticity only (per-layer `eta0`
+-> `pylov3d.rheology.compute_complex_rheology`). No Andrade
+implementation exists anywhere in this Python port or the vendored
+MATLAB source under `src/` (`TestSolverCapabilityAudit`, a live grep
+guard). Where Andrade is used below it is **PyALMA3** (`alma`), called
+directly as an external reference -- never through `pylov3d.love.get_love`.
+
+**Mars needs no structural simplification for the PyALMA3 comparison.**
+Unlike the Moon (whose Weber profile has an internal ocean PyALMA3
+cannot represent), Mars's core is already a simple fluid layer at the
+center -- exactly the one case PyALMA3 supports. The validation below
+therefore runs on the *exact* 4-layer `build_mars_model()` structure, no
+simplified analogue needed.
+
+**PyALMA3 is incompressible** (`alma.build_model` takes no bulk-modulus
+argument; see MOON_MODEL.md for the full finding). Comparing it against
+pylov3d's realistically compressible Mars model (`Ks0` values 70-160 GPa,
+comparable in magnitude to mu) at face value disagrees by ~4-6% on
+Re(k2) -- a compressibility artifact, confirmed by re-running with
+pylov3d's own `Ks0` driven to the incompressible limit
+(`1e7 * mu0_surface`, `mars_maxwell_incompressible_model()`), which
+recovers agreement at the 1e-3 (0.1%) tolerance level (below). The
+Maxwell complex-modulus computation itself does not depend on `Ks0` --
+only the Lame parameter `lam = Ks - 2/3*muC` does -- so the
+incompressible-limit comparison isolates exactly the rheology mechanics,
+while the compressible elastic terms are independently validated to
+~1e-12 against native MATLAB (TASK-014/TASK-020, `data/tests/mars/`).
+
+### Validation: Maxwell, pylov3d vs. PyALMA3 (incompressible limit)
+
+As-built 4-layer Mars structure, solar-semidiurnal forcing period (below),
+`eta_mantle` applied uniformly to both mantle layers (lower + upper),
+`eta_mantle` in {1e15, 1e16, 1e17} Pa s (`TestMarsMaxwellPyALMA3Validation`):
+
+| eta [Pa s] | pylov3d k2 | PyALMA3 k2 | rel. diff Re | rel. diff Im |
+|---|---|---|---|---|
+| 1e15 | 0.167347 - 0.075932i | 0.167340 - 0.075930i | 3.9e-5 | 3.1e-5 |
+| 1e16 | 0.159739 - 0.007719i | 0.159733 - 0.007719i | 3.8e-5 | 3.1e-5 |
+| 1e17 | 0.159659 - 0.000772i | 0.159653 - 0.000772i | 3.8e-5 | 3.1e-5 |
+
+All within the test's stated 1e-3 tolerance (same tolerance as the
+pre-existing toy-body benchmark) by more than an order of magnitude.
+Andrade is validated only at the elastic limit (the one point where a
+comparison is possible at all -- see MOON_MODEL.md "Validation" for why);
+the Mars Andrade forward numbers below are therefore, like the Moon's, an
+**external-tool estimate** via PyALMA3, not a pylov3d-validated result.
+
+### Forcing-period provenance
+
+Konopliv, Park & Folkner (2016), Icarus 274, measure k2 = 0.169 ± 0.006
+from Mars's response to the **solar** tide -- per web search of the
+primary literature (the paper's own framing). The relevant forcing
+period is the **solar semidiurnal** tide -- half a Mars solar day (sol)
+-- already used throughout this repository as
+`pylov3d.mars.MARS_FORCING_TD` = 44387.622 s (= 88775.244 s / 2, an
+earlier draft of this document rounded this to 44387.62 s). This is the
+period used for every Mars number below.
+
+**Correction: the Konopliv et al. (2020) parenthetical below was wrong
+in two ways.** An earlier draft of this section additionally cited
+Konopliv, A. S., Park, R. S., Rivoldini, A., et al. (2020), "Detection
+of the Chandler Wobble of Mars From Orbiting Spacecraft," *GRL*, 47,
+e2020GL090568, as using the notation "k2^s" for the solar-tide Love
+number and as reporting a Mars tidal bulk Q. Both claims are wrong,
+confirmed by fetching the paper's full text directly in this session:
+(1) the "k2^s" notation is not used anywhere in it (that notation
+belongs to Pou, L., Nimmo, F., Rivoldini, A., Khan, A., Bagheri, A., et
+al. (2022), "Tidal Constraints on the Martian Interior," *JGR Planets*,
+127, e2022JE007291 -- fetched directly in this session, which also
+confirmed the first-author initial: an earlier draft of this document
+elsewhere cited this paper as "Pou, S." -- whose degree-2-order-2 Phobos
+tide Love number is written k2200, e.g. "for a mean value of k2200 =
+0.174, this gives us an estimation of Q2200 = 93.0 ± 8.40," quoted
+directly, a Phobos-tide-frequency Q independently close to the Bills et
+al. (2005) / Efroimsky & Lainey (2007) value below); (2) it does not
+report a single tidal bulk Q at all. What it does report, quoted directly from the fetched
+text: a frequency-dependent shear-dissipation model fit to the Chandler
+wobble period, giving "α can vary from 0.07 to 0.25 and Qo from 78 to
+90" (hot mantle end-member, core radius 1790 km) and a Chandler-wobble
+decay quality factor "QCW is between 98 and 322" (same end-member) with
+an overall composition/thermal-model range of "40–350" for Q_CW. It
+also reports its own atmospheric-tide-adjusted k2: the raw solar-tide
+k2 = 0.169 ± 0.006 is corrected "for atmospheric tide (and not for
+anelastic softening)," quoted directly: "resulting in k2 = 0.174 ±
+0.008" -- a value an earlier draft of this document omitted entirely.
+None of Qo, Q_CW, or this atmospheric-adjusted k2 is the Phobos-tide Q
+discussed below; they are kept here only as directly-sourced context.
+
+**This is a different tidal frequency than Mars's other published
+anelastic constraint.** Bills, B. G., Neumann, G. A., Smith, D. E., &
+Zuber, M. T. (2005), "Improved estimate of tidal dissipation within Mars
+from MOLA observations of the shadow of Phobos," *JGR Planets*, 110,
+E07004, doi:10.1029/2004JE002376, infer a Mars tidal quality factor
+**Q = 85.58 ± 0.37** from Phobos's secular orbital acceleration -- but
+that measurement is at the **Phobos-forced degree-2 tide**, period
+~19,991 s (~5.55 hr; half the synodic Phobos-Mars angular rate,
+(1/2)*(1/T_Phobos - 1/T_Mars_rotation)^-1 with T_Phobos = 7.65384 hr
+sidereal and Mars's sidereal rotation = 24.6229 hr -- an earlier draft
+of this document wrote the prefactor as "2*(...)^-1" instead of the
+correct "(1/2)*(...)^-1," a factor-of-4 error in the formula as written,
+and used the less precise T_Phobos = 7.653 hr; both fixed here,
+verified by direct recomputation this session: 19,990.9 s, rounds to
+19,991 s, vs. the earlier draft's stated ~19,980 s), **not** the
+~44,388 s solar-semidiurnal period k2 = 0.169 (or 0.174, atmospheric-
+adjusted) is measured at.
+
+**Correction: the Q value itself, and its attribution, were wrong.** An
+earlier draft of this document gave this figure as "Q ~ 80 ± 1" and
+claimed it was "corroborated ... consistent across every secondary
+source found." Both are wrong. The primary source's actual value,
+**Bills et al. (2005), Q = 85.58 ± 0.37**, is quoted directly (retrieved
+in this session by fetching Efroimsky, M., & Lainey, V. (2007), "Physics
+of bodily tides in terrestrial planets, and the appropriate scales of
+dynamical evolution," arXiv:0709.1995, which quotes it verbatim):
+"Bills et al. (2005) [arrived] at a reasonable value of the Martian
+quality factor, 85.58 ± 0.37. (A more recent study by Lainey et al.
+(2007) has given a comparable value of 79.91 ± 0.69.)" The ~80 figure in
+the earlier draft is Lainey, V., Dehant, V., & Pätzold, M. (2007),
+"First numerical ephemerides of the Martian moons," *Astronomy &
+Astrophysics*, 465, 1075-1084, Q = 79.91 ± 0.69 -- a different paper's
+number, misattributed to Bills et al. (2005). Bagheri, A., et al.
+(2022), "Tidal insights into rocky and icy bodies: an introduction and
+overview," *Advances in Geophysics*, 63, 231-320 (fetched directly in
+this session), restates the Bills et al. (2005) value to the precision
+it gives it at -- note this is **not** an independent corroboration, as
+Efroimsky is a co-author of both it and Efroimsky & Lainey (2007), the
+other source used here for the same number: "Bills et al. (2005) ... deduced the
+tidal quality factor to be Q = 85 ± 0.37," and gives the broader range
+it reports across the follow-up studies it cites (Jacobson 2010;
+Lainey et al. 2007; Lainey et al. 2020; Rainey & Aharonson 2006) as
+"78 ≲ Q ≲ 105".
+This document now uses **Q = 85.58 ± 0.37 (Bills et al. 2005, as quoted
+verbatim by Efroimsky & Lainey 2007, and rounded to Q = 85 ± 0.37 by
+Bagheri et al. 2022)**, distinct from Lainey et al. (2007)'s own
+Q = 79.91 ± 0.69, and no longer claims a corroboration this document
+could not actually perform (the earlier draft's "corroboration" reported
+the wrong paper's number in the first place).
+
+Because these are two different forcing frequencies on a body whose
+anelastic response is explicitly frequency-dependent (that is the entire
+point of Andrade/Maxwell rheology), **the two published Mars anelastic
+numbers are not directly comparable without a frequency-dependence
+model** -- this document does not attempt to combine them, and the
+Andrade sweep below is reported purely as a function of the
+solar-semidiurnal-period k2, with the Bills et al. Q kept as literature
+context only.
+
+### Forward anelastic k2: literature-consistent mantle viscosities
+
+`mars_maxwell_k2()` (native pylov3d, compressible as-built model) at the
+Andrade-appropriate mantle viscosity range from the literature (see
+"Literature parameter ranges" below, 1e19-1e22 Pa s):
+
+| eta_mantle [Pa s] | k2 (Maxwell, pylov3d) | Q_implied |
+|---|---|---|
+| 1e19 | 0.169000000 - 7.80e-6i | 2.17e4 |
+| 1e20 | 0.169000000 - 7.80e-7i | 2.17e5 |
+| 1e21 | 0.169000000 - 7.80e-8i | 2.17e6 |
+| 1e22 | 0.169000000 - 7.80e-9i | 2.17e7 |
+
+**A literature-consistent Andrade viscosity predicts essentially no
+Maxwell dissipation at Mars's semidiurnal period.** At these
+viscosities the Maxwell relaxation time (tau_M = eta/mu ~ 1e19 Pa s /
+1e11 Pa ~ 1e8 s for the lower-mantle mu) is many orders of magnitude
+longer than the 44,388 s forcing period, so omega*tau_M >> 1 and the
+mantle sits deep in the Maxwell elastic limit -- Q in the tens of
+thousands to tens of millions, i.e. no measurable dissipation. Maxwell
+only produces significant dissipation near its relaxation peak
+(omega*tau_M ~ 1), which for this forcing period and mu requires
+eta ~ mu*Td ~ 4-5e15 Pa s -- five to six orders of magnitude below the
+literature Andrade range:
+
+| eta_mantle [Pa s] | k2 (Maxwell, pylov3d) | Q_implied |
+|---|---|---|
+| 5e15 (near Maxwell peak) | 0.169373 - 0.015589i | 10.9 |
+
+This is the same qualitative mismatch quantified for the Moon in
+`docs/MOON_MODEL.md` ("Headline: Maxwell vs. Andrade gap-closing"): a
+Maxwell rheology forced to use a physically plausible planetary mantle
+viscosity cannot reproduce meaningful tidal dissipation at semidiurnal-
+to-monthly forcing periods; only a rheology with a broader relaxation
+spectrum (Andrade, Burgers) does. This module does not attempt a
+Mars-side Q-consistency fit analogous to the Moon's (Mars's own
+anelastic-Q measurement is at a different forcing frequency than k2, see
+above, so there is no single-frequency target to close a gap against);
+the PyALMA3 Andrade sweep below is reported as forward context, not a
+gap-closing/consistency claim.
+
+**PyALMA3 Andrade (external reference), same eta range, alpha = 0.25:**
+
+| eta_mantle [Pa s] | k2 (Andrade, PyALMA3) | Q_implied |
+|---|---|---|
+| 1e19 | 0.169325 - 0.003961i | 42.8 |
+| 1e20 | 0.165114 - 0.002246i | 73.5 |
+| 1e21 | 0.162731 - 0.001270i | 128.1 |
+| 1e22 | 0.161386 - 0.000716i | 225.3 |
+
+**Note: these Re(k2) values are incompressible-limit, and are not
+directly comparable in absolute terms to the measured k2 or to the
+compressible pylov3d table above.** The eta=1e19 row's Re(k2) = 0.169325
+sits directly under the compressible-pylov3d Forward-sweep table above
+(0.169000000), which invites reading it as agreement with the measured
+k2 = 0.169 -- it is not a meaningful comparison. PyALMA3's own
+incompressible-elastic baseline here is 0.159658
+(`mars_maxwell_incompressible_model()`'s elastic k2, verified directly
+in this session; also exercised by `TestAndradeExternalSanity`), about
+6.05% *above* which this Andrade row's Re(k2) sits, and that
+incompressible-elastic baseline is itself about 5.53% *below* pylov3d's
+own compressible elastic k2 (0.169, `mars_mod.MARS["k2"]`) -- i.e. the
+apparent near-match between this row and the measured value is two ~6%
+errors of opposite sign (incompressible-vs-compressible, and
+Andrade-vs-elastic) approximately cancelling, not a validated prediction
+of the measured k2.
+
+At the *same*, literature-sourced mantle viscosities, Andrade rheology
+predicts order-tens-to-hundreds Q -- a plausible, non-negligible
+dissipation level, in contrast to Maxwell's effectively-zero dissipation
+at the same eta. This is offered as context (a demonstration that the
+forward machinery works and that Andrade vs. Maxwell matters
+quantitatively for Mars too), not compared numerically against Bills et
+al.'s Q = 85.58 ± 0.37 given the frequency mismatch documented above.
+
+### Literature parameter ranges for stage b priors
+
+| Parameter | Range | Source |
+|---|---|---|
+| Mars mantle viscosity (Andrade, tidal-frequency-relevant) | 1e19 - 1e22 Pa s | Bagheri, A., Khan, A., Al-Attar, D., Crawford, O., & Giardini, D. (2019), "Tidal Response of Mars Constrained From Laboratory-Based Viscoelastic Dissipation Models and Geophysical Data," *JGR Planets*, 124(11), 2703-2727, doi:10.1029/2019JE006015, reporting the Castillo-Rogez & Banerdt (2012) estimate. |
+| Mars mantle viscosity (Burgers, single relaxation time) | 1e13 - 1e15 Pa s | Sohl, F., & Spohn, T. (1997), "The interior structure of Mars: Implications from SNC meteorites," *JGR*, 102, as quoted/discussed by Bagheri et al. (2019) (fetched directly in this session; an earlier draft of this row attributed the range directly to Bagheri et al. 2019 without the underlying Sohl & Spohn source): "Relying on a Burgers model with a single relaxation time ... Sohl and Spohn (1997) obtained effective mantle viscosities in the range 10^13-10^15 Pa·s that are similar to those of Bills et al. (2005), and therefore imply inadequate treatment of the transient regime in such a model." Context, not recommended for a tidal-frequency stage-b prior. |
+| Mars deep-mantle viscosity (present-day, long-timescale) | 2 - 6e22 Pa s, depths > 500 km | Broquet, A., Plesa, A.-C., Klemann, V., et al. (2025), "Glacial isostatic adjustment reveals Mars's interior viscosity structure," *Nature*, 639, 109-113 -- a **different physical regime** (Myr-timescale glacial isostatic adjustment, diffusion-creep viscosity) than the tidal-frequency Andrade transient response above; not directly interchangeable, included only for contrast. |
+| Andrade alpha (silicate mantles, general) | 0.2 - 0.4 | Walterová, M., Běhounková, M., & Efroimsky, M. (2023), *JGR Planets*, e2022JE007652 (arXiv:2301.02476v2, three authors -- an earlier draft omitted Efroimsky); see `docs/MOON_MODEL.md` "Literature parameter ranges" for the full citation trail, including the directly-retrieved quotation (same range applies to any silicate mantle, not Moon-specific). |
+| Andrade alpha (commonly adopted) | 0.2 - 0.3 | Efroimsky (2012); Dumoulin et al. (2017) (Venus, adopted from Earth, not derived from Venus data -- see `docs/MOON_MODEL.md` "Literature parameter ranges" for the full citation trail). An earlier draft of this row also cited Castillo-Rogez et al. (2011); that citation could not be verified in this session and is dropped. |
+| Mars tidal Q (Phobos-tide frequency, ~19,991 s -- NOT the k2=0.169 frequency) | 85.58 ± 0.37 | Bills et al. (2005), *JGR Planets*, 110, E07004, as quoted directly by Efroimsky & Lainey (2007), arXiv:0709.1995, and (to two significant figures, Q = 85 ± 0.37) by Bagheri et al. (2022),
+*Advances in Geophysics*, 63, 231-320; see "Forcing-period provenance" above for the frequency caveat and the correction to an earlier draft's misattributed "~80 ± 1" figure (actually Lainey et al. 2007's Q = 79.91 ± 0.69). |
+
+All Andrade-alpha and viscosity constants also collected in
+`pylov3d/anelastic.py` (`MARS_MANTLE_ETA_ANDRADE_RANGE`,
+`ANDRADE_ALPHA_RANGE`, `ANDRADE_ALPHA_COMMON_RANGE`) for stage-b reuse;
+this table is the citation record of provenance.
