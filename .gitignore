@@ -15,6 +15,7 @@ data/*
 !/data/tests/mars
 !/data/README.md
 !/data/mars
+!/data/moon
 /files/couplings
 /files/output
 *.asv
