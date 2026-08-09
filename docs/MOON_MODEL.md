@@ -851,3 +851,184 @@ All values also collected as plain constants: `ANDRADE_ALPHA_RANGE` /
 `ANDRADE_ALPHA_COMMON_RANGE` in `pylov3d/anelastic.py` (body-agnostic),
 `MOON_MONTHLY_Q` / `MOON_MONTHLY_Q_SIGMA` in `pylov3d/anelastic_moon.py`
 -- for stage-b reuse; this table is the citation record of provenance.
+
+## Joint anelastic fit (TASK-025b)
+
+Stage b of TASK-025 threads anelasticity into the Bayesian fit: a joint
+(structure, viscosity, alpha) posterior that adds the Williams & Boggs
+(2015) monthly **Q = 38 ± 4** as a fifth observable (an imaginary-part
+constraint) on top of the four structural observables the TASK-019 elastic
+fit used (mass, moi_mean, k2, core_radius_km). The question this stage
+exists to answer, posed at the end of the "A fixed-mantle-rigidity caveat"
+subsection above: **the elastic TASK-019 fit already closes the 4.6% k2 gap
+with `mu_scale` alone (median 0.965) and zero anelasticity — does adding a
+real dissipation constraint (Q) break the rigidity/anelasticity degeneracy,
+and if so, where does `mu_scale` then land and what alpha does the data
+prefer?**
+
+Driver: `scripts/moon_anelastic_pocomc.py` (not a `pylov3d` module — no
+solver code was modified for this stage). It builds a **custom 5-or-6
+parameter log-posterior** rather than reusing `pylov3d.forward.
+make_log_posterior`, for one structural reason: `forward.log_likelihood`
+compares only **Re(k2)**, and the Q constraint is a statement about
+**Im(k2)** (`implied_Q(k2) = -Re(k2)/Im(k2)`, `pylov3d.anelastic`) — it
+cannot be expressed through the real-only likelihood. The custom posterior
+gates structural bounds via `forward.log_prior`, computes the structural
+observables (mass, moi_mean, core_radius_km — rheology-independent, analytic)
+from the real θ-scaled 10-layer body via `compute_observables`, and adds
+the rheology-appropriate anelastic k2 (and, when enabled, the Q term from
+its imaginary part).
+
+### The 2×2 design and why each cell exists
+
+Four converged runs: {Maxwell, Andrade} × {with-Q, without-Q}. The
+`--no-q` runs drop the Q term to isolate what Q *adds*; the two rheologies
+answer different questions:
+
+- **Maxwell** runs on the **real 10-layer Weber body** natively (pylov3d's
+  own ocean-aware solver — no PyALMA3, no structural simplification), with
+  a single uniform mantle viscosity `eta` (layers 3-8, log-uniform prior).
+  This is the physically complete body, so its k2/Q are directly comparable
+  to the elastic TASK-019 fit.
+- **Andrade** runs via PyALMA3 on the **simplified body** (`moon_simplified_body`,
+  the 3-innermost-layers-merged construction from TASK-025a's "Validation"
+  section) — the only route to an Andrade complex modulus, since neither
+  pylov3d nor the vendored MATLAB has an Andrade path (TASK-025a
+  "What the solver actually supports"). The simplified body is made
+  **θ-aware** (`_simplified_body_from_model` rebuilds the core-merge on the
+  scaled model each evaluation) so `mu_scale` flows into k2 and Q — without
+  this the `mu_scale`–alpha correlation this stage measures would be forced
+  to zero by construction.
+
+Prior on viscosity: log-uniform over `MARS_MANTLE_ETA_ANDRADE_RANGE` =
+1e19–1e22 Pa s. **This range is imported from the Mars silicate-mantle
+Andrade work as a Moon analogue, not a Moon-specific citation** — TASK-025a
+collected no cited Moon mantle viscosity *range* (Goossens et al. 2024
+argues for a low-viscosity *lower* mantle but publishes no single uniform
+number; see the "Literature parameter ranges" table above). The prior on
+alpha is uniform over `ANDRADE_ALPHA_RANGE` = 0.2–0.4 (the broad silicate
+laboratory range). Both are documented as analogue/laboratory priors, not
+Moon determinations.
+
+### Converged posteriors
+
+All four at the TASK-019 production standard (`n_active=64`,
+`n_effective=128`, `Nrbase=50`, dynamic termination; Andrade at
+`ndigits=48`, `order=8`). Kish ESS > 4000 and **zero solver failures** in
+every run. Weighted medians ±1σ:
+
+| Run | `mu_scale` | log10(eta) | alpha | median-model k2 | median-model Q | corr(mu,eta) | corr(mu,alpha) |
+|---|---|---|---|---|---|---|---|
+| Maxwell **+Q** | 1.78 (railed) | 19.0 (railed to floor) | — | 0.01411 ✗ | 232.9 ✗ | +0.01 | — |
+| Maxwell **−Q** | **0.965** | 20.5 ± 1.0 | — | 0.02419 ✓ | 15251 (negligible) | −0.02 | — |
+| Andrade **+Q** | 1.012 ± 0.018 | 20.3 ± 0.5 | 0.286 ± 0.06 | 0.02422 ✓ | 36.6 ✓ | +0.51 | **−0.70** |
+| Andrade **−Q** | 1.007 ± 0.05 | 20.4 ± 1.0 | 0.296 ± 0.06 | 0.02412 ✓ | 42.0 | −0.67 | −0.67 |
+
+Chains and pairplots archived as
+`docs/figures/proposal/moon_anelastic_chain_{maxwell,maxwell_noq,andrade,andrade_noq}.npz`
+with matching `_pairplot_*.png` (copied from the gitignored
+`scripts/output/`, per the TASK-021b artifact-commit precedent).
+
+### The three questions, answered in numbers
+
+**1. Is the degeneracy broken? No — Q tightens the anelastic parameters but
+does not separate rigidity from anelasticity.** Comparing Andrade −Q vs +Q:
+adding Q roughly **halves** the viscosity width (log10_eta 20.4 ± 1.0 →
+20.3 ± 0.5) and sharpens alpha (0.296 → 0.286), but leaves `mu_scale`
+essentially unmoved (1.007 → 1.012, well inside 1σ) and leaves the
+`mu_scale`–alpha anticorrelation strong (−0.673 → −0.697). Q selects *among*
+Andrade dissipation models (which viscosity/alpha combination gives the
+observed loss) but does **not** distinguish "softer mantle, less
+anelasticity" from "as-built-rigidity mantle, more anelasticity" — that
+trade-off, visible as the persistent −0.70 `mu_scale`–alpha correlation,
+survives the Q constraint intact. This is the quantified confirmation of
+the "A fixed-mantle-rigidity caveat" subsection's claim that the gap is
+"consistent-with, not diagnostic-of" anelasticity: even *with* a direct
+dissipation measurement, the data cannot uniquely partition the k2 gap
+between rigidity and rheology.
+
+**2. Where `mu_scale` lands vs. the elastic fit: it moves UP, from 0.965 to
+1.012.** The elastic TASK-019 reference median is `mu_scale` = 0.965 (a 3.5%
+mantle softening that supplies the entire k2 enhancement elastically). In
+the Andrade +Q fit, `mu_scale` = 1.012 (+0.018/−0.016) — **+4.9%**, back to
+approximately as-built rigidity. The mechanism is exactly the expected
+partition: once Andrade anelasticity is present to enhance k2, the fit no
+longer needs to soften the mantle to reach the observed k2, so `mu_scale`
+relaxes back toward 1.0. **Structural caveat:** this comparison crosses
+bodies — the elastic 0.965 is on the real 10-layer structure, the Andrade
+1.012 on the PyALMA3 simplified body. TASK-025a's Maxwell control measured
+the real-vs-simplified elastic-k2 structural offset at ~+1.1% (0.023159 real
+vs 0.022907 simplified), so a small part (roughly a fifth) of the +4.9%
+`mu_scale` shift is this structural offset rather than the anelastic
+partition; the offset cannot be removed because a real-body Andrade
+calculation is not possible (no Andrade path in pylov3d). The **direction
+and bulk** of the shift are the anelastic partition, not the structural
+offset.
+
+**3. What alpha the data prefers: 0.286 (+0.066/−0.052), the top of
+Efroimsky's commonly-adopted 0.2–0.3 band.** The Andrade +Q posterior
+median alpha is 0.286, with ±1σ spanning ~0.23–0.35 — sitting at the upper
+edge of the `ANDRADE_ALPHA_COMMON_RANGE` (0.2–0.3, Efroimsky 2012) and
+overlapping the broader laboratory range (0.2–0.4). This is **consistent
+with, but not a sharp determination of, alpha**: the ±1σ width is ~0.06 on
+a [0.2, 0.4] prior (the posterior is informative — narrower than the prior —
+but not tight), and the strong `mu_scale`–alpha anticorrelation (question 1)
+means the preferred alpha is coupled to how much mantle rigidity the fit
+assigns. The value is close to the TASK-025a forward-consistency headline
+(where alpha ≈ 0.30 gave Q ≈ 44.7, 1.7σ from measured, and alpha ≈ 0.35
+gave the closest 0.3σ match), and the joint fit's slight preference for
+0.286 over 0.30 reflects that it also fits mass/MoI/core-radius/k2
+simultaneously, not Q alone.
+
+### The Maxwell negative control
+
+The two Maxwell rows make the case that the Andrade result is not an
+artifact of the fitting machinery:
+
+- **Maxwell +Q is infeasible against all five observables at once.** The
+  sampler drives `mu_scale` to 1.78, `R_fluid_core` to the 459 km bound
+  ceiling, and `eta` to the 1e19 Pa s prior floor — and *still* lands at
+  k2 = 0.0141 (vs 0.0242 observed) and Q = 233 (vs 38 ± 4). There is no
+  point in the 5-D box where Maxwell rheology reproduces both the observed
+  k2 and a plausible Q; the posterior rails on multiple parameters trying,
+  and fails on both observables. (`corr(mu,eta)` ≈ 0 here because the
+  parameters are pinned at bounds, not trading off.) This is the joint-fit
+  confirmation of TASK-025a's headline finding that "Maxwell alone cannot
+  simultaneously match the observed k2 gap and a plausible Q" — there
+  established at a single gap-closing viscosity (Q ≈ 0.79), here established
+  as a full-posterior infeasibility across the whole parameter box.
+- **Maxwell −Q cleanly recovers the elastic TASK-019 answer.** Dropping Q,
+  the Maxwell fit reproduces `mu_scale` = 0.965 (bit-matching the elastic
+  reference median), k2 = 0.0242, with eta drifting to a high, unconstrained
+  value (log10_eta = 20.5 ± 1.0, Q ≈ 15000 → negligible dissipation). With
+  no dissipation constraint, the viscosity is unidentified and the fit
+  falls back to the elastic solution — a consistency check that the
+  real-body Maxwell path and the elastic TASK-019 path agree when Q is
+  removed.
+
+### Caveats
+
+1. **Andrade is on the simplified body, Maxwell on the real body.** The
+   Andrade posterior (the scientifically interesting one) inherits the
+   TASK-025a simplified-body limitation: PyALMA3 cannot represent the
+   internal fluid ocean, so layers 0-2 are merged. The Maxwell −Q row is
+   the control that the simplification does not distort the elastic anchor
+   (`mu_scale` = 0.965 recovered on the real body); the ~+1.1% structural
+   k2 offset is quantified in question 2 above. A real-body Andrade result
+   would require an Andrade implementation in pylov3d (out of scope).
+2. **Uniform mantle viscosity.** Both rheologies use a single `eta` across
+   all six mantle layers. A depth-dependent viscosity (Goossens et al. 2024;
+   Khan et al. 2014's basal low-viscosity zone) is not explored and would
+   add parameters this 5 observables cannot constrain.
+3. **The eta and alpha priors are analogue/laboratory, not Moon
+   determinations** (Mars silicate range for eta; broad laboratory range
+   for alpha) — see the prior discussion above. The posterior on alpha is
+   informative relative to these priors, but its absolute location should be
+   read against that prior provenance.
+4. **The degeneracy is not broken (question 1).** The headline scientific
+   result is a *negative* one about identifiability: adding a direct
+   dissipation constraint sharpens the anelastic parameters but does not let
+   the data uniquely separate mantle rigidity from mantle anelasticity. Any
+   `mu_scale` value the reader takes from this stage is conditional on the
+   assumed rheology (elastic → 0.965; Andrade → 1.012), not a
+   rheology-independent determination.
