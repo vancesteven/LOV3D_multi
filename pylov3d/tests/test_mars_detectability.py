@@ -29,6 +29,7 @@ from pylov3d.mars_detectability import (
     GM_SUN,
     GRAIL_K3,
     GRAIL_SIGMA_K3,
+    MARS_OBLIQUITY_DEG,
     MARS_ORBITAL_PERIOD_S,
     MARS_PERIHELION_M,
     MARS_SEMIMAJOR_AXIS_M,
@@ -40,6 +41,7 @@ from pylov3d.mars_detectability import (
     mars_required_precision,
     peak_legendre_factor,
     required_stokes_amplitude,
+    sh_basis_norm,
     solar_tide_amplitude_parameter,
 )
 
@@ -58,7 +60,7 @@ class TestDegree2HandCheck:
         degree-2 case it is wrong" pin the task spec asks for."""
         dc20 = required_stokes_amplitude(
             MARS["k2"], GM_SUN, MARS["GM"], MARS["R"], MARS_SEMIMAJOR_AXIS_M,
-            n_forcing=2, m_forcing=0,
+            n_forcing=2, m_forcing=0, m_response=0,
         )
         assert dc20 == pytest.approx(DEGREE2_HAND_CHECK_DC20, rel=1e-12)
 
@@ -115,6 +117,31 @@ class TestPeakLegendreFactor:
     def test_sectoral_exceeds_zonal(self):
         # Drives the "optimistic" bound's m_forcing=2 choice.
         assert peak_legendre_factor(2, 2) > peak_legendre_factor(2, 0)
+
+    def test_zonal_peak_is_not_the_global_maximum(self):
+        """Regression guard for the fixed docstring claim: the true global
+        max of |Pbar_20| is at the poles (2.236), unreachable by any
+        sub-solar point given Mars's obliquity < 90 deg; the function
+        must return the smaller, obliquity-constrained value (1.118), not
+        the global one."""
+        assert peak_legendre_factor(2, 0) == pytest.approx(math.sqrt(5.0) / 2.0, rel=1e-9)
+        assert peak_legendre_factor(2, 0) < 2.236
+
+    def test_m_forcing_1_is_not_silently_zero(self):
+        """Pbar_21(sin(0))=0, so a naive phi'=0-only evaluation returns 0.0
+        silently; the obliquity-constrained peak must instead be found at
+        the solstice (phi'=+/-MARS_OBLIQUITY_DEG) and be nonzero."""
+        p21 = peak_legendre_factor(2, 1)
+        assert p21 > 0.1  # not the phi'=0 degenerate value
+
+        # Cross-check against the hand-evaluated Pbar_21 at the solstice.
+        import numpy as np
+
+        from pylov3d.mapping import fully_normalized_legendre
+
+        t = np.sin(np.radians(MARS_OBLIQUITY_DEG))
+        P = fully_normalized_legendre(2, np.array([t]))
+        assert p21 == pytest.approx(abs(float(P[2, 1, 0])), rel=1e-9)
 
 
 class TestConstantsProvenance:
@@ -188,24 +215,108 @@ class TestDetectabilityTable:
         for row in table[:10]:
             assert row["required_dC_optimistic"] > row["required_dC_conservative"]
 
+    def test_no_grail_column(self, table):
+        """Regression guard for the diagonal/off-diagonal category-error
+        fix: this table must not compare an off-diagonal |k_(n,m)|
+        directly against GRAIL's diagonal sigma(k3) (module docstring,
+        sec. 3)."""
+        for row in table:
+            assert "ratio_grail" not in row
+
     def test_no_mode_is_currently_detectable(self, table):
         """The task expects (and instructs not to tune away from) a
         negative result: every ratio (achieved sigma / required precision)
         must exceed 1, i.e. current achieved precision is coarser than
-        what any mode requires."""
+        what any mode requires, at both bounds."""
         for row in table:
-            assert row["ratio_orbiter"] > 1.0
-            assert row["ratio_grail"] > 1.0
+            assert row["ratio_orbiter_optimistic"] > 1.0
+            assert row["ratio_orbiter_conservative"] > 1.0
 
     def test_top_mode_ratios_match_hand_computed_order_of_magnitude(self, table):
         top = table[0]
         assert top["n"] == 3 and top["m"] == 0
-        assert top["ratio_orbiter"] == pytest.approx(28.5, rel=0.05)
-        assert top["ratio_grail"] == pytest.approx(28.8, rel=0.05)
+        # m=0 -- unaffected by the basis-normalization correction
+        # (sh_basis_norm(0)/sh_basis_norm(0) == 1), so both bounds are
+        # unchanged from before the TASK-026 fix round.
+        assert top["ratio_orbiter_optimistic"] == pytest.approx(28.5, rel=0.05)
+        assert top["ratio_orbiter_conservative"] == pytest.approx(66.2, rel=0.05)
 
     def test_invalid_bound_raises(self):
         with pytest.raises(ValueError):
-            mars_required_precision(1e-5, bound="nonsense")
+            mars_required_precision(1e-5, m_response=0, bound="nonsense")
+
+
+# ---------------------------------------------------------------------------
+# 2b. Basis-normalization correction for m != m_forcing response modes
+#     (the review-round BLOCKER fix: an earlier version of this module
+#     used k_(n,m) directly, uncorrected, for every response mode --
+#     silently wrong by a factor of sqrt(2) whenever m_response != 0 and
+#     m_forcing == 0, since the solver's own complex SH basis is not
+#     uniformly normalized across m (module docstring, sec. 1, "Basis
+#     normalization"). The 41 tests that existed before this fix all
+#     passed, because the only response mode any of them pinned was
+#     (3,0) -- m=0, the one mode this error cannot touch. These tests
+#     pin an m != 0 mode instead.
+# ---------------------------------------------------------------------------
+
+class TestBasisNormalizationCorrection:
+
+    def test_sh_basis_norm_values(self):
+        assert sh_basis_norm(0) == 1.0
+        assert sh_basis_norm(2) == pytest.approx(1.0 / math.sqrt(2.0), rel=1e-15)
+        assert sh_basis_norm(-2) == pytest.approx(1.0 / math.sqrt(2.0), rel=1e-15)
+        assert sh_basis_norm(1) == pytest.approx(1.0 / math.sqrt(2.0), rel=1e-15)
+
+    def test_diagonal_case_correction_is_identity(self):
+        """m_response == m_forcing (the only case the pre-fix code and
+        every pre-fix test ever exercised) must be numerically unaffected
+        by the fix."""
+        dc_diag = required_stokes_amplitude(
+            0.169, GM_SUN, MARS["GM"], MARS["R"], MARS_SEMIMAJOR_AXIS_M,
+            n_forcing=2, m_forcing=0, m_response=0,
+        )
+        assert dc_diag == pytest.approx(DEGREE2_HAND_CHECK_DC20, rel=1e-12)
+
+    def test_m_neq_0_response_gets_sqrt2_correction(self):
+        """Isolates the correction mechanism directly: for a (2,0)-forced
+        response at m_response=2, required_stokes_amplitude must be
+        exactly sqrt(2) times what the SAME call with m_response=0 (i.e.
+        no correction -- the bug this fix removes) returns, everything
+        else held fixed."""
+        k = 3.807095951313626e-05  # the (2,+2) mode's |k|, forcing (2,0)
+        args = (k, GM_SUN, MARS["GM"], MARS["R"], MARS_PERIHELION_M)
+        dc_uncorrected = required_stokes_amplitude(
+            *args, n_forcing=2, m_forcing=0, m_response=0,
+        )
+        dc_corrected = required_stokes_amplitude(
+            *args, n_forcing=2, m_forcing=0, m_response=2,
+        )
+        assert dc_corrected == pytest.approx(dc_uncorrected * math.sqrt(2.0), rel=1e-12)
+
+    def test_off_diagonal_m_neq_0_mode_pinned_corrected(self):
+        """THE key regression pin: an m != 0 off-diagonal mode's
+        detectability ratio, at the value the fix produces. Against the
+        pre-fix code (which used k_(n,m) with no basis-normalization
+        correction at all, equivalent to always passing m_response=0),
+        this test fails: the pre-fix ratio_orbiter for (2,+/-2) is
+        ~54.6x, not ~38.6x -- a ~41% discrepancy, far outside this test's
+        5% tolerance, since the pre-fix code applied no m-dependent
+        correction whatsoever (every response mode, regardless of its
+        own m, used the same, uncorrected xi*p factor)."""
+        table = mars_off20_detectability_table()
+        row = next(r for r in table if r["n"] == 2 and r["m"] == 2)
+        assert row["k_abs"] == pytest.approx(3.807095951313626e-05, rel=1e-9)
+        assert row["ratio_orbiter_optimistic"] == pytest.approx(38.6, rel=0.05)
+
+    def test_other_off_diagonal_modes_pinned_corrected(self):
+        """The remaining corrected targets from the review's verification
+        pass, spanning every (n, m) combination where m_forcing=0 and
+        m_response != 0 appears in the shipped N=115 spectrum."""
+        table = mars_off20_detectability_table()
+        expected = {(3, 1): 62.4, (3, 3): 143.7, (4, 2): 196.4, (2, 1): 387.7}
+        for (n, m), target in expected.items():
+            row = next(r for r in table if r["n"] == n and r["m"] == m)
+            assert row["ratio_orbiter_optimistic"] == pytest.approx(target, rel=0.05)
 
 
 class TestAchievedPrecisionConstants:

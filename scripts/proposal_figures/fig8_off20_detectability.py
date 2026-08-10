@@ -11,17 +11,23 @@
 Two panels, same style system as figs 1-7. Left: tier 1, the diagonal
 k2m order-splitting (m=0,1,2) predicted by the TASK-016 lateral model
 (``pylov3d.mars_detectability_k2m.mars_diagonal_k2m_table``), against the
-band of GRAIL's own demonstrated individual-order lunar precision
-(Konopliv et al. 2013) -- with an explicit annotation that current Mars
-Doppler tracking has never even produced a comparable number (Wörner et
-al. 2023, "MaQuIs"). Right: tier 2, the higher-degree off-(2,0) coupled
-spectrum (``pylov3d.mars_detectability.mars_off20_detectability_table``),
-against a Love-number-space "detection threshold" line combining the
-current-orbiter (CO2-seasonal-analogue) and GRAIL-class degree-3
-benchmarks, which land within 1% of each other in this space. Both panels
-show the same qualitative result: every point sits below its respective
-threshold line -- not currently detectable, at any tier, by any
-benchmark used here.
+band of GRAIL's own demonstrated individual-order lunar precision (the
+JPL/GL0660B analysis, Konopliv et al. 2013) -- with an explicit
+annotation that current Mars Doppler tracking has never even produced a
+comparable number (Wörner et al. 2023, "MaQuIs"). Right: tier 2, the
+higher-degree off-(2,0) coupled spectrum
+(``pylov3d.mars_detectability.mars_off20_detectability_table``), against
+a Love-number-space "detection threshold" line built from the
+current-orbiter (CO2-seasonal-analogue) benchmark only -- an earlier
+version of this figure built the threshold from a GRAIL-class degree-3
+benchmark too, on the claim that the two "land within 1% of each other";
+that GRAIL comparison was a diagonal/off-diagonal category error
+(comparing this tier's off-diagonal |k_(n,m)| against GRAIL's diagonal
+sigma(k3)) and has been removed, not just from the threshold line but
+from :func:`pylov3d.mars_detectability.mars_off20_detectability_table`
+itself. Both panels show the same qualitative result: every point sits
+below its respective threshold line -- not currently detectable, at
+either tier, by any benchmark used here.
 
 Usage
 -----
@@ -47,7 +53,6 @@ from common import CATEGORICAL, INK, INK_GRAY, OUT_DIR, apply_style, save_fig, s
 from pylov3d.mars import MARS
 from pylov3d.mars_detectability import (
     GM_SUN,
-    GRAIL_SIGMA_K3,
     MARS_PERIHELION_M,
     MARS_SIGMA_C30_SEASONAL,
     mars_off20_detectability_table,
@@ -64,10 +69,13 @@ N_TIER2_SHOWN = 10
 def orbiter_k_equivalent_threshold() -> float:
     """Current-orbiter (CO2-seasonal sigma_C30) precision, converted to an
     equivalent Love-number-space detection threshold at the same
-    optimistic (perihelion, sectoral) bound tier 2's table uses --
-    ~2.08e-3, within 1% of GRAIL_SIGMA_K3 (~2.10e-3): both benchmarks
-    land in the same place in this space, so a single reference line
-    captures both without doubling the figure's clutter."""
+    optimistic (perihelion, sectoral) bound tier 2's table uses. An
+    earlier version of this function's docstring claimed this was "within
+    1% of GRAIL_SIGMA_K3" and used that near-agreement to justify a
+    single combined threshold line; that comparison was a diagonal/
+    off-diagonal category error (module docstring,
+    ``pylov3d.mars_detectability`` sec. 3) and has been dropped -- this
+    threshold now represents the current-orbiter benchmark only."""
     xi = solar_tide_amplitude_parameter(GM_SUN, MARS["GM"], MARS["R"], MARS_PERIHELION_M, n_forcing=2)
     p = peak_legendre_factor(2, 2)
     return MARS_SIGMA_C30_SEASONAL / (xi * p)
@@ -119,7 +127,7 @@ def make_figure(k2m_rows, tier2_rows) -> plt.Figure:
     ax_spec.set_yscale("log")
     ax_spec.set_ylim(k_vals.min() * 0.3, threshold * 6.0)
     ax_spec.annotate(
-        "detection threshold (current orbiter / GRAIL-class k3,\n"
+        "detection threshold (current orbiter,\n"
         "Love-number-equivalent, optimistic bound)",
         xy=(0, threshold), xytext=(2, -4), textcoords="offset points",
         ha="left", va="top", fontsize=6.0, color=INK_GRAY,
@@ -145,14 +153,16 @@ def main():
     pdf_path, png_path = save_fig(fig, "fig8_off20_detectability", OUT_DIR)
     plt.close(fig)
 
-    print("[fit] tier 1 (diagonal k2m splitting vs GRAIL lunar precision):")
+    print("[fit] tier 1 (diagonal k2m splitting vs GRAIL lunar precision, JPL/GSFC):")
     for row in k2m_rows:
         print(f"  m={row['m']}: |Delta k2m|={abs(row['delta']):.3e}, "
-              f"GRAIL sigma={row['grail_sigma']:.3e}, ratio={row['ratio_grail']:.1f}x")
-    print("[fit] tier 2 (off-(2,0) spectrum, top 5 vs achieved):")
+              f"GRAIL(JPL) sigma={row['grail_sigma']:.3e}, ratio={row['ratio_grail']:.1f}x, "
+              f"GRAIL(GSFC) sigma={row['grail_gsfc_sigma']:.3e}, ratio={row['ratio_grail_gsfc']:.1f}x")
+    print("[fit] tier 2 (off-(2,0) spectrum, top 5 vs current-orbiter precision):")
     for row in tier2_rows[:5]:
         print(f"  ({row['n']},{row['m']:+d}): |k|={row['k_abs']:.3e}, "
-              f"ratio_orbiter={row['ratio_orbiter']:.1f}x, ratio_grail={row['ratio_grail']:.1f}x")
+              f"ratio_orbiter_optimistic={row['ratio_orbiter_optimistic']:.1f}x, "
+              f"ratio_orbiter_conservative={row['ratio_orbiter_conservative']:.1f}x")
     print(f"[fit] tier-2 Love-number-equivalent detection threshold: {orbiter_k_equivalent_threshold():.3e}")
     print(f"[output] {pdf_path}")
     print(f"[output] {png_path}")
