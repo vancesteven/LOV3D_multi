@@ -1153,6 +1153,330 @@ across the four references) -- which is exactly why this table reports
 self-referenced deltas rather than deltas against the single global
 0.169 constant.
 
+## Off-(2,0) detectability (TASK-026)
+
+Closes the loop TASK-021 left open in writing: k2 constrains the
+globally-averaged hydrated fraction but is blind to WHERE a hydration
+front sits; the front's lateral signature lives almost entirely in the
+off-(2,0) tidal Love-number spectrum TASK-016 computed and
+MATLAB-cross-validated. Nobody had asked whether that spectrum is
+*measurable*. Implementation: `pylov3d/mars_detectability.py` (the
+amplitude-to-observable relation, its degree-2 hand check, and the
+off-(2,0) required-precision table) and `pylov3d/mars_detectability_k2m.py`
+(a related but distinct diagonal observable, the k2m order-splitting
+benchmarked against GRAIL/MaQuIs -- see "Two distinct observables" below
+for why these are separate modules, not a duplication). Tests:
+`pylov3d/tests/test_mars_detectability.py`,
+`pylov3d/tests/test_mars_detectability_k2m.py`. Figure:
+`scripts/proposal_figures/fig8_off20_detectability.py` ->
+`docs/figures/proposal/fig8_off20_detectability.{pdf,png}`.
+
+**Scope note on this section's benchmark.** The task's default scoping
+was (a) current Mars-orbiter tracking and (b) a "GRAIL-class dedicated
+mission" as a generic placeholder. Mid-task, this was sharpened to a
+named mission concept, MaQuIs (Wörner et al. 2023, below), whose own text
+identifies the k2m order-splitting (not a generic Love-number precision
+level) as a measurement it intends to enable, and states that measuring
+it has "proved unsuccessful for Mars" to date. That became this section's
+lead result (tier 1); the higher-degree off-(2,0) coupled spectrum
+(tier 2, TASK-016's original N=115 modes) remains the second, still novel
+tier, since neither GRAIL nor MaQuIs discusses it directly.
+
+### 1. The observable: from |k_nm| to a time-varying Stokes coefficient
+
+Full derivation in `pylov3d/mars_detectability.py`'s module docstring;
+summarized here. A nonzero tidal Love number means the tide-raising
+potential induces an *additional* gravitational potential at the body's
+surface equal to k_n times the tide-raising potential itself. Expanding
+the external (solar) tide-raising potential in the response body's own
+real, 4pi-fully-normalized, no-Condon-Shortley spherical harmonics (the
+`pylov3d.sh_data`/`pylov3d.mapping` convention throughout this project)
+via the classical Legendre addition theorem, written in normalized form
+and derived (not assumed) from Ferrers/geodesy-normalized `P_nm` and the
+standard unnormalized addition theorem, gives the classical same-degree
+relation
+
+```
+Delta C_nm = k_n * (GM_ext/GM_body) * (R/d)^(n+1) * (1/(2n+1))
+             * Pbar_nm(sin phi') cos(m lam')
+```
+
+(`phi'`, `lam'`: sub-solar point). **Cross-checked against a published
+formula, retrieved this session**: Genova, A., Goossens, S., Lemoine, F.
+G., Mazarico, E., Neumann, G. A., Smith, D. E., & Zuber, M. T. (2016),
+"Seasonal and static gravity field of Mars from MGS, Mars Odyssey and MRO
+radio science," *Icarus*, 272, 228-245 (open access, CC-BY 4.0; fetched
+directly from Zenodo record 894840), eq. (5), gives the degree-2 tidal
+potential felt by an orbiting spacecraft as `U = k2 (GM_p/R)(R^6/(r^3
+r_p^3))[3/2(rhat.rphat)^2 - 1/2]` -- algebraically identical in form to
+this derivation's own degree-2 response potential (R^5 = R^6/R matches
+exactly), and that paper's own eq. (1)-(2) define `Pbar_lm` with the same
+4pi-full, no-Condon-Shortley normalization used throughout this project.
+
+**Generalizing to the off-diagonal (coupled) case.**
+`pylov3d.love.extract_love_numbers` defines, for a coupled solve forced
+at `(n_f, m_f)` with unit amplitude (`F=1.0`, this project's universal
+convention): the forced mode's Love number is `Phi_surf - 1`; every
+*other* coupled mode's is `Phi_surf` directly, read from the *same*,
+degree-independent potential normalization throughout the solve. Because
+the whole boundary-value problem is linear in the forcing amplitude, the
+physical response at any coupled mode `(n, m)` is `k_(n,m)[code] *`
+(the actual physical tide-raising potential amplitude at the *forcing*
+degree/order) -- giving the generalized relation this module implements,
+with the **same** `(GM_ext/GM_body)(R/d)^(n_f+1)/(2n_f+1)` prefactor for
+*every* response mode `n` (set by the forcing degree, not the response
+degree):
+
+```
+Delta C_nm = k_(n,m) * (GM_ext/GM_body) * (R/d)^(n_f+1) * (1/(2n_f+1))
+             * Pbar_(n_f,m_f)(sin phi') cos(m_f lam')          (*)
+```
+
+Setting `n=n_f, m=m_f` collapses (*) to the diagonal formula exactly --
+the hand-checkable degree-2 case: `k2=0.169`, forcing `(2,0)`, mean
+Mars-Sun distance, sub-solar point at the equinox (`Pbar_20(0) =
+sqrt(5)/2`, the peak value over Mars's obliquity range), gives
+`Delta C_20 = 3.850e-10` -- pinned by
+`test_mars_detectability.py::TestDegree2HandCheck` two independent ways
+(via the module's own functions, and by re-deriving the number from the
+raw formula text with no shared helper code).
+
+**Constants used** (retrieved this session): the IAU (2015) Resolution B3
+nominal solar mass parameter, `GM_sun = 1.3271244e20 m^3/s^2` (exact by
+definition; Prsa, A., et al. (2016), "Nominal values for selected solar
+and planetary quantities: IAU 2015 Resolution B3," *AJ*, 152, 41;
+arXiv:1510.07674, fetched directly), and the IAU (2012) Resolution B2
+astronomical unit, `1 AU = 149,597,870,700 m` (exact by definition, same
+document). Mars's orbital semi-major axis (227,939,366 km = 1.52368055
+AU) and eccentricity (0.0934) are widely tabulated planetary constants
+(NASA NSSDC Mars Fact Sheet; direct fetch of `nssdc.gsfc.nasa.gov`
+redirected to a generic landing page in this session, so these are
+cross-checked only via Wikipedia's Mars infobox, itself citing the NASA
+Fact Sheet and Allen (2000), *Astrophysical Quantities* -- not
+independently re-verified beyond that aggregator). Mars's obliquity
+(25.19 deg) is recorded for context only; it enters no computation, since
+the peak-amplitude bound used throughout is evaluated at the sub-solar
+equinox (`sin(phi')=0`), reached once per Mars year for any nonzero
+obliquity.
+
+### 2. Two distinct observables, and why they must not be conflated
+
+This section's headline number, and the subject of the mid-task redirect
+above, is the **diagonal k2m order-splitting**: does the ordinary
+degree-2 Love number itself differ across azimuthal order m=0,1,2 (forced
+at `(2,m)`, measured at the *same* `(2,m)`), because a laterally
+heterogeneous Mars is not perfectly spherically symmetric? This is a
+diagonal entry of the generalized Love-number tensor. The TASK-016
+N=115 spectrum's off-(2,0) modes -- e.g. `(2,+/-2)` at `|k|=3.81e-5` --
+are **off-diagonal** entries: the response at `(2,+/-2)` when Mars is
+forced at `(2,0)`, a coupling/cross-talk effect, not the diagonal
+`(2,2)-(2,2)` admittance. These are computed, and reported, separately;
+an early draft of this section's framing treated them as interchangeable,
+which a review pass caught and corrected -- flagged here because
+conflating a diagonal admittance correction with an off-diagonal coupling
+term is exactly the kind of normalization error this project's citation
+and derivation standards exist to prevent.
+
+### 3. Tier 1: the diagonal k2m order-splitting (MaQuIs/GRAIL benchmark)
+
+Wörner, L., Root, B. C., Bouyer, P., Braxmaier, C., Dirkx, D., Encarnação,
+J., Hauber, E., Hussmann, H., Karatekin, Ö., Koch, A., Kumanchik, L.,
+Migliaccio, F., Reguzzoni, M., Ritter, B., Schilling, M., Schubert, C.,
+Thieulot, C., v. Klitzing, W., & Witasse, O. (2023), "MaQuIs -- Concept
+for a Mars Quantum Gravity Mission," *Planetary and Space Science*, 239,
+105800, doi:10.1016/j.pss.2023.105800 (open access; full text fetched
+directly this session from the TU Delft repository,
+`repository.tudelft.nl`, record uuid `5261722a-a969-4aff-a728-
+a8317c76ccbf`), state, quoted verbatim (p. 5): "For the Moon, separate
+values of k20, k21 and k22 have been determined using GRAIL data,
+providing further interior constraints (Williams et al., 2014). Although
+these values of k2m at different orders m proved to be almost equal to
+one another, their small differences may be relevant in processing of
+high-accuracy data proposed here. Past attempts to measure these separate
+coefficients using Doppler tracking proved unsuccessful for Mars."
+
+**Predicted splitting** (`pylov3d.mars_detectability_k2m.mars_diagonal_k2m_table`).
+`m=0`'s value is the already MATLAB-cross-validated TASK-016 forcing-mode
+shift (section 5 above, `k2_shift=5.517e-5`). `m=1` and `m=2` were
+computed this session by rerunning `mars_lateral_love_spectrum` at
+`forcing=(2,1)` and `forcing=(2,2)`, at the *identical* validated
+numerical configuration (`lmax=4, Nrbase=30, perturbation_order=2,
+method="combination"`) as the MATLAB-cross-validated `(2,0)` run -- not
+themselves independently MATLAB-checked, but inheriting the same
+validated code path and grid. Both came out real to ~1e-15 (elastic
+model, as expected):
+
+| m | k_2m (predicted) | Delta = k_2m - 0.169 | Source |
+|---|---|---|---|
+| 0 | 0.16905517 | +5.517e-05 | TASK-016, MATLAB-validated |
+| 1 | 0.16902091 | +2.091e-05 | this session, Python pipeline |
+| 2 | 0.16903400 | +3.400e-05 | this session, Python pipeline |
+
+**Achieved precision.** Konopliv, A. S., Park, R. S., Yuan, D.-N., et al.
+(2013), "The JPL lunar gravity field to spherical harmonic degree 660
+from the GRAIL Primary Mission," *J. Geophys. Res. Planets*, 118,
+1415-1434 (PDF fetched directly this session), Table 4 (individually
+constrained GRAIL Primary Mission solutions): k20 = 0.02408 +/- 0.00045,
+k21 = 0.02414 +/- 0.00025, k22 = 0.02394 +/- 0.00028 -- likely the
+numerical basis (same GRAIL dataset, shared co-author J. G. Williams) for
+the "separate values... determined" statement Wörner et al. (2023)
+attribute to Williams et al. (2014); Williams et al. (2014) itself was
+not independently retrieved this session (Wiley `agupubs`, HTTP 402 on
+every attempt), so this document does not assert the two papers report
+identical numbers, only that Konopliv et al. (2013) is a
+directly-verified, same-mission source. **No comparable achieved number
+exists for Mars at all** -- per the verbatim quote above.
+
+| m | \|Delta k_2m\| (Mars, predicted) | GRAIL sigma(k_2m) (Moon, achieved) | ratio (achieved/required) |
+|---|---|---|---|
+| 0 | 5.517e-05 | 4.5e-04 | 8.2x |
+| 1 | 2.091e-05 | 2.5e-04 | 12.0x |
+| 2 | 3.400e-05 | 2.8e-04 | 8.2x |
+
+Even GRAIL's own best demonstrated individual-order Love-number precision
+-- achieved at the Moon, a smaller body under a dedicated inter-satellite-
+ranging mission architecture, an easier target than Mars in every respect
+-- is **8-12x too coarse** to resolve the splitting this project's
+lateral model predicts for Mars. Current Mars Doppler tracking has never
+even produced a number to compare (the MaQuIs paper's own words: "proved
+unsuccessful"). MaQuIs's own targets, for context (not combined
+algebraically with the ratio above -- see caveat below): current Mars
+gravity resolution is "up to the order of 90-100 degree and order,"
+targeted to improve "above the spherical harmonic (SH) degree 90...
+up to 360 d/o" (Wörner et al. 2023, Sec. 2.5); the CO2-plus-Phobos/Deimos-
+tide seasonal polar signal is "in the order of 230 microGal" at 150-200
+km altitude (Sec. 3.1, a different forcing body than the solar tide this
+document otherwise concerns, noted for scale only); MaQuIs's stated design
+target is "to observe 0.01 microGal per year global changes" (Sec. 2.3).
+No microGal-space conversion of Delta k_2m was attempted (a further,
+non-trivial Stokes-coefficient-to-orbit-altitude-gravity-anomaly step,
+a different calculation than this derivation); the ratio table above
+stays entirely in Love-number space, where GRAIL's numbers are already
+directly comparable with no unit conversion.
+
+### 4. Tier 2: the higher-degree off-(2,0) coupled spectrum
+
+The off-diagonal spectrum's largest mode overall remains `(3,0)` at
+`|k|=7.29e-5` (TASK-016), followed by `(2,+/-2)` at `3.81e-5`, `(3,+/-1)`
+at `2.35e-5`, and 18 further modes above `|k|=1e-6` (21 of 114 non-forcing
+modes total). Required precision, via eq. (*), for the top modes
+(`pylov3d.mars_detectability.mars_off20_detectability_table`; "optimistic"
+bound = perihelion distance + sectoral (m_f=2) Legendre factor, the
+largest, most detection-favorable real signal; "conservative" = mean
+distance + zonal (m_f=0), matching the given spectrum's own forcing
+order exactly -- about 2.3x tighter):
+
+| mode | \|k\| | required \|Delta C\| (optimistic) | required \|Delta C\| (conservative) | ratio, orbiter (opt.) | ratio, GRAIL k3 (opt.) |
+|---|---|---|---|---|---|
+| (3,0) | 7.29e-05 | 3.86e-13 | 1.66e-13 | 28.5x | 28.8x |
+| (2,+/-2) | 3.81e-05 | 2.02e-13 | 8.67e-14 | 54.6x | 55.2x |
+| (3,+/-1) | 2.35e-05 | 1.25e-13 | 5.36e-14 | 88.3x | 89.3x |
+| (3,+/-3) | 1.02e-05 | 5.41e-14 | 2.33e-14 | 203.2x | 205.5x |
+| (4,+/-2) | 7.48e-06 | 3.96e-14 | 1.70e-14 | 277.8x | 280.8x |
+
+Achieved precision, current Mars-orbiter tracking (closest real analogue
+-- the recovered *seasonal* CO2-mass-exchange low-degree gravity signal,
+the only real, time-varying, low-degree Mars gravity anyone has
+measured): Genova, A., Goossens, S., Lemoine, F. G., Mazarico, E.,
+Neumann, G. A., Smith, D. E., & Zuber, M. T. (2016), "Seasonal and static
+gravity field of Mars from MGS, Mars Odyssey and MRO radio science,"
+*Icarus*, 272, 228-245, Table 3: formal 1-sigma uncertainty per fitted
+annual/semi-annual/tri-annual amplitude term, `sigma(C20)=1.6e-11`,
+`sigma(C30)=1.1e-11` (used above). **This project's task spec named
+Konopliv et al. (2016, *Icarus* 274) and Konopliv et al. (2020) for this
+number; both were tried this session (ScienceDirect/Wiley abstract pages,
+ADS) and returned only paywalled or empty responses -- neither's seasonal
+C20/C30 uncertainty table was retrieved.** Genova et al. (2016) is the
+same generation of MGS/Odyssey/MRO tracking data (it is, in fact, the
+source of `data/mars/gmm3_120_sha.tab`, GMM-3, already used elsewhere in
+this document for the TASK-016 areoid correction) and is the paper
+actually retrieved and used for this number; the substitution is recorded
+here, not left silent.
+
+Dedicated-mission benchmark, degree-3 Love-number space (no unit
+conversion needed against `|k_(n,m)|` directly): Konopliv et al. (2013),
+same PDF as above, Table 4/text -- "GRAIL has now determined the Love
+number to better than 1%, k2=0.02405+/-0.00018" and "The degree-3 Love
+number is determined to about 25% with the formal errors scaled by 40,"
+k3=0.0089+/-0.0021 (GRAIL Primary Mission). A frequently cited *later*,
+more refined GRAIL k3 (~0.0163+/-0.0007, often attributed to Williams et
+al. 2014) turned up in web-search summaries, but every direct-fetch
+attempt on that paper returned HTTP 402; **not used here**, since it was
+not verified in this session. The more conservative (larger, easier-to-
+beat) Konopliv et al. (2013) Primary Mission number is used instead.
+
+Even at the most detection-favorable (optimistic) bound, current
+Mars-orbiter precision is **28-550x too coarse** for the tier-2 spectrum's
+modes (top mode `(3,0)`: 28.5x; smallest tabulated, `(2,-1)`: 548x), and
+a GRAIL-class degree-3 Love-number precision is in the same range
+(28.8-554x). No tuning toward a detectable answer was applied; these are
+the ratios the machinery returns.
+
+### 5. Frequency separation
+
+The tidal signal is periodic at the solar semidiurnal period,
+`pylov3d.mars.MARS_FORCING_TD = 44,387.62 s` (verified TASK-025a). The
+CO2 seasonal signal (section 4 above) is periodic at the Mars orbital
+period, `T=686.98 days` (Genova et al. 2016, eq. 3, retrieved this
+session) = 59,355,072 s. Their ratio is **~1337x**
+(`pylov3d.mars_detectability.frequency_separation_factor`) -- the two
+signals sit in well-separated Fourier bins over a multi-year tracking
+baseline, with no aliasing concern (spacecraft orbital periods, ~2 h, are
+far shorter than the 44,387.62 s tidal period). This quantifies *only*
+that the achieved seasonal-band precision is not itself degraded by
+confusion with the tidal signal, or vice versa -- it is **not**, and
+cannot be read as, a statement about achieved precision *at* the
+semidiurnal frequency for degree n>=3: no published degree>=3 Mars
+gravity recovery at that period was found in this session. That gap is
+stated explicitly, not filled by assumption.
+
+### 6. Forcing-order scope caveat
+
+The TASK-016 N=115 spectrum (tier 2, section 4) was computed with a unit
+`(2,0)` forcing -- a documented convenience in this project, because this
+purely elastic Mars model's *diagonal* k2 does not depend on which m is
+forced. The *coupled, off-diagonal* spectrum does not share that
+invariance: `pylov3d.couplings.next_coupling` sets `m_new = m0 + m1` (an
+additive selection rule on the spatially fixed real MarsTopo719
+heterogeneity pattern), so forcing at `(2,0)` vs `(2,2)` excites a
+**different set** of `(n,m)` response modes at different amplitudes.
+Mars's real semidiurnal tide is dominated by the `(2,2)` sectoral
+component, not `(2,0)`. A reduced-grid spot check this session
+(`lmax=2, Nrbase=30`, not MATLAB-cross-validated,
+`pylov3d.mars_detectability.forcing_order_robustness_check`) found the
+`(2,2)`-forced spectrum's largest mode, `(3,+2)` at `|k|=5.41e-5`, within
+30% of the `(2,0)`-forced spectrum's largest mode, `(3,0)` at
+`|k|=7.23e-5` (both at this reduced truncation) -- comparable overall
+scale, different `(n,m)` identities. Tier 2's required-precision numbers
+should therefore be read as an order-of-magnitude measurement requirement
+for the class of off-forcing modes, not a mode-by-mode-exact prediction
+of the true semidiurnal-frequency response. Tier 1 (section 3) is not
+subject to this particular caveat in the same way, since its `(2,1)`/
+`(2,2)` diagonal numbers were computed with the physically correct
+forcing order directly.
+
+### 7. Verdict
+
+**Neither tier is detectable with current technology, and tier 1 -- the
+observable MaQuIs itself identifies as a goal -- is 8-12x beyond even
+GRAIL's own best demonstrated precision at an easier body (the Moon).**
+Tier 2's higher-degree coupled modes are 28-550x beyond current Mars
+tracking and a comparable margin beyond a GRAIL-class degree-3
+benchmark. This is a negative result, stated plainly, consistent with
+TASK-021's precedent (that section's 95x measurement-requirement gap for
+the hydration front's bulk k2 signature) and not tuned toward a positive
+answer. What this *does* establish, for the proposal: a quantified
+measurement requirement (Delta k_2m ~ 2-6e-5 for tier 1; Delta C_nm ~
+1.7-54e-14, optimistic bound, for tier 2's top five modes) that a future
+mission concept -- MaQuIs or otherwise -- would need to reach, expressed
+in the same units (Love-number space for tier 1, Stokes-coefficient space
+for tier 2) as the closest real, achieved, or demonstrated analogues
+found and retrieved in this session. What this analysis cannot say: how
+close any specific proposed instrument (including MaQuIs's actual
+projected performance, which this document did not attempt to extract or
+model) would come to those requirements -- that is future work, not
+claimed here.
+
 ## Anelasticity (TASK-025a)
 
 Stage a of TASK-025: validate pylov3d's viscoelastic solver path and
