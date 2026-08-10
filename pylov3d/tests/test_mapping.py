@@ -32,6 +32,9 @@ from pylov3d.mapping import fully_normalized_legendre, latlon_grid, plot_map, sh
 MARS_DATA = Path(__file__).resolve().parents[2] / "data" / "mars"
 GMM3_PATH = MARS_DATA / "gmm3_120_sha.tab"
 TOPO_PATH = MARS_DATA / "MarsTopo719.shape.gz"
+MOON_TOPO_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "moon" / "MoonTopo719.shape.gz"
+)
 
 
 def _clm_slm_to_coeffs(clm: np.ndarray, slm: np.ndarray, lmax: int) -> dict:
@@ -281,3 +284,52 @@ class TestMarsTopoHellasIntegration:
     def test_peak_to_peak_in_expected_range_km(self, hellas_grid):
         p2p_km = (hellas_grid.z.max() - hellas_grid.z.min()) / 1000.0
         assert 19.0 <= p2p_km <= 31.0
+
+
+# ---------------------------------------------------------------------------
+# Integration: real MoonTopo719 data must place its global minimum within
+# the South Pole-Aitken basin.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def spa_grid():
+    from pylov3d.sh_data import load_shape, truncate
+
+    shape = truncate(load_shape(MOON_TOPO_PATH), 90)
+    clm = shape["clm"].copy()
+    clm[0, 0] = 0.0  # subtract mean radius; retain the physical degree-1 offset
+    coeffs = _clm_slm_to_coeffs(clm, shape["slm"], shape["lmax"])
+    return sh_to_latlon(coeffs, nlat=90, nlon=180)
+
+
+class TestMoonTopoSouthPoleAitkenIntegration:
+    """End-to-end MoonTopo719 check against South Pole-Aitken (SPA).
+
+    Garrick-Bethell & Zuber (2009, Icarus 204, 399-408) place the roughly
+    2500-km SPA basin near 53 S, 169 W.  At lmax=90 this archived model's
+    global minimum is 75 S, 135 W, inside the basin's broad published
+    footprint; the deliberately broad box below allows for the deepest
+    crater within SPA not coinciding with the basin center.
+
+    MoonTopo719 is in the principal-axis frame, and ``sh_to_latlon`` uses
+    east-positive longitudes in [-180, 180].  The observed western-farside
+    minimum verifies that the cosine/sine and no-Condon-Shortley conventions
+    line up.  Degree 1 is retained because this test synthesizes the archived
+    center-of-mass-referenced radius field; removing the center-of-figure
+    offset would test a different field.  C00 alone is removed so values are
+    relief relative to the mean radius.
+    """
+
+    def test_all_finite(self, spa_grid):
+        assert np.isfinite(spa_grid.z).all()
+
+    def test_global_minimum_in_spa_box(self, spa_grid):
+        imin = np.unravel_index(np.argmin(spa_grid.z), spa_grid.z.shape)
+        lat_min = spa_grid.lat[imin[0]]
+        lon_min = spa_grid.lon[imin[1]]
+        assert -90.0 <= lat_min <= -30.0
+        assert -180.0 <= lon_min <= -120.0
+
+    def test_peak_to_peak_in_expected_range_km(self, spa_grid):
+        p2p_km = np.ptp(spa_grid.z) / 1000.0
+        assert 12.0 <= p2p_km <= 20.0

@@ -168,3 +168,33 @@ def test_load_shape_rejects_incomplete_triangle(tmp_path):
     path.write_text(rows)
     with pytest.raises(ValueError, match="incomplete"):
         load_shape(path)
+
+
+def test_load_shape_comma_and_whitespace_agree(tmp_path):
+    comma_path = tmp_path / "comma.shape"
+    whitespace_path = tmp_path / "whitespace.shape"
+    comma_path.write_text(
+        "0, 0, 1737151.19826508, 0.0\n"
+        "1, 0, 138.128145257171, 0.0\n"
+        "1, 1, -1025.10410466283, -421.682450404944\n"
+    )
+    whitespace_path.write_text(
+        "   0  0  1737151.19826508  0.0\n"
+        "   1  0  138.128145257171  0.0\n"
+        "   1  1  -1025.10410466283  -421.682450404944\n"
+    )
+
+    comma = load_shape(comma_path)
+    whitespace = load_shape(whitespace_path)
+
+    assert comma["lmax"] == whitespace["lmax"]
+    np.testing.assert_array_equal(comma["clm"], whitespace["clm"])
+    np.testing.assert_array_equal(comma["slm"], whitespace["slm"])
+
+
+def test_load_shape_rejects_malformed_delimiter_agnostic_input(tmp_path):
+    path = tmp_path / "malformed.shape"
+    path.write_text("0 0 1737151.19826508\n")
+
+    with pytest.raises(ValueError, match="nonempty 4-column rows"):
+        load_shape(path)

@@ -117,7 +117,11 @@ def load_shadr(path) -> dict:
 def load_shape(path) -> dict:
     """Load a plain or gzipped Wieczorek shape expansion in meters."""
     with _open_text(path) as stream:
-        table = np.loadtxt(stream, delimiter=",", ndmin=2, dtype=np.float64)
+        position = stream.tell()
+        first_data_line = next((line for line in stream if line.strip()), "")
+        stream.seek(position)
+        delimiter = "," if "," in first_data_line else None
+        table = np.loadtxt(stream, delimiter=delimiter, ndmin=2, dtype=np.float64)
     degrees, orders = _validate_table(table, 4, "shape")
     lmax = int(degrees.max())
 
