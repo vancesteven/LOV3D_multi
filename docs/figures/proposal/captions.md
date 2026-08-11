@@ -242,6 +242,37 @@ claim, with an explicit, non-oversold precision number attached.
 
 ---
 
+## Figure 9 — `fig9_crustal_model_substitution`
+
+**Non-Airy crustal-model substitution (TASK-028).** *Left:* the two
+first-order zonal channels into the (2,0) forcing mode. Parity admits
+exactly two rheology harmonics at `n_lv <= 4` -- (2,0) and (4,0) --
+verified against the coupling coefficients themselves (max|C| = 0.639
+and 0.857; identically zero for (1,0), (3,0), (5,0), (6,0)). They enter
+with opposite signs: -1.59e-5 and +1.45e-5, summing to -1.37e-6, a 91.4%
+cancellation. The Airy construction zeroes the degree-2 term as
+rotational flattening, so only (4,0) is active in an Airy field; a
+measured crustal-thickness field activates both. The first-order
+mechanism is robust; its net amplitude is convention-dependent, and the
++1.75e-5 (4,0) figure belongs to the Airy field specifically.
+
+*Right:* the (2,0) forcing-mode shift for five InSight-calibrated
+crust-mantle-interface models (Wieczorek et al. 2022) against the Airy
+baseline, each shown twice -- as shipped, with the measured degree-2
+term retained, and with that term suppressed on both sides. The latter
+is the like-for-like pattern comparison: the five span a factor 1.379
+and bracket Airy symmetrically (-15.1% to +17.1%), whereas as shipped
+they span 1.551 and sit wholly below it, the difference being the
+degree-2 convention rather than the crustal pattern.
+
+Neither spread replaces TASK-027's x7.6 Airy-parameter figure: that
+sweep varies amplitude calibration, while these five vary only pattern
+at a calibration the selection criterion holds fixed (crust density
+2900, mean thickness within 1 km of 50 km).
+
+Reads the committed artifact `mars_crust_models.npz` rather than
+re-solving; the underlying comparison is ~15 minutes of coupled solves.
+
 ## Notes on reproducing
 
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig1_mars_interior_model.py`
@@ -255,5 +286,7 @@ claim, with an explicit, non-oversold precision number attached.
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig5_validation_pedigree.py`
 - `venvLOV3Dconv/bin/python scripts/proposal_figures/fig6_mars_lateral_spectrum.py`
   (coupled solve at N=115 modes, ~130-180 s wall, machine-dependent)
+- `venvLOV3Dconv/bin/python scripts/proposal_figures/fig9_crustal_model_substitution.py`
+  (reads `mars_crust_models.npz`; seconds)
 
 No file under `pylov3d/` was modified to produce any of these figures.
