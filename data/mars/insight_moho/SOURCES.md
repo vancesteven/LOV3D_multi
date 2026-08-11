@@ -17,16 +17,21 @@ readable by `pylov3d.sh_data.load_shape` unmodified. lmax = 90.
 
 ## Citation
 
-Wieczorek, M. A., Broquet, A., McLennan, S. M., Rivoldini, A., Golombek,
-M., Antonangeli, D., Beghein, C., Giardini, D., Gudkova, T., Gyalay, S.,
-Kim, D., Kim, J., Knapmeyer-Endrun, B., Panning, M. P., et al. (2022),
-"InSight constraints on the global character of the Martian crust,"
-*Journal of Geophysical Research: Planets*. Supplemental data archive:
-doi:10.5281/zenodo.6477509, licensed CC-BY-4.0.
+Wieczorek, M. A., et al. (2022), "InSight constraints on the global
+character of the Martian crust," *Journal of Geophysical Research:
+Planets*, 127, e2022JE007298, doi:10.1029/2022JE007298. Supplemental
+data archive: doi:10.5281/zenodo.6477509, licensed CC-BY-4.0. The paper
+has 26 authors; retrieve the full list from Crossref if one is needed.
 
-Verify the author list against the paper before citing in prose; the
-archive Readme (kept here as `ARCHIVE_README.txt`) gives only
-"Wieczorek, M. A., et al."
+**Correction of record.** An earlier version of this file gave a partial
+author list written from memory rather than retrieved. It contained a
+name that does not appear on the paper ("Kim, J." -- the paper has one
+Kim, and the entry appears to be a corruption of King, S. D.) and
+silently skipped two authors, so it was not the paper's order either. It
+is replaced above by the short form plus the paper's own DOI, both
+verifiable. This is precisely the memory-written-citation failure mode
+this project has ruled against, and it is recorded here rather than
+quietly deleted.
 
 ## Retrieval
 
