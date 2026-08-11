@@ -765,20 +765,122 @@ non-forcing-mode spectrum shown in fig6. Pinned by
 `test_mars_lateral.py::TestLinearity::test_forcing_mode_scaling_exponents`
 (exponent bounds [0.9,1.1] for `(4,0)`, [1.8,2.2] for `(3,0)`).
 
-### 6. Truncation sensitivity (lmax=5 spot check)
+### 6. Robustness: truncation convergence and Airy-calibration sensitivity (TASK-027)
 
 The design doc asked for cutoff sensitivity to be *reported*, not assumed.
 `(4,0)` -- the harmonic identified in section 5 as driving the
 forcing-mode k2 shift to first order -- sits right at the `n_lv<=4`
 truncation edge, making the forcing-mode shift the sharpest available
-probe of whether that cutoff is adequate. Recomputing the full spectrum at
-lmax=5 (34 nonzero rheology modes, N=163 coupled modes, ~188 s at
-Nrbase=15 on the development machine): the (2,0) k2 shift moves from
-5.517e-5 (lmax=4) to 5.973e-5 (lmax=5), a **8.3% relative change** --
-comfortably under the 20% bound `test_mars_lateral.py::TestTruncationSensitivity`
-checks (marked `@pytest.mark.slow`). `n_lv<=4` is adequate for this
-forward-run stage; a degree-5 crustal harmonic is not about to overturn
-the qualitative first-order-shift result of section 5.
+probe of whether that cutoff is adequate. An earlier revision of this
+section reported a single lmax=4->5 spot check (8.3% step) and concluded
+`n_lv<=4` was adequate. TASK-027 continued that sequence and separately
+quantified the crustal-model dependence, using the driver
+`scripts/mars_lateral_robustness.py` (driver-only; no solver module
+modified, per the TASK-021b precedent). Artifacts:
+`docs/figures/proposal/mars_lateral_robustness.{npz,png}`.
+
+**Truncation ladder (fixed Nrbase=30).** Full coupled spectrum at
+lmax=4/5/6, tracking the (2,0) forcing-mode shift and the off-(2,0)
+response modes assessed for detectability in TASK-026 (section "Off-(2,0)
+detectability"). |k| is the mode amplitude; the step columns are relative
+to the previous lmax.
+
+| lmax | N | (2,0) shift | Δ vs prev | \|k(3,0)\| | Δ | \|k(2,±2)\| | Δ | \|k(3,±1)\| | Δ |
+|---|---|---|---|---|---|---|---|---|---|
+| 4 | 115 | 5.5174e-5 | — | 7.2893e-5 | — | 3.8071e-5 | — | 2.3521e-5 | — |
+| 5 | 163 | 5.9732e-5 | +8.26% | 8.4130e-5 | +15.41% | 3.8053e-5 | −0.05% | 1.5699e-5 | −33.26% |
+| 6 | 219 | 6.2311e-5 | +4.32% | 8.5118e-5 | +1.17% | 3.8577e-5 | +1.38% | 1.5442e-5 | −1.64% |
+
+Reading: the forcing-mode shift is a *converging* sequence -- successive
+steps shrink (8.26% -> 4.32%) and the sign is monotone upward -- but it is
+not flat by lmax=6: the value is still moving ~4% per degree, so the
+absolute shift is converged to roughly the ~4-6% level at lmax=6, not
+better. lmax=4 and lmax=5 reproduce the earlier spot-check numbers
+(5.517e-5, 5.973e-5) to the figures previously quoted; those two points
+carry an independent native-MATLAB anchor at lmax=4 (below). Among the
+off-modes, (3,0) and (2,±2) settle to ≤1.4% steps by lmax=6, but **(3,±1)
+is misestimated at lmax=4**: it drops 33% from lmax=4 to lmax=5 before
+settling (−1.6% at lmax=6), so lmax=4 is not adequate for the (3,±1)
+tesseral amplitude specifically -- lmax≥5 is required for that mode.
+
+**Radial (Nrbase) independence check (fixed lmax=4).** Truncation is an
+angular question and should be radial-grid-independent (TASK-021b's
+argument); this is verified rather than assumed. At Nrbase=15/30/50 the
+(2,0) shift and every tracked off-mode are identical to <0.005% (the
+lmax-ladder rows above are therefore legitimately run at Nrbase=30 despite
+TASK-021b having hit >15 GB at lmax=6/Nrbase=50; this run's peak was ~11 GB
+at lmax=6/Nrbase=30). This confirms the lmax ladder is a pure angular
+convergence study, uncontaminated by radial resolution.
+
+**Airy-calibration sensitivity (lmax=4, Nrbase=30).** Section 5 flagged the
+crust/mantle-density (Airy factor) assumption as the weakest input,
+because the (4,0)-driven forcing-mode shift scales ~1:1 with it. The
+lateral rigidity field is *exactly linear* in
+`AIRY_FACTOR = rho_crust/(rho_mantle − rho_crust)` (see
+`crustal_thickness_variation`: `dt = clm·AIRY_FACTOR`, and the `dμ/dt`
+coefficient is density-independent), and this factor is the only place
+crust/mantle density enters the lateral field -- so the sweep is a linear
+rescale of the baseline `mu_variable` followed by an honest coupled
+re-solve (perturbation_order=2 retains the quadratic self-terms of section
+5, so outputs are re-solved, not scaled). Sweeping a wide defensible
+bracket rho_crust ∈ {2700, 2900, 3100}, rho_mantle ∈ {3400, 3500} kg/m³
+(baseline 2900/3400 → AIRY_FACTOR=5.8):
+
+| quantity | min | max | spread (% of mean) |
+|---|---|---|---|
+| (2,0) shift | 2.2263e-5 (AF=3.375) | 1.6936e-4 (AF=10.333) | 216% |
+| \|k(3,0)\| | 4.14e-5 | 1.46e-4 | 133% |
+| \|k(2,±2)\| | 1.99e-5 | 9.05e-5 | 164% |
+| \|k(3,±1)\| | 1.25e-5 | 5.20e-5 | 152% |
+
+The forcing-mode shift varies by a factor ~7.6 across this bracket, and
+its response is *super-linear* at the high-AIRY_FACTOR end (a ×1.78 factor
+change produces a ×3.07 shift change), because the order-2 self-coupling
+term (section 5) grows quadratically while the (4,0) first-order term grows
+linearly. **The crustal-model uncertainty therefore dominates the
+truncation uncertainty by more than an order of magnitude** (~factor-7
+bracket vs. ~4-6% per-degree truncation step). This is the sensitivity §5
+anticipated, now quantified. The wide bracket is deliberately an upper
+bound; the InSight-calibrated non-Airy crustal-thickness substitution
+(TASK-027 Part 2 second pass) needs a data fetch and is deferred to
+Machine A, so this spread should be read as "how much the headline could
+move under crustal-model choice", not as a posterior uncertainty.
+
+**Native-MATLAB anchor for the diagonal (2,1)/(2,2) forcing modes
+(TASK-027 Part 3).** The diagonal order-splitting Love numbers used in the
+detectability analysis (`MARS_K21_FORCING`, `MARS_K22_FORCING`) previously
+had a Python-only provenance. `scripts/mars_lateral_cross_check.m` now runs
+the native LOV3D coupled solver on the committed model + `mu_variable`
+field for all three forcing orders m=0/1/2 (artifacts:
+`data/tests/mars/mars_lateral_cross_check.mat`,
+`mars_lateral_cross_check_k2m.log`):
+
+| forcing | MATLAB diagonal k | Python reference | rel. err |
+|---|---|---|---|
+| (2,0) | 0.169055174106 | 0.1690552 (7-fig) | 1.5e-7 |
+| (2,1) | 0.169020913466 | 0.16902091346458947 | 7.1e-12 |
+| (2,2) | 0.169033995416 | 0.16903399541441133 | 7.0e-12 |
+
+The (2,1)/(2,2) values match to ~7e-12 (the (2,0) figure is limited only by
+the 7-digit rounded Python reference; its underlying agreement is at the
+same machine-precision level as the m=0 spectrum's 2.95e-13). This is a
+lmax=4 anchor: it validates the diagonal values at the production cutoff,
+but does not by itself resolve the separate lmax-convergence of the m=1,2
+*ordering* flagged in the TASK-026 detectability section (that would need
+the m=1,2 forcing re-run at lmax=5/6, which this task did not perform).
+
+**Do the section-5 conclusions survive?** The qualitative (4,0)-driven
+first-order forcing-mode shift survives: the shift is real, grows (does not
+shrink) with lmax, and is present in native MATLAB -- it is not a
+truncation artifact, and lmax=4 if anything *under*-states it. What does
+*not* survive as a precise number is any claim of a converged absolute
+amplitude: the shift carries a ~4-6% residual truncation uncertainty at
+lmax=6 and a much larger (factor-several) crustal-model uncertainty. The
+detectability-relevant off-mode amplitudes (3,0) and (2,±2) are trustworthy
+at lmax≥4, but (3,±1) requires lmax≥5. All off-mode amplitudes are subject
+to the same order-of-magnitude Airy-calibration spread. The
+`test_mars_lateral.py::TestTruncationSensitivity` 20%-per-step bound
+(marked `@pytest.mark.slow`) still holds for the forcing mode.
 
 ### 7. Export for MATLAB cross-check
 
@@ -1367,11 +1469,18 @@ above are all at `lmax=4`. Rerunning the identical pipeline at `lmax=2,
 Nrbase=30` gives `Delta k20=3.079e-05`, `Delta k21=2.755e-05`, `Delta
 k22=1.948e-05` -- changes of 79%, 24%, and 74% moving from `lmax=2` to
 `lmax=4`, and the ordering among `m` **reverses** (`lmax=2`: m=1 splits
-more than m=2; `lmax=4`: the reverse). `lmax=5` has not been run for
-these diagonal forcing cases. This is stated plainly rather than left for
-a reader to discover: the ordering among `m` should not be relied upon
-until TASK-027's convergence study (`docs/tasks/
-TASK-027-lateral-robustness.md`, part 3) completes.
+more than m=2; `lmax=4`: the reverse). This is stated plainly rather than
+left for a reader to discover: the ordering among `m` should not be relied
+upon as a converged result.
+
+**TASK-027 update.** TASK-027 Part 3 gave the lmax=4 diagonal (2,1)/(2,2)
+values a native-MATLAB anchor (match to ~7e-12; see section "Lateral
+variations", subsection 6), confirming the numbers above are correct *at
+lmax=4*. It did **not** re-run the m=1,2 forcing cases at lmax=5/6, so the
+lmax convergence of the m-ordering itself remains open: the forcing-mode
+(2,0) shift was still moving ~4% per degree at lmax=6 (subsection 6
+ladder), and the m=1,2 diagonals should be expected to move comparably.
+The ordering among `m` still should not be relied upon as converged.
 
 **Achieved precision.** Konopliv, A. S., Park, R. S., Yuan, D.-N., et al.
 (2013), "The JPL lunar gravity field to spherical harmonic degree 660

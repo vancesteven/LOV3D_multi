@@ -1,0 +1,70 @@
+
+============ MARS LATERAL COUPLED CROSS-CHECK (MATLAB LOV3D) ============
+  TASK-027 pt 3: forcing orders m = [0 1 2] on the committed model+mu_variable
+  Nrbase=30  perturbation_order=2  method=variable
+
+------------------------------------------------------------------------
+  FORCING (2,0)
+    N coupled solution modes : 115
+    k2 uniform (no lateral)  : 0.169000000002
+    k2 forcing (2,0) lateral : 0.169055174106
+    k2 lateral shift         : +5.517410e-05
+    Python diagonal k ref    : 0.169055200000   rel err = 1.532e-07
+    Python (2,0) shift ref   : +5.517000e-05   rel err = 7.439e-05
+    Top lateral-response modes by |k| (forcing mode shown as deviation):
+      (n= 3, m=  0)  k = -7.289340e-05 +3.873228e-23i
+      (n= 2, m=  0)  k = +5.517410e-05 +3.206031e-21i  <- forcing (deviation)
+      (n= 2, m=  2)  k = +3.219132e-05 +2.032527e-05i
+      (n= 2, m= -2)  k = +3.219132e-05 -2.032527e-05i
+      (n= 3, m=  1)  k = -5.193061e-06 +2.294069e-05i
+      (n= 3, m= -1)  k = +5.193061e-06 +2.294069e-05i
+      (n= 3, m=  3)  k = -5.448302e-06 +8.646651e-06i
+      (n= 3, m= -3)  k = +5.448302e-06 +8.646651e-06i
+      (n= 4, m= -2)  k = -5.974171e-06 +4.497793e-06i
+      (n= 4, m=  2)  k = -5.974171e-06 -4.497793e-06i
+      (n= 2, m= -1)  k = +3.458221e-07 -3.773043e-06i
+      (n= 2, m=  1)  k = -3.458221e-07 -3.773043e-06i
+
+------------------------------------------------------------------------
+  FORCING (2,1)
+    N coupled solution modes : 114
+    k2 uniform (no lateral)  : 0.169000000002
+    k2 forcing (2,1) lateral : 0.169020913466
+    k2 lateral shift         : +2.091346e-05
+    Python diagonal k ref    : 0.169020913465   rel err = 7.072e-12
+    Top lateral-response modes by |k| (forcing mode shown as deviation):
+      (n= 3, m=  1)  k = -6.787125e-05 +1.675780e-08i
+      (n= 3, m=  2)  k = -6.577403e-06 +2.788112e-05i
+      (n= 2, m=  1)  k = +2.091346e-05 +1.801603e-15i  <- forcing (deviation)
+      (n= 2, m= -2)  k = -1.822091e-05 -2.169158e-06i
+      (n= 3, m=  0)  k = +2.169802e-06 +1.451530e-05i
+      (n= 2, m=  2)  k = +8.648607e-06 -8.925743e-06i
+      (n= 4, m=  3)  k = -8.867039e-06 -6.547818e-06i
+      (n= 3, m= -2)  k = +5.856392e-06 +7.600279e-06i
+      (n= 4, m= -1)  k = -3.854310e-06 +2.831950e-06i
+      (n= 2, m= -1)  k = -4.584420e-06 -4.599633e-07i
+      (n= 5, m=  4)  k = +2.210390e-06 -3.692554e-06i
+      (n= 4, m=  2)  k = +3.138068e-06 -2.564121e-06i
+
+------------------------------------------------------------------------
+  FORCING (2,2)
+    N coupled solution modes : 111
+    k2 uniform (no lateral)  : 0.169000000002
+    k2 forcing (2,2) lateral : 0.169033995416
+    k2 lateral shift         : +3.399541e-05
+    Python diagonal k ref    : 0.169033995414   rel err = 7.005e-12
+    Top lateral-response modes by |k| (forcing mode shown as deviation):
+      (n= 3, m=  2)  k = -5.404650e-05 +2.856178e-08i
+      (n= 2, m=  0)  k = +3.218788e-05 -2.032320e-05i
+      (n= 3, m=  3)  k = -4.996542e-06 +3.429849e-05i
+      (n= 2, m=  2)  k = +3.399541e-05 +1.727665e-15i  <- forcing (deviation)
+      (n= 2, m= -2)  k = -2.207427e-06 -2.476435e-05i
+      (n= 2, m= -1)  k = +1.822054e-05 +2.167802e-06i
+      (n= 4, m=  4)  k = -1.343967e-05 -1.002205e-05i
+      (n= 2, m=  1)  k = +8.648555e-06 +8.924789e-06i
+      (n= 3, m=  1)  k = -2.824902e-07 +9.040362e-06i
+      (n= 5, m=  5)  k = +3.463660e-06 -5.913667e-06i
+      (n= 3, m= -1)  k = +3.310855e-06 +5.790367e-06i
+      (n= 4, m=  3)  k = +2.804201e-06 -2.388112e-06i
+========================================================================
+

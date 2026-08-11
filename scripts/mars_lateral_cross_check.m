@@ -110,81 +110,141 @@ if ~(Numerics.Nlayers == length(Interior_Model))
     error('Numerics.Nlayers must equal length(Interior_Model)');
 end
 
-%% FORCING (n=2, m=0 tidal; elastic model => frequency-independent, Td arbitrary)
-Forcing(1).Td = 44387.62;   % s (MARS_FORCING_TD)
-Forcing(1).n = 2;
-Forcing(1).m = 0;
-Forcing(1).F = 1;
+%% FORCING ORDERS (n=2 tidal; elastic model => frequency-independent, Td arbitrary)
+% TASK-027 part 3: the (2,0) run is the original TASK-014 pt-2 anchor; the
+% (2,1)/(2,2) runs give the diagonal forcing-mode Love numbers a native
+% MATLAB anchor they previously lacked (only the m=0 spectrum was validated).
+% Python (pylov3d) diagonal forcing-mode references (mars_detectability_k2m,
+% lmax=4, Nrbase=30, perturbation_order=2, method 'combination'):
+%   (2,0): k2_uniform=0.169000  k2_forcing=0.1690552  shift=+5.517e-5
+%   (2,1): MARS_K21_FORCING = 0.16902091346458947  (absolute diagonal k)
+%   (2,2): MARS_K22_FORCING = 0.16903399541441133  (absolute diagonal k)
+FORCING_TD    = 44387.62;   % s (MARS_FORCING_TD)
+forcing_orders = [0, 1, 2];
+py_k_forcing   = [0.1690552, 0.16902091346458947, 0.16903399541441133];  % absolute diagonal k
+py_k_uniform   = 0.169;
+py_shift_m0    = 5.517e-5;
 
-%% UNIFORM (no-lateral) reference solve, for the forcing-mode k2 shift
-Interior_Model_Uni = Interior_Model;
-Interior_Model_Uni(crust_matlab_idx).mu_variable = [];   % strip lateral field
-Interior_Model_Uni = get_rheology(Interior_Model_Uni, Numerics, Forcing);
-[Love_Uni, ~] = get_Love(Interior_Model_Uni, Forcing, Numerics, 'verbose');
-k2_uniform = real(Love_Uni.k(1));
-
-%% COUPLED (lateral) solve
-Interior_Model = get_rheology(Interior_Model, Numerics, Forcing);
-[Love_Spectra, ~] = get_Love(Interior_Model, Forcing, Numerics, 'verbose');
-
-%% REPORT
-n_s = Love_Spectra.n(:);
-m_s = Love_Spectra.m(:);
-k_s = Love_Spectra.k(:);
-
-iforcing = find(n_s == Forcing.n & m_s == Forcing.m, 1);
-k2_forcing = real(k_s(iforcing));
-k2_shift = k2_forcing - k2_uniform;
-
-fprintf('\n============ MARS LATERAL COUPLED CROSS-CHECK (MATLAB LOV3D) ============\n');
-fprintf('  N coupled solution modes : %d\n', length(n_s));
-fprintf('  k2 uniform (no lateral)  : %.12f\n', k2_uniform);
-fprintf('  k2 forcing (2,0) lateral : %.12f\n', k2_forcing);
-fprintf('  k2 lateral shift         : %.6e\n', k2_shift);
-fprintf('------------------------------------------------------------------------\n');
-fprintf('  Python (pylov3d) reference: k2_uniform=0.169000  k2=0.1690552  shift=+5.517e-5\n');
-fprintf('  rel err  k2_uniform=%.3e   shift=%.3e\n', ...
-    abs(k2_uniform - 0.169) / 0.169, ...
-    abs(k2_shift - 5.517e-5) / 5.517e-5);
-fprintf('------------------------------------------------------------------------\n');
-fprintf('  Top lateral-response modes by |k| (forcing mode shown as deviation):\n');
-kdev = k_s;
-kdev(iforcing) = k_s(iforcing) - k2_uniform;
-[~, ord] = sort(abs(kdev), 'descend');
-nshow = min(12, length(ord));
-for j = 1:nshow
-    i = ord(j);
-    tag = '';
-    if i == iforcing, tag = '  <- forcing (deviation)'; end
-    fprintf('    (n=%2d, m=%3d)  k = %+.6e %+.6ei%s\n', ...
-        n_s(i), m_s(i), real(kdev(i)), imag(kdev(i)), tag);
-end
-fprintf('========================================================================\n\n');
-
-%% SAVE VERIFICATION ARTIFACT (TASK-020)
-% Persist the computed coupled spectrum to a small .mat so a MATLAB-less
-% reader (or a future regression check) can verify the N=115 / 2.95e-13
-% numbers above without re-running MATLAB. Mirrors data/tests/moon/*.mat.
+% couplings/rheology depend only on the forced (n,m); loop cleanly per order.
 out_dir = fullfile(repo_root, 'data', 'tests', 'mars');
 if ~isfolder(out_dir)
     mkdir(out_dir);
 end
-mars_lat.N_modes      = length(n_s);
-mars_lat.k2_uniform   = k2_uniform;
-mars_lat.k2_forcing   = k2_forcing;
-mars_lat.k2_shift     = k2_shift;
-mars_lat.n            = n_s;          % mode degrees
-mars_lat.m            = m_s;          % mode orders
-mars_lat.k            = k_s;          % complex k per mode (forcing mode is absolute)
-mars_lat.forcing_n    = Forcing(1).n;
-mars_lat.forcing_m    = Forcing(1).m;
-mars_lat.Nrbase       = Numerics.Nrbase;
+
+% open a combined log (TASK-027 pt 3 deliverable): tee fprintf to console+file.
+log_path = fullfile(out_dir, 'mars_lateral_cross_check_k2m.log');
+logf = fopen(log_path, 'w');
+logp = @(varargin) both_print(logf, varargin{:});
+
+logp('\n============ MARS LATERAL COUPLED CROSS-CHECK (MATLAB LOV3D) ============\n');
+logp('  TASK-027 pt 3: forcing orders m = [0 1 2] on the committed model+mu_variable\n');
+logp('  Nrbase=%d  perturbation_order=%d  method=%s\n', ...
+    Numerics.Nrbase, Numerics.perturbation_order, Numerics.method);
+
+results = struct([]);
+for iorder = 1:numel(forcing_orders)
+    m_force = forcing_orders(iorder);
+
+    clear Forcing
+    Forcing(1).Td = FORCING_TD;
+    Forcing(1).n  = 2;
+    Forcing(1).m  = m_force;
+    Forcing(1).F  = 1;
+
+    % --- uniform (no-lateral) reference solve for THIS order ---------------
+    IM_uni = Interior_Model;
+    IM_uni(crust_matlab_idx).mu_variable = [];   % strip lateral field
+    IM_uni = get_rheology(IM_uni, Numerics, Forcing);
+    [Love_Uni, ~] = get_Love(IM_uni, Forcing, Numerics, 'verbose');
+    k2_uniform = real(Love_Uni.k(1));
+
+    % --- coupled (lateral) solve for THIS order ----------------------------
+    IM_lat = get_rheology(Interior_Model, Numerics, Forcing);
+    [Love_Spectra, ~] = get_Love(IM_lat, Forcing, Numerics, 'verbose');
+
+    n_s = Love_Spectra.n(:);
+    m_s = Love_Spectra.m(:);
+    k_s = Love_Spectra.k(:);
+    iforcing = find(n_s == Forcing.n & m_s == Forcing.m, 1);
+    k2_forcing = real(k_s(iforcing));
+    k2_shift   = k2_forcing - k2_uniform;
+
+    py_kf   = py_k_forcing(iorder);
+    rel_kf  = abs(k2_forcing - py_kf) / abs(py_kf);
+
+    logp('\n------------------------------------------------------------------------\n');
+    logp('  FORCING (2,%d)\n', m_force);
+    logp('    N coupled solution modes : %d\n', length(n_s));
+    logp('    k2 uniform (no lateral)  : %.12f\n', k2_uniform);
+    logp('    k2 forcing (2,%d) lateral : %.12f\n', m_force, k2_forcing);
+    logp('    k2 lateral shift         : %+.6e\n', k2_shift);
+    logp('    Python diagonal k ref    : %.12f   rel err = %.3e\n', py_kf, rel_kf);
+    if m_force == 0
+        logp('    Python (2,0) shift ref   : %+.6e   rel err = %.3e\n', ...
+            py_shift_m0, abs(k2_shift - py_shift_m0) / abs(py_shift_m0));
+    end
+    logp('    Top lateral-response modes by |k| (forcing mode shown as deviation):\n');
+    kdev = k_s;
+    kdev(iforcing) = k_s(iforcing) - k2_uniform;
+    [~, ord] = sort(abs(kdev), 'descend');
+    nshow = min(12, length(ord));
+    for j = 1:nshow
+        i = ord(j);
+        tag = '';
+        if i == iforcing, tag = '  <- forcing (deviation)'; end
+        logp('      (n=%2d, m=%3d)  k = %+.6e %+.6ei%s\n', ...
+            n_s(i), m_s(i), real(kdev(i)), imag(kdev(i)), tag);
+    end
+
+    r.forcing_m   = m_force;
+    r.N_modes     = length(n_s);
+    r.k2_uniform  = k2_uniform;
+    r.k2_forcing  = k2_forcing;
+    r.k2_shift    = k2_shift;
+    r.py_k_ref    = py_kf;
+    r.rel_err     = rel_kf;
+    r.n           = n_s;
+    r.m           = m_s;
+    r.k           = k_s;
+    if isempty(results), results = r; else, results(end+1) = r; end  %#ok<SAGROW>
+end
+logp('========================================================================\n\n');
+fclose(logf);
+fprintf('  saved log: %s\n', log_path);
+
+%% SAVE VERIFICATION ARTIFACT (TASK-020 / TASK-027 pt 3)
+% Persist the computed coupled spectra (all three forcing orders) to a small
+% .mat so a MATLAB-less reader (or a future regression check) can verify the
+% diagonal (2,m) forcing Love numbers without re-running MATLAB. The m=0
+% entry preserves the original TASK-020 fields for backward compatibility.
+mars_lat.forcing_orders     = forcing_orders;
+mars_lat.results            = results;              % per-order struct array
+mars_lat.N_modes            = results(1).N_modes;   % m=0 (back-compat)
+mars_lat.k2_uniform         = results(1).k2_uniform;
+mars_lat.k2_forcing         = results(1).k2_forcing;
+mars_lat.k2_shift           = results(1).k2_shift;
+mars_lat.n                  = results(1).n;
+mars_lat.m                  = results(1).m;
+mars_lat.k                  = results(1).k;
+mars_lat.forcing_n          = 2;
+mars_lat.forcing_m          = 0;
+mars_lat.Nrbase             = Numerics.Nrbase;
 mars_lat.perturbation_order = Numerics.perturbation_order;
-mars_lat.method       = Numerics.method;
-mars_lat.matlab_version = version;
+mars_lat.method             = Numerics.method;
+mars_lat.matlab_version     = version;
 save(fullfile(out_dir, 'mars_lateral_cross_check.mat'), '-struct', 'mars_lat');
 fprintf('  saved artifact: %s\n\n', fullfile(out_dir, 'mars_lateral_cross_check.mat'));
 
+
+%% ------------------------------------------------------------------------
+%% local function: tee a printf to both the console and the open log file
+%% ------------------------------------------------------------------------
+function both_print(logf, varargin)
+    fprintf(varargin{:});
+    if logf > 0
+        fprintf(logf, varargin{:});
+    end
+end
 
 %% ------------------------------------------------------------------------
 %% local function: minimal .npz reader for the committed lateral field
