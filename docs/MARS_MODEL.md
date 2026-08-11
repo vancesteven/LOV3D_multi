@@ -712,8 +712,9 @@ wrong explanation).** `get_couplings.get_active_modes` discovers a mode's
 *reachability* order by tracking `(n, m, ST)` triples (`ST` = spheroidal/
 toroidal) through `next_coupling`, then collapses to `(n, m)` keeping the
 *minimum* order and discarding `ST` (`pylov3d/couplings.py:143-147`). A
-mode reachable as toroidal at order 1 (or with a genuinely-zero order-1
-coupling coefficient) but spheroidal only at order 2 is therefore labeled
+mode reachable as toroidal at order 1 (or with an order-1 coupling
+coefficient that is zero to numerical precision) but spheroidal only at
+order 2 is therefore labeled
 "order 1" even though its *visible* response -- `k`, which by construction
 comes only from the potential/spheroidal branch, since toroidal
 deformation carries no gravitational potential perturbation -- is actually
@@ -722,7 +723,7 @@ verified directly against `coupling_coefficients` (not just inferred from
 the response curve):
 - **(3, +/-2)**: its only order-1 *spheroidal* channel (rheology mode
   `(3, +/-2)` coupling with the forcing mode) has a coupling coefficient
-  of **~7.6e-17** -- a genuine, isolated selection-rule zero (not a
+  of **~7.6e-17** -- a true, isolated selection-rule zero (not a
   parity/toroidal artifact; its other order-1 channels, via rheology
   `(2, +/-2)` and `(4, +/-2)`, *are* toroidal, but this one is spheroidal
   and simply numerically vanishes).
@@ -748,20 +749,31 @@ fitting the shift's `eps`-scaling exponent between `eps=1e-3` and
 `(4,0)` alone gives exponent **1.000**: *first* order. The mechanism is
 even parity self-coupling -- forcing degree 2 + rheology degree 4 +
 response degree 2 has even parity (2+2+4=8, spheroidal), so `(4,0)`
-rheology couples the forcing mode directly back to itself at order 1, the
-one rheology degree in the `n_lv<=4` set for which this is possible for a
-degree-2 zonal tide. Measured absolute contribution: the `(4,0)`-alone
-shift, extrapolated linearly to the harmonic's full physical amplitude, is
-**~1.75e-5** -- about a third of the total measured shift (~5.52e-5, all
-23 harmonics together) -- confirming it is the dominant single contributor,
-not a curiosity. Consequences worth stating plainly for the proposal: (1)
-the forcing-mode shift scales ~1:1 (not quadratically) with the Airy
-calibration for this component, so it is comparatively sensitive to the
-Airy factor / crust density assumptions; (2) Mars's observed k2 itself
-therefore carries a genuine, if small (~5.5e-5 out of k2=0.169, i.e.
-~3e-4 relative), first-order signature of degree-4 zonal crustal
-structure -- a novel, proposal-relevant point distinct from the
-non-forcing-mode spectrum shown in fig6. Pinned by
+rheology couples the forcing mode directly back to itself at order 1. **On
+the Airy field this is the only such channel that contributes, because the
+Airy path drops C20 by construction -- but (4,0) is not the only rheology
+degree for which the mechanism is possible.** `(2,0)` rheology couples the
+forcing mode to itself at order 1 by the identical even-parity argument
+(2+2+2=6); the Airy path never exercises it only because it structurally
+never retains a C20 term to couple with. Checked directly against
+`coupling_coefficients`: max|C| = 0.6389 for (2,0), 0.8571 for (4,0),
+identically zero for (1,0), (3,0), (5,0), (6,0) -- see "Non-Airy crustal
+model substitution (TASK-028)" below, section 5, where a C20-retaining
+field (unlike this one) makes both channels active simultaneously and they
+substantially cancel. Measured absolute contribution on *this* (Airy,
+C20-free) field: the `(4,0)`-alone shift, extrapolated linearly to the
+harmonic's full physical amplitude, is **~1.75e-5** -- about a third of the
+total measured shift (~5.52e-5, all 23 harmonics together) -- confirming it
+is the dominant single contributor on this field, not a curiosity.
+Consequences worth stating plainly for the proposal: (1) the forcing-mode
+shift scales ~1:1 (not quadratically) with the Airy calibration for this
+component, so it is comparatively sensitive to the Airy factor / crust
+density assumptions; (2) Mars's observed k2 itself therefore carries a
+real, if small (~5.5e-5 out of k2=0.169, i.e. ~3e-4 relative), first-order
+signature of degree-4 zonal crustal structure *under the Airy assumption
+specifically* -- a novel, proposal-relevant point distinct from the
+non-forcing-mode spectrum shown in fig6, but one that does not generalize
+unchanged to a C20-retaining crustal field (TASK-028 below). Pinned by
 `test_mars_lateral.py::TestLinearity::test_forcing_mode_scaling_exponents`
 (exponent bounds [0.9,1.1] for `(4,0)`, [1.8,2.2] for `(3,0)`).
 
@@ -820,7 +832,7 @@ lateral rigidity field is *exactly linear* in
 `crustal_thickness_variation`: `dt = clm·AIRY_FACTOR`, and the `dμ/dt`
 coefficient is density-independent), and this factor is the only place
 crust/mantle density enters the lateral field -- so the sweep is a linear
-rescale of the baseline `mu_variable` followed by an honest coupled
+rescale of the baseline `mu_variable` followed by a full coupled
 re-solve (perturbation_order=2 retains the quadratic self-terms of section
 5, so outputs are re-solved, not scaled). Sweeping a wide defensible
 bracket rho_crust ∈ {2700, 2900, 3100}, rho_mantle ∈ {3400, 3500} kg/m³
@@ -895,6 +907,373 @@ TASK-014 part 1: Python uses `eta0 = NaN` for elastic, MATLAB requires
 (`crust_layer_index` is 0-based Python numbering, 3; the same layer is
 MATLAB `Interior_Model(4)`, 1-based) -- for machine B's native-MATLAB
 coupled cross-check (TASK-014 part 2).
+
+## Non-Airy crustal model substitution (TASK-028)
+
+TASK-027 quantified the Airy crust/mantle-density calibration bracket at a
+factor ~7.6 in the (2,0) forcing-mode shift, against a truncation-ladder
+uncertainty of only ~1.13x (4-6% per lmax step, section 6 above) --
+identifying the crustal-model assumption, not the truncation cutoff, as the
+dominant remaining error term. That sweep varied the Airy *parameters*
+(crust/mantle density) but kept the Airy *assumption itself* -- topography
+locally, isostatically compensated by crustal thickening -- fixed. This
+section replaces the Airy-derived crustal-thickness field with five
+InSight-calibrated crust-mantle interface (Moho) models
+(`data/mars/insight_moho/`; provenance, format, and selection criterion in
+`data/mars/insight_moho/SOURCES.md` -- full author list not independently
+retrieved this session, so not quoted here) and re-runs the identical
+downstream lateral-rigidity/coupled-solve machinery, to ask directly: does
+the Airy assumption, not just its density parameters, bias the lateral
+spectrum? Implementation: `pylov3d/mars_crust_models.py`; `pylov3d.mars_lateral`
+is imported, not modified. Tests: `pylov3d/tests/test_mars_crust_models.py`.
+
+The result is not the simple "Airy validated, use a single corrected
+sensitivity number" story an earlier pass through this analysis reported.
+Retaining C20 (the deliberate, C20-decision departure from the Airy path --
+section 1 below) turns out to activate a *second* first-order coupling
+channel into the forcing mode that the Airy field structurally cannot
+exercise, and that channel nearly cancels the one already documented in
+section 5 above. Sections 5-6 below are the load-bearing result of this
+task; sections 1-4 are the supporting field construction and validation.
+
+### 1. The crustal-thickness field: direct geometric difference, not compensation
+
+`data/mars/insight_moho/` holds five spherical-harmonic Moho-radius models
+(lmax=90, same real 4pi-normalized, no-Condon-Shortley convention as
+MarsTopo719, `pylov3d.sh_data.load_shape` reads them unmodified), spanning
+distinct interior models (DWAK, DWThotCrust1, EH45Tcold, EH45TcoldCrust1r,
+Khan2022), all at the project's own crust density (2900 kg/m^3) and within
+1 km of the 50 km reference mean thickness (SOURCES.md's selection
+criterion), so a substitution changes the lateral *pattern*, not the mean
+thickness or the density assumption. `moho_thickness_variation(model, lmax)`
+computes `dt = R_topo - R_moho` as a direct coefficient-wise SH subtraction
+(exact, since both fields share the same expansion convention) and removes
+only the (0,0) mean.
+
+**The C20 decision.** Unlike the Airy path
+(`crustal_thickness_variation`, section 1 above), which drops C20 from
+*topography* because it is dominated (~93%, section 1 above) by rotational
+flattening -- an equilibrium-figure effect that bulges the whole body, not a
+crustal-density load -- this module **retains C20**. The Moho fields are not
+derived by applying an isostatic-compensation assumption to topography; they
+are independently inverted (gravity + seismic) radius fields, and `dt` is
+their literal geometric difference from the topographic surface. Zeroing
+C20 would only be correct if the Moho flattened in lockstep with the
+topographic surface, making the difference's C20 a redundant restatement of
+the same rotational bulge. It measurably does not:
+
+| model | Moho C20 [m] | (R_moho/R_topo)^2-scaled prediction [m] | ratio |
+|---|---|---|---|
+| DWAK | -2057.6 | -5792.1 | 0.36 |
+| DWThotCrust1 | -2247.7 | -5792.9 | 0.39 |
+| EH45Tcold | -2114.8 | -5790.3 | 0.37 |
+| EH45TcoldCrust1r | -2251.0 | -5789.8 | 0.39 |
+| Khan2022 | -2745.1 | -5789.9 | 0.47 |
+
+(topo C20 = -5966.2 m, R_moho/R_topo = 0.9853.) Every model's Moho is
+flattened only 0.36-0.47x as much as the scaled prediction, consistently,
+not as an outlier of one model.
+
+*Comparator choice, addressed directly because a review raised it:*
+`(R_moho/R_topo)^2` is not the general hydrostatic law -- Clairaut's theorem
+gives flattening proportional to `r` for a homogeneous body and to `r^3` in
+the centrally-condensed limit; `r^2` is intermediate, a plausible but not
+uniquely-justified interpolation. It is used anyway because R_moho/R_topo =
+0.9853 is close enough to 1 that the exponent barely moves the prediction:
+DWAK's ratio is 0.350/0.355/0.361 for exponent 1/2/3, and the full
+five-model x three-exponent grid spans 0.350-0.481. The "measurably
+decoupled" conclusion is insensitive to which power is chosen. As an
+independent cross-check with different physics (Bouguer root of the
+non-hydrostatic residual rather than a pure level-surface scaling): the
+already-recorded fact (section 1 above) that ~7% of Mars's observed C20 is a
+non-hydrostatic mass anomaly equivalent to roughly a 2.4 km crustal root is
+consistent, in sign and rough magnitude, with the 3-4 km gap between the
+scaled prediction (~-5790 m) and the models' actual C20 (-2058 to -2745 m);
+this cross-check was not independently re-derived to the same numerical
+precision this session and is reported as a qualitative consistency check,
+not a pinned figure.
+
+**Sign, stated plainly because an earlier revision of this analysis had it
+backwards:** retaining the Moho's actual (small-magnitude) C20 instead of
+the larger passive-geometry value makes the crust **thinner** at the poles,
+not thicker. `dt`'s C20 term alone (DWAK, C20 = -3908.6 m) evaluates to
+-8740 m at either pole, against only -389 m from the hypothetical
+passive-geometry ((R_moho/R_topo)^2-scaled) value -- about 8.4 km of
+*additional* thinning at the poles beyond what passive geometry alone would
+produce (equivalently, thickening around the equator, consistent with the
+equatorial Tharsis root). The zonal-mean of the *full* `dt` field confirms
+this independently and by a larger margin (all other retained degrees add
+further structure at high latitude): -24.2 km at 84.5N vs. +12.6 km at
+85.5S.
+
+A second, independent argument for retaining C20: the 1D reference model
+this feeds (`pylov3d.mars.build_mars_model`) has a perfectly spherical
+crust-mantle boundary at every layer, so there is no separately-flattened,
+load-free reference to avoid double-subtracting against -- unlike the Airy
+path, which needs to remove C20 specifically because it is testing
+topography *against* an isostatic-load assumption that the rotational bulge
+violates. Consequently, no areoid (Bruns-relation) referencing is applied
+here either, for the same reason: that correction exists in the Airy path
+to convert bare topography into height-above-the-level-surface before
+invoking isostatic support, and there is no such support assumption to
+correct for when `dt` is already a directly observed thickness field.
+
+### 2. Diagnostics
+
+`moho_thickness_diagnostics` mirrors `crustal_thickness_diagnostics`'s
+contract (shell-residency bound, elastic-positivity bound, degree RMS) plus
+named-location geographic sanity. Measured, lmax=4, all five models:
+
+| model | peak \|dt\| [km] | \|dt\|/50km | max \|dmu/mu_bar\| | dt(Tharsis) [km] | dt(Hellas) [km] | dt(Utopia) [km] |
+|---|---|---|---|---|---|---|
+| DWAK | 38.72 | 0.774 | 0.9689 | +37.94 | -11.61 | -35.31 |
+| DWThotCrust1 | 33.00 | 0.660 | 0.826 | +32.48 | -9.89 | -29.69 |
+| EH45Tcold | 34.57 | 0.691 | 0.865 | +34.00 | -10.37 | -31.20 |
+| EH45TcoldCrust1r | 34.41 | 0.688 | 0.861 | +33.83 | -10.32 | -31.12 |
+| Khan2022 | 37.89 | 0.758 | 0.948 | +37.00 | -11.35 | -34.91 |
+| *Airy (reference)* | *34.2* | *0.684* | *0.857* | | | |
+
+All five stay inside the `|dt| < 50 km` shell-residency bound and the
+elastic-positivity bound (`|dmu/mu_bar| < 1`), though DWAK sits close to the
+positivity bound (0.9689 against a bound of 1.0) -- close enough that this
+linearized rigidity map cannot explore the excluded crust/mantle-density
+axis without risking that bound on at least one of the InSight fields (see
+section 6 below). Geographic sanity holds for all five: the peak positive
+excursion is at Tharsis (matching the Airy field's own peak location,
+lat -8.4/lon -106.4), and the two named low-degree crustal-thinning
+provinces, Hellas and Utopia, are both negative, with Utopia's excursion
+somewhat larger in magnitude than Hellas's at this truncation.
+
+### 3. Comparison: Airy baseline vs. the five InSight models
+
+`compare_crustal_models` at the project's validated `lmax=4`, `Nrbase=30`,
+`perturbation_order=2` -- the as-shipped configuration, C20 retained on the
+InSight side, never present on the Airy side:
+
+| model | (2,0) shift | vs. Airy | \|k(3,0)\| | vs. Airy | \|k(2,±2)\| | vs. Airy | \|k(3,±1)\| | vs. Airy |
+|---|---|---|---|---|---|---|---|---|
+| *Airy* | *5.5174e-5* | *--* | *7.2893e-5* | *--* | *3.8071e-5* | *--* | *2.3521e-5* | *--* |
+| DWAK | 4.7689e-5 | 0.864x | 8.3806e-5 | +15.0% | 4.2888e-5 | +12.7% | 2.9423e-5 | +25.1% |
+| DWThotCrust1 | 3.1962e-5 | 0.579x | 6.9600e-5 | -4.5% | 3.4584e-5 | -9.2% | 2.3622e-5 | +0.4% |
+| EH45Tcold | 3.5495e-5 | 0.643x | 7.3135e-5 | +0.3% | 3.6761e-5 | -3.4% | 2.5035e-5 | +6.4% |
+| EH45TcoldCrust1r | 3.5849e-5 | 0.650x | 7.3291e-5 | +0.5% | 3.6573e-5 | -3.9% | 2.5039e-5 | +6.5% |
+| Khan2022 | 4.9560e-5 | 0.898x | 8.4691e-5 | +16.2% | 4.1730e-5 | +9.6% | 2.9379e-5 | +24.9% |
+
+The three off-diagonal modes are the ones TASK-027's truncation/Airy-
+sensitivity tables track. Their spread across the five models: (3,0)
+0.9548-1.1619x Airy (spread x1.217), (2,±2) 0.9084-1.1265x (spread x1.240),
+(3,±1) 1.0043-1.2509x (spread x1.246) -- note (3,±1)'s bound is **one-sided**
+(+0.4% to +25.1%; the whole InSight range sits *above* Airy, not
+bracketing it), and (3,±1) is separately known unconverged at lmax=4
+(section 6 above: -33% from lmax 4->5), so its InSight-vs-Airy comparison
+at lmax=4 specifically should not be over-read. The (2,0) forcing-mode
+shift behaves qualitatively differently from the three off-modes -- see
+section 5-6 below for why, and section 6 for the crustal-model-sensitivity
+statistics this table implies.
+
+### 4. Pattern validation against the Airy field
+
+Correlating each InSight `dt` field against the Airy field's, area-weighted
+by `cos(lat)` over a 1x1-degree grid, **on the field as it actually ships
+(C20 retained on the InSight side)**:
+
+| model | correlation | rms ratio (model/Airy) |
+|---|---|---|
+| DWAK | 0.958 | 1.206 |
+| DWThotCrust1 | 0.952 | 1.019 |
+| EH45Tcold | 0.953 | 1.069 |
+| EH45TcoldCrust1r | 0.955 | 1.066 |
+| Khan2022 | 0.966 | 1.192 |
+
+Range: correlation 0.952-0.966, rms ratio 1.019-1.206 (up to +21% high). An
+earlier pass through this analysis reported correlation 0.984-0.986 and rms
+within +/-17% -- those figures are real but were computed on a **C20-excluded**
+field (C20 stripped from both the InSight and Airy sides before comparing),
+which is not what ships or what feeds the solver:
+
+| model | correlation (C20 excluded both sides) | rms ratio (C20 excluded both sides) |
+|---|---|---|
+| DWAK | 0.984 | 1.174 |
+| DWThotCrust1 | 0.986 | 0.984 |
+| EH45Tcold | 0.985 | 1.033 |
+| EH45TcoldCrust1r | 0.985 | 1.033 |
+| Khan2022 | 0.984 | 1.170 |
+
+Both tables are legitimate measurements of different things: the first is
+the pattern agreement of the field that actually drives the coupled solve;
+the second isolates how well the two paths agree on everything *except* the
+one harmonic (C20) where they structurally disagree by construction (the
+Airy path always drops it; this path always keeps it for the InSight
+models). Either way, part of the agreement is built in rather than fully
+independent: the InSight inversions use the same MOLA topography as the
+Airy path's input, and a Mars gravity field evaluated at the same crustal
+density (2900 kg/m^3) the Airy path assumes -- so this is not a fully
+independent validation of the Airy pattern, only a partially independent
+one.
+
+### 5. The headline: (2,0)/(4,0) sign cancellation
+
+Section 5 above (TASK-016) established that (4,0) rheology couples the
+(2,0) forcing mode back to itself at first order, via even-parity
+self-coupling (2+2+4=8), and called it "the one rheology degree in the
+`n_lv<=4` set for which this is possible for a degree-2 zonal tide." That
+claim is corrected here: **it is two degrees, not one.** Checked directly
+against `pylov3d.couplings.coupling_coefficients(n=2, m=0, na=2, ma=0,
+nb=nb, mb=0)` for every even zonal rheology degree in the truncated set:
+
+| rheology degree (n,0) | max\|C\| |
+|---|---|
+| (1,0) | 0.0 |
+| (2,0) | 0.6389 |
+| (3,0) | 0.0 |
+| (4,0) | 0.8571 |
+| (5,0) | 0.0 |
+| (6,0) | 0.0 |
+
+Both (2,0) and (4,0) have nonzero self-coupling back to the (2,0) forcing
+mode; the odd degrees are identically zero. The rule is: for a degree-2
+zonal tide, even zonal rheology degrees (2,0) and (4,0) both couple the
+forcing mode to itself at first order -- parity requires an even rheology
+degree, the triangle inequality caps it at 4 (since |n_forcing - n_rheology|
+<= n_response <= n_forcing + n_rheology with n_forcing = n_response = 2
+requires n_rheology <= 4), and order conservation restricts it to m=0. The
+Airy path never exercises the (2,0) channel because it drops C20 by
+construction (section 1 above); a measured Moho field does not have to.
+
+The Airy field's own (4,0)-alone shift (section 5 above, ~1.75e-5,
+extrapolated to full amplitude) is not affected by this correction -- it
+remains a real, isolated measurement of that one field. What changes is the
+picture on a C20-retaining field. On the DWAK field, isolating each channel
+in turn (rheology entries for (2,0) and (4,0) only, scaled by
+`eps in {1e-3, 1e-2}` and linearly extrapolated to full physical amplitude,
+`perturbation_order=2`, confirmed non-artifact across `eps` in [1e-4, 1e-1]
+and `perturbation_order` in {1, 2, 3}; at `perturbation_order=1` the (2,0)
+shift is fully present while (3,0) is at float noise, consistent with (2,0)
+being truly first order and (3,0) truly second):
+
+| channel | signed shift (extrapolated to full amplitude) |
+|---|---|
+| (2,0) alone | -1.5901e-5 |
+| (4,0) alone | +1.4528e-5 |
+| both together | -1.3738e-6 |
+
+The two channels sum to -1.3726e-6, matching the jointly-solved value to
+0.1% -- exactly what linear superposition of two first-order terms
+requires. But the *net* is a **91.4% cancellation** relative to the larger
+single-channel contribution (|-1.3738e-6| / |-1.5901e-5| = 0.086). The
+first-order mechanism itself is robust and mode-selection-rule-derived, not
+a numerical artifact. Its **net amplitude is not** a fixed physical
+constant -- it is the small difference of two comparable, opposite-sign
+terms, so it is sensitive to exactly which crustal field supplies the
+(2,0)/(4,0) amplitude ratio. The Airy path's +1.75e-5 (4,0)-alone figure is
+a property of the Airy field specifically (which has no (2,0) channel to
+cancel against); it does not generalize to "the" degree-4 zonal
+first-order contribution, because on a C20-retaining field it is
+substantially cancelled by the (2,0) channel.
+
+### 6. The (2,0) forcing-shift statistics need three numbers, not one
+
+Because of the cancellation in section 5, the (2,0) forcing-mode shift
+(unlike the three off-diagonal modes in section 3) is sensitive to the C20
+convention as well as to the crustal pattern, so a single "x-factor" spread
+statistic is not sufficient -- three numbers are needed, each describing a
+different comparison:
+
+1. **x1.551**, the spread of the (2,0) shift across the five InSight models
+   *as shipped* (min 3.1962e-5 DWThotCrust1, max 4.9560e-5 Khan2022) -- the
+   number that best describes "how much does the forcing-mode shift move if
+   you swap which real crustal model you use, exactly as the pipeline
+   actually runs it."
+2. **x1.726**, the same spread *including* the Airy baseline (min still
+   DWThotCrust1, max still Khan2022 -- Airy's 5.5174e-5 sits inside the
+   InSight range, not outside it) -- the number that describes "how much
+   does the forcing-mode shift move across everything on the table,
+   including the Airy assumption itself."
+3. **x1.379**, the spread with **C20 suppressed on both sides** (the InSight
+   models' C20 zeroed to match the Airy path's structural omission) -- the
+   like-for-like *pattern-only* sensitivity, isolating the crustal-model
+   effect from the C20-convention effect. Under this comparison the five
+   models bracket Airy **symmetrically**, from -15.1% (DWThotCrust1) to
+   +17.1% (DWAK), rather than sitting wholly below it as the as-shipped
+   numbers in section 3 do.
+
+An earlier pass through this analysis reported "crustal-model sensitivity is
+x1.22-1.25" as if it were a statement about the (2,0) forcing mode. It is
+not -- that range is the **off-diagonal mode spread** from section 3 above
+((3,0) x1.217, (2,±2) x1.240, (3,±1) x1.246), a different set of modes
+entirely, and that claim must not stand as a (2,0) statistic anywhere in
+this document.
+
+**None of x1.551, x1.726, or x1.379 replaces TASK-027's x7.6 Airy-parameter
+sweep (section 6 above).** The two measurements are not interchangeable:
+the density sweep varies the *amplitude calibration* (`AIRY_FACTOR =
+rho_crust/(rho_mantle - rho_crust)`, which linearly rescales the whole
+field), while these five InSight models vary only the *pattern*, at a mean
+thickness (49.6-50.5 km) the selection criterion holds fixed to within ~2%
+of the source paper's own published 30-72 km mean-thickness range for the
+underlying interior models. A structurally analogous point: Moho relief
+itself scales as `1/(rho_mantle - rho_crust)` under an Airy-type
+derivation -- the same structural sensitivity `AIRY_FACTOR` carries -- so
+the crust/mantle-density axis this task's model selection deliberately held
+fixed (all five at 2900 kg/m^3) would, if varied, itself plausibly
+contribute a spread of order 3-5x on top of the pattern-only x1.379. The
+linearized rigidity map cannot explore that axis without care regardless:
+the InSight fields already reach `|dmu/mu_bar| = 0.9689` (DWAK, section 2
+above) against the elastic-positivity bound of 1.0, so any density
+adjustment that increases the implied thickness variation risks leaving the
+regime this linearization is valid in.
+
+### 7. Provenance gaps and unquantified uncertainty
+
+Two provenance caveats, stated explicitly rather than left implicit:
+
+**The source paper's degree-2 treatment.** Wieczorek et al.'s original
+paper describing these Moho models is paywalled and was not independently
+retrieved this session, so exactly how the paper itself treats degree-2
+(whether it discusses the same C20 decoupling documented in section 1
+above, or applies its own convention) could not be verified here. The
+SOURCES.md provenance record documents the data archive and selection
+criterion, not the paper's own degree-2 discussion.
+
+**An independent, order-of-magnitude gravity-based check.** A naive
+full-gravity Bouguer inversion at degree 2 -- treating the entire retained
+non-hydrostatic gravity signal as if it were a single mass sheet at the
+Moho depth -- predicts a Moho C20 of -3363 m (crust/mantle density contrast
+700 kg/m^3) to -4708 m (contrast 500 kg/m^3), against the five models'
+actual retained C20 of -2058 to -2745 m. That 1.4-2.7 km gap is 35-70% of
+the retained C20 -- the exact term that activates the first-order channel
+in section 5 -- so it is unquantified uncertainty sitting directly on the
+headline result, not a side issue. This estimate was not cross-checked
+against the source paper's own methodology (previous caveat), so it should
+be read as an independent order-of-magnitude sanity check, not a competing
+authoritative value.
+
+### 8. What this means for the proposal
+
+Three points, in order of how directly they touch the text already in the
+proposal:
+
+1. **The x7.6 Airy-parameter sensitivity (TASK-027) is not superseded.** It
+   remains the largest quantified error term on the lateral spectrum. The
+   x1.22-1.25 off-diagonal spread and the x1.379-1.726 (2,0)-specific
+   spreads (section 6) are smaller, differently-scoped measurements of
+   crustal-*pattern* sensitivity at fixed density, not replacements for it.
+2. **The (4,0)-driven first-order forcing-mode mechanism (section 5 above,
+   TASK-016) survives, but its previously-reported magnitude does not
+   generalize.** (2,0) is an equally first-order channel that was invisible
+   to the Airy path by construction, and on a C20-retaining field it
+   substantially cancels (4,0)'s contribution (91.4% on DWAK). Any proposal
+   text that cites the (4,0)-alone figure as *the* first-order degree-4-
+   zonal-crustal-structure signature should note it is an Airy-path-specific
+   number, not a field-independent constant.
+3. **The pattern substitution itself is a validation, with the two caveats
+   above attached.** The InSight-calibrated fields agree with the Airy
+   field's off-diagonal spectrum to correlation 0.952-0.966 and an rms
+   ratio of 1.019-1.206 (up to +21% high, section 4), and reproduce its
+   qualitative geography (Tharsis thick, Hellas/Utopia thin, section 2) --
+   support for the Airy pattern's structure, tempered by the shared-input
+   caveat in section 4 and the unresolved degree-2 provenance gap in
+   section 7.
 
 ## Hydration-front tidal signature (TASK-021)
 
@@ -971,7 +1350,7 @@ if a real Mars hydration front is antigorite- rather than
 lizardite/chrysotile-dominated (the mineralogy most of the cited data
 describes, more plausible at shallow/cooler depths), the true detectable
 mu signal could be much weaker than modeled here, down to essentially
-zero. Not folded into the mu bracket above; recorded as an honest failure
+zero. Not folded into the mu bracket above; recorded as a stated failure
 mode of the mineralogy assumption, independent of everything below.
 
 **Reference-crust caveat (added in review, section 5a below).** The
@@ -1130,9 +1509,16 @@ ratio, all K_ROW0_FACTOR-corrected (section 3):
 `lmax=2` underestimates the lateral contribution by **11x to 73x**
 (largest underestimate at the smallest `f_h`, where the missing
 linear-in-amplitude channel matters relatively most) -- because it drops
-the (4,0) crustal harmonic, the *only* first-order (linear-in-amplitude)
-self-coupling channel back to the forced (2,0) mode (section 5 above);
-every other harmonic couples back only at second order. At the
+the (4,0) crustal harmonic. On this Airy-derived field specifically (C20
+always dropped by construction, section 1 above), (4,0) is the only
+first-order (linear-in-amplitude) self-coupling channel back to the forced
+(2,0) mode that is actually present to be dropped by the `lmax=2`
+truncation; every other harmonic present here couples back only at second
+order. This is Airy-path-specific, not a general statement about the
+(2,0)/(4,0) mechanism -- on a C20-retaining crustal field, (2,0) rheology is
+an equally first-order channel that the Airy field never has in the first
+place (section 5 above; "Non-Airy crustal model substitution (TASK-028)"
+below, section 5). At the
 validated `lmax=4`, the mean term dominates the
 lateral term by **~57-64:1** (roughly flat across the sampled `f_h`, not
 growing) -- one to two orders of magnitude smaller than the originally
@@ -1171,7 +1557,7 @@ high-ratio (stiffer, 0.81) gives 9.32e-5 (1.55%) -- both still well
 under `sigma_k2`, and at `lmax=4` the total barely shifts either way
 (section 4).
 
-**Honest detectability statement.** Across the entire explored range
+**Plainly stated detectability conclusion.** Across the entire explored range
 (`f_h` <= 0.5, full ratio bracket), `Delta k2` **never approaches**
 `sigma_k2` = 0.006 -- the largest value found (low-ratio bracket,
 `f_h=0.5`) is 5.10e-4, ~8.5% of `sigma_k2`. The central-ratio curve is
