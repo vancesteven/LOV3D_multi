@@ -1275,6 +1275,51 @@ proposal:
    caveat in section 4 and the unresolved degree-2 provenance gap in
    section 7.
 
+### 9. Native-MATLAB anchor for the two first-order channels (TASK-029)
+
+The (2,0)/(4,0) sign-cancellation result (section 5) changed a headline
+claim in the proposal, and until now rested entirely on the Python port plus
+a coupling-coefficient inspection -- unlike every other link in the Mars
+chain, which has a native-MATLAB anchor. `scripts/mars_first_order_channels.m`
+closes that gap: it runs the native LOV3D solver on the committed 4-layer
+model, hands it the *identical* DWAK complex crust `mu_variable` Python used
+(exported by `scripts/export_mars_dwak_mu_variable.py` to
+`data/mars/mars_dwak_mu_variable.npz`, so no spherical-harmonic bookkeeping
+is re-derived in MATLAB), and reproduces all three deliverables at
+`method='combination'`, `Nrbase=30`, `perturbation_order=2` -- the same
+numerics as the Python reference. Artifacts:
+`data/tests/mars/mars_first_order_channels.{log,mat}` (MATLAB R2025b).
+
+**The result reproduces, including the signs.**
+
+| quantity | Python | native MATLAB |
+|---|---|---|
+| scaling exponent (2,0) | ~1.00 (1st order) | **0.9988** |
+| scaling exponent (4,0) | ~1.00 (1st order) | **1.0001** |
+| scaling exponent (3,0) | ~2.00 (2nd order) | **2.0005** |
+| (2,0)-alone shift (full amp.) | -1.5901e-5 | **-1.5858e-5** |
+| (4,0)-alone shift (full amp.) | +1.4528e-5 | **+1.4531e-5** |
+| both together | -1.3738e-6 | **-1.3398e-6** |
+| cancellation | 91.4% | **91.6%** |
+| max\|C\| coupling (2,0) | 0.6389 | **0.6389** |
+| max\|C\| coupling (4,0) | 0.8571 | **0.8571** |
+| max\|C\| coupling (1,0),(3,0),(5,0),(6,0) | 0.0 | **0.0** |
+
+Three things worth stating plainly. First, the **signs are identical** --
+(2,0) negative, (4,0) positive, net negative -- so the opposite-sign
+cancellation that underlies the proposal's corrected claim is confirmed in
+an independent solver, not an artifact of the Python port. Second, the
+MATLAB (2,0)+(4,0) linear sum matches the jointly-solved value to 0.9%,
+independently confirming the first-order superposition. Third, the coupling
+coefficients themselves match to four decimals -- the selection rule (even
+zonal rheology degree, triangle inequality capping at 4, `m=0` order
+conservation) is anchored directly, degree by degree, not merely inferred
+from the response. The residual ~0.3% differences in the isolated-channel
+magnitudes and ~2.5% in the (near-zero) net are consistent with ordinary
+solver-level numerical differences at this cancellation depth; they do not
+touch the sign or the ~91% cancellation. **No proposal text needs to be
+pulled back.**
+
 ## Hydration-front tidal signature (TASK-021)
 
 Quantifies the proposal's core hypothesis directly: a downward-propagating

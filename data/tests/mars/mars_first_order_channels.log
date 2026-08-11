@@ -1,0 +1,35 @@
+
+========== MARS FIRST-ORDER ZONAL CHANNELS (native MATLAB LOV3D) ==========
+  TASK-029 anchor for the (2,0)/(4,0) first-order self-coupling result
+  MATLAB 25.2.0.3150157 (R2025b) Update 4
+  method=combination  Nrbase=30  perturbation_order=2  (matching pylov3d)
+  DWAK field: 24 crust mu_variable entries from data/mars/mars_dwak_mu_variable.npz
+
+  k2 uniform (no lateral), forcing (2,0) : 0.169000000000
+
+---- PART 1: scaling exponents (forcing (2,0)) --------------------------
+    exponent = log10( |shift(1e-2)| / |shift(1e-3)| );  shift = k2 - k2_uniform
+    (2,0): shift(1e-3)=-1.5901e-08  shift(1e-2)=-1.5858e-07  exponent=0.9988  (py 1.003, 1st order)
+    (4,0): shift(1e-3)=+1.4528e-08  shift(1e-2)=+1.4531e-07  exponent=1.0001  (py 1.001, 1st order)
+    (3,0): shift(1e-3)=+4.4076e-13  shift(1e-2)=+4.4131e-11  exponent=2.0005  (py 2.003, 2nd order)
+
+---- PART 2: signed channel contributions on DWAK -----------------------
+    each channel isolated, eps=1e-2, extrapolated to full amplitude (shift/eps)
+    (2,0) alone   : -1.5858e-05   (py -1.5901e-05)
+    (4,0) alone   : +1.4531e-05   (py +1.4528e-05)
+    both together : -1.3398e-06   (py -1.3738e-06)
+    (2,0)+(4,0) linear sum : -1.3275e-06   (superposition check vs both: rel 9.14e-03)
+    cancellation : net/|(2,0)| = 0.0845  => 91.6% cancellation
+    SIGN CHECK    : (2,0) (-) , (4,0) (+) , both (-)  vs Python signs (-,+,-)
+    ==> SIGNS REPRODUCE: opposite-sign cancellation confirmed in native MATLAB.
+
+---- PART 3: coupling coefficients, forcing (2,0) self-coupling ----------
+    max|C| over the 26 channels of Coup(i_f,i_f,:,ireo), rheology (nb,0)
+    rheology (1,0): max|C| = 0.0000   (py 0.0000)
+    rheology (2,0): max|C| = 0.6389   (py 0.6389)
+    rheology (3,0): max|C| = 0.0000   (py 0.0000)
+    rheology (4,0): max|C| = 0.8571   (py 0.8571)
+    rheology (5,0): max|C| = 0.0000   (py 0.0000)
+    rheology (6,0): max|C| = 0.0000   (py 0.0000)
+==========================================================================
+
