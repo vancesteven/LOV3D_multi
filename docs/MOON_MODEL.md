@@ -1032,3 +1032,88 @@ artifact of the fitting machinery:
    `mu_scale` value the reader takes from this stage is conditional on the
    assumed rheology (elastic → 0.965; Andrade → 1.012), not a
    rheology-independent determination.
+
+## Moon lateral crust stage (TASK-031)
+
+TASK-031 applies the validated coupled-ocean machinery to the committed
+GRAIL/LOLA fields for the first Moon-specific lateral forward model. The
+reproducible path is `pylov3d/moon_lateral.py`; the production driver is
+`scripts/moon_lateral_spectrum.py`, with arrays and figure archived as
+`docs/figures/proposal/moon_lateral_spectrum.{npz,png}`.
+
+### Field-to-rigidity construction
+
+The construction follows the Mars Airy stage in its physical sequence, but
+the constants and low-degree choices are Moon-specific:
+
+1. Truncate GRGM900C and MoonTopo719 to `lmax=4`. Convert normalized gravity
+   coefficients to first-order equipotential heights with `N_lm = r0 C_lm`
+   (and the sine analogue), then subtract them from LOLA shape.
+2. Remove degree 1 from both fields. MoonTopo719 is in a principal-axis,
+   center-of-mass frame; its degree-1 field reaches +/-1.935 km (3.869 km
+   peak-to-peak) and represents the center-of-figure translation, not a
+   physical crustal load. Retaining it would turn a coordinate-origin offset
+   into a +/-12.9 km (25.8 km peak-to-peak) Airy root.
+3. Remove C20 from both shape and equipotential height, while retaining C21,
+   S21, C22, and S22. This treats the zonal hydrostatic/tidal figure as part
+   of the reference shape rather than a crustal load. This is not inherited
+   silently from Mars: the alternative is evaluated explicitly below.
+4. Apply the as-built density contrast, `rho_c=2800` and `rho_m=3220 kg/m3`,
+   giving the Airy factor `rho_c/(rho_m-rho_c)=6.6667`.
+5. Linearize thickness into the surface crust layer's rigidity using the
+   independently adopted 40 km mean crust thickness and the Weber crust/
+   adjacent-mantle shear moduli (28.672/63.478 GPa). The numerical Weber
+   surface shell is 34 km thick; using it as the denominator would conflate
+   the profile discretization with the independently adopted mean crust and
+   would push the field outside the linear model's domain. The 40-vs-34 km
+   mismatch remains a structural approximation, stated rather than hidden.
+
+The default field has per-degree coefficient RMS thicknesses of 5.738,
+5.247, and 3.952 km at degrees 2, 3, and 4. On a 180x360 grid,
+`max|delta_t|=32.628 km` (0.816 of the 40 km reference) and
+`max|delta_mu/mu_bar|=0.9902`. Thus the full-amplitude result is valid but
+only narrowly inside the positive-rigidity boundary; amplitude or density
+sweeps cannot be interpreted linearly much beyond this reference case.
+
+### Why C20 is excluded
+
+Retaining the areoid-referenced C20 residual raises the degree-2 thickness
+RMS from 5.738 to 6.671 km, `max|delta_t|` to 35.527 km, and
+`max|delta_mu/mu_bar|` to **1.0782**. The last value implies negative local
+shear modulus in the linearized surface layer. The public API exposes
+`include_c20=True` for this diagnostic, but refuses to send that full-
+amplitude field to the solver. This makes the degree-2 choice a physical
+domain decision, not bookkeeping. A nonlinear moving-boundary or positive-
+definite mixing formulation is required before the C20-retaining case can
+be compared fairly.
+
+### Coupled spectrum
+
+The production solve uses the as-built ten-layer Weber model, including its
+fluid outer core, the validated `method="variable"`, `Nrbase=30`,
+`perturbation_order=2`, and a unit `(2,0)` monthly forcing. It activates 115
+coupled modes and completed in 207.5 s on the producing machine.
+
+| Quantity | TASK-031 result |
+|---|---:|
+| uniform Weber `k2` | 0.02315914223 |
+| lateral forcing-mode `k20` | 0.02316054935 |
+| `Delta k20` | +1.40712e-6 |
+| `|Delta k20| / sigma_k2` | 0.6396% |
+| largest off-forcing pair | `(2,+/-2)`, `|k|=3.13471e-6` |
+| next pair | `(2,+/-1)`, `|k|=2.76868e-6` |
+| next pair | `(3,+/-3)`, `|k|=2.01884e-6` |
+
+The diagonal perturbation is negligible against the measured
+`sigma_k2=2.2e-4`; as in the Mars stage, the spatial information resides in
+the off-forcing spectrum rather than the bulk k2 shift. No detectability
+claim is made here because converting these Moon coefficients to a mission
+measurement requirement needs a separate observable/noise analysis.
+
+Radial convergence is strong: at the same `lmax=4`, reducing Nrbase from 30
+to 15 changes `Delta k20` from 1.407122e-6 to 1.407061e-6, a relative change
+of 4.3e-5. Angular convergence is not established: the inexpensive
+`lmax=2` comparison gives `Delta k20=2.37290e-7`, so lmax=4 is 5.93 times
+larger. The archived spectrum is therefore the first fixed-cutoff Moon
+lateral prediction, not a truncation-converged endpoint; a Moon analogue of
+TASK-027's lmax ladder is the next numerical check.
