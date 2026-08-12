@@ -881,6 +881,34 @@ but does not by itself resolve the separate lmax-convergence of the m=1,2
 *ordering* flagged in the TASK-026 detectability section (that would need
 the m=1,2 forcing re-run at lmax=5/6, which this task did not perform).
 
+**m-ordering convergence (TASK-030).** That re-run has now been done.
+`scripts/mars_m_ordering.py` runs the diagonal (2,0)/(2,1)/(2,2) forcing
+solves at lmax=4/5/6 at the identical config (Nrbase=30,
+`method='combination'`, perturbation_order=2, via the validated
+`mars_lateral_love_spectrum` path), and reports the diagonal shift
+`dk2m = Re[k2m(lmax)] - k2_uniform` (artifacts:
+`docs/figures/proposal/mars_m_ordering.{npz,png}`,
+`data/tests/mars/mars_m_ordering.log`; the lmax=4 row reproduces
+`MARS_K21_FORCING`/`MARS_K22_FORCING` to ≤0.01%):
+
+| lmax | dk2(2,0) | dk2(2,1) | dk2(2,2) | ordering (\|dk\| desc) |
+|---|---|---|---|---|
+| 4 | 5.5174e-5 | 2.0913e-5 | 3.3995e-5 | m=0 > m=2 > m=1 |
+| 5 | 5.9732e-5 | 2.4731e-5 | 3.6225e-5 | m=0 > m=2 > m=1 |
+| 6 | 6.2311e-5 | 2.5169e-5 | 3.7962e-5 | m=0 > m=2 > m=1 |
+
+**The ordering m=0 > m=2 > m=1 is stable across the whole ladder**, and each
+`dk2m` grows monotonically with lmax. The closest pair, m=2 vs m=1, stays
+well separated: its gap is 1.31e-5 (lmax=4), 1.15e-5 (lmax=5), 1.28e-5
+(lmax=6) — it dips at lmax=5 but never approaches the crossing that would
+reorder them (the gap stays ~50% of the m=1 shift itself throughout). The
+proposal's
+"the ordering should not be relied upon" caveat is therefore retired: the
+m=1,2 solves are now carried to the same lmax=6 as m=0, and the ordering is
+unchanged. This concerns the *ordering* only; the absolute amplitudes still
+carry the ~4-6% lmax-6 truncation residual and the larger Airy/crustal-model
+uncertainty stated above and in the TASK-027 ladder.
+
 **Do the section-5 conclusions survive?** The qualitative (4,0)-driven
 first-order forcing-mode shift survives: the shift is real, grows (does not
 shrink) with lmax, and is present in native MATLAB -- it is not a

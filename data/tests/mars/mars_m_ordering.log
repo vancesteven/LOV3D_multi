@@ -1,0 +1,33 @@
+[config] m_list=[0, 1, 2], lmax_list=[4, 5, 6], nrbase=30, method='combination', perturbation_order=2, quick=False
+[uniform] k2_uniform = 0.169000000000 (MARS['k2']=0.169, 0.3s)
+  [lmax=4 m=0] N=115 k2m=0.169055174105 dk2m=5.5174e-05 (148.9s)
+  [lmax=4 m=1] N=114 k2m=0.169020913465 dk2m=2.0913e-05 (149.8s)
+  [lmax=4 m=2] N=111 k2m=0.169033995414 dk2m=3.3995e-05 (143.0s)
+  [lmax=5 m=0] N=163 k2m=0.169059732485 dk2m=5.9732e-05 (385.0s)
+  [lmax=5 m=1] N=162 k2m=0.169024731086 dk2m=2.4731e-05 (378.3s)
+  [lmax=5 m=2] N=159 k2m=0.169036224844 dk2m=3.6225e-05 (372.3s)
+  [lmax=6 m=0] N=219 k2m=0.169062311289 dk2m=6.2311e-05 (867.9s)
+  [lmax=6 m=1] N=218 k2m=0.169025169461 dk2m=2.5169e-05 (832.0s)
+  [lmax=6 m=2] N=215 k2m=0.169037961877 dk2m=3.7962e-05 (810.4s)
+
+[diagonal k2m shift table]  dk2m = Re[k2m(lmax)] - k2_uniform
+  lmax        dk2(2,0)       dk2(2,1)       dk2(2,2)   N(m=2)   wall(s)   ordering (|dk| desc)
+     4      5.5174e-05     2.0913e-05     3.3995e-05      111     149.8   m=0 > m=2 > m=1
+     5      5.9732e-05     2.4731e-05     3.6225e-05      159     385.0   m=0 > m=2 > m=1
+     6      6.2311e-05     2.5169e-05     3.7962e-05      215     867.9   m=0 > m=2 > m=1
+
+[lmax=4 regression vs documented shifts]
+   m     this run dk      documented    rel err
+   0      5.5174e-05      5.5170e-05     0.01%
+   1      2.0913e-05      2.0913e-05     0.00%
+   2      3.3995e-05      3.3995e-05     0.00%
+
+[verdict] m-ordering of the diagonal splitting across the lmax ladder
+  lmax=4: m=0 > m=2 > m=1
+  lmax=5: m=0 > m=2 > m=1
+  lmax=6: m=0 > m=2 > m=1
+
+  ==> STABLE: the ordering m=0 > m=2 > m=1 holds at every lmax in [4, 5, 6]. The proposal's m-ordering caveat can retire (converged to lmax=6).
+
+[output] table saved to /Users/svance/Library/CloudStorage/Dropbox/LOV3D_multi/docs/figures/proposal/mars_m_ordering.npz
+[output] figure saved to /Users/svance/Library/CloudStorage/Dropbox/LOV3D_multi/docs/figures/proposal/mars_m_ordering.png
