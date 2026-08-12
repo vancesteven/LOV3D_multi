@@ -1117,3 +1117,78 @@ of 4.3e-5. Angular convergence is not established: the inexpensive
 larger. The archived spectrum is therefore the first fixed-cutoff Moon
 lateral prediction, not a truncation-converged endpoint; a Moon analogue of
 TASK-027's lmax ladder is the next numerical check.
+
+### Truncation convergence (TASK-031b)
+
+The Moon analogue of TASK-027's lmax ladder was run with the driver
+`scripts/moon_lateral_convergence.py` (consumer only; no solver module was
+modified). It climbs the angular truncation at fixed `Nrbase=30`, tracking
+the `(2,0)` forcing-mode `Delta k20` and the three named off-forcing pairs,
+and independently re-verifies the radial (`Nrbase`) convergence rather than
+importing it from Mars, because the Weber Moon carries a fluid outer core the
+Mars model lacks. Artifacts:
+`docs/figures/proposal/moon_lateral_convergence.{npz,png}`.
+
+**The finding is that the linearized Airy pipeline cannot be carried past
+`lmax=4`.** The positivity margin of the linearized crust rigidity,
+`max|delta mu / mu_bar|`, is a monotone function of the truncation and crosses
+the physical unit bound between `lmax=4` and `lmax=5`:
+
+| lmax | N modes | max\|dmu/mu_bar\| | `Delta k20` | step-to-step |
+|---:|---:|---:|---:|---:|
+| 2 | 43 | 0.3471 | 2.372903e-7 | -- |
+| 3 | 75 | 0.6752 | 4.521374e-7 | +90.5% |
+| 4 | 115 | 0.9902 | 1.407122e-6 | +211.2% |
+| 5 | -- | 1.1531 | blocked | linearization non-positive |
+| 6 | -- | 1.2897 | blocked | linearization non-positive |
+
+At `lmax=5` and `lmax=6` `mu_variable_from_topography` raises by design (the
+linearized crust rigidity would go non-positive; at `lmax=6` the Airy
+thickness variation also exceeds the 40 km reference crust). These are not
+solver failures — the field is genuinely non-physical under the linearization
+and the guard correctly refuses it. The achievable physical ladder is
+therefore `lmax = 2, 3, 4` only.
+
+**Consequence for the TASK-031 result.** `Delta k20` is still climbing steeply
+where the linearization runs out (+90.5% from lmax=2->3, +211.2% from
+lmax=3->4), so angular convergence is *not* demonstrated and cannot be
+demonstrated by climbing lmax with this pipeline — the field goes non-physical
+before the sequence flattens. The TASK-031 value `Delta k20 = 1.407e-6` should
+therefore be reported as **the highest-lmax value the Airy linearization
+admits (lmax=4), not a truncation-converged endpoint.** Per the task spec,
+this is the finding; no extrapolation to a converged value is offered. Note in
+contrast that the off-forcing pairs are far better behaved across the same
+ladder — `(2,+/-2)` moves only -0.11% then -5.68%, `(3,+/-3)` is flat to
++0.00% from lmax=3->4 — so the spatial spectrum that carries the lateral
+information is closer to settled than the bulk `Delta k20` is.
+
+**Radial convergence (re-verified for the Moon, not imported).** Holding
+`lmax=4` fixed and varying `Nrbase`:
+
+| Nrbase | `Delta k20` | rel. to Nrbase=50 |
+|---:|---:|---:|
+| 15 | 1.407061e-6 | 4.42e-5 |
+| 30 | 1.407122e-6 | 1.25e-6 |
+| 50 | 1.407124e-6 | 0 (ref) |
+
+Radial convergence is strong and the production `Nrbase=30` is effectively
+converged (1.25e-6 relative to `Nrbase=50`), confirming for the fluid-core
+Weber model what TASK-031 assumed. The angular truncation, not the radial
+grid, is the binding limitation.
+
+**(4,0) rheology channel is first order (generalizes TASK-028).** Isolating
+the `(4,0)` harmonic of the default (C20-dropped) Moon field and scaling its
+amplitude by `eps in {1e-3, 1e-2}` gives a `|Delta k20|` log-log slope of
+**1.0001** — first order. Because C20 is dropped, the Moon field has no `(2,0)`
+self-coupling channel, so `(4,0)` is the sole first-order driver of the `(2,0)`
+forcing mode. This confirms that the first-order `(even,0) -> (2,0)` coupling
+established for Mars in TASK-028 is a general feature of the coupled operator,
+not a Mars-specific artifact.
+
+**Memory.** Peak RSS scaled steeply with mode count: 1.3 GB (lmax=2, 43
+modes), 4.1 GB (lmax=3, 75 modes), 7.4 GB (lmax=4, 115 modes at Nrbase 15-30),
+and 10.8 GB at `lmax=4, Nrbase=50` — the heaviest physical solve. The blocked
+`lmax=5,6` rungs cost nothing (they fail at the cheap diagnostics stage before
+any coupled solve). This corroborates the TASK-021b memory caution: the
+ten-layer Moon is expensive, and `lmax=6/Nrbase=50` — had it been physical —
+would have been the same >15 GB regime seen there.
