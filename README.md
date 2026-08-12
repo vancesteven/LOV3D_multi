@@ -127,7 +127,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-546 tests across 39 test files (521 in the default fast lane, ~2 min; run the full set with `-m ""`), covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
+654 tests across 44 test files (625 in the default fast lane, ~2 min; run the full set with `-m ""`), covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
 
 #### Models tested
 
