@@ -1495,3 +1495,144 @@ disagreement attributable to the fluid core. It is a real anchor of the same
 kind as the Mars one, one to two orders looser in relative terms for reasons
 that are understood and quantified above. The Moon lateral numbers used in
 TASK-031/034 are therefore independently corroborated.
+
+---
+
+## The excursion-determined shell does not pin the amplitude (TASK-037)
+
+**Verdict: the rule fails the deciding test, and the reason is not the one
+TASK-037 was set up to probe.** `Δk20` does not converge in `lmax` under either
+form of the excursion rule, on either body. But the failure is *not* a property
+of shell-averaging: it is a property of keying the shell to a **spatial
+extremum**, which is itself not convergent in `lmax`. That distinction is the
+result, because it says what a working rule would have to look like.
+
+Driver: `scripts/moon_excursion_shell_ladder.py` (new; no shipped module
+touched). Artifacts `docs/figures/proposal/{moon,mars}_excursion_shell_ladder.{npz,png}`.
+Nrbase=30, `perturbation_order=2`, lmax ∈ {4,5,6} (N = 115/163/219), `T`
+recomputed at every rung. 12 coupled solves, 7422 s wall, peak RSS 23.2 GB
+(Moon) / 11.6 GB (Mars).
+
+### What held
+
+The rule's defining algebraic property is confirmed **to machine precision**,
+which is worth stating because it was the whole basis of the proposal:
+
+| body | K = \|μ_c−μ_m\|/μ_c | K/2 | max \|margin − K/2\| over lmax ∈ {2…20} |
+|---|---:|---:|---:|
+| Moon | 1.213930 | 0.606965 | 1.11e-16 |
+| Mars | 1.251258 | 0.625629 | 1.11e-16 |
+
+So under `T = 2·max|dt|` the positivity margin *is* `K/2` identically, at every
+truncation, with no free parameter — exactly as TASK-037 claimed, verified over
+ten truncations rather than the three that were solved. The `range` rule does
+not pin it (Moon 0.752/0.768/0.818; Mars 0.747/0.692/0.703).
+
+The 1-D background is confirmed `T`-independent (Moon diff 1.7e-12, Mars 0.0),
+closing TASK-036b's caveat rather than assuming it: widening the reference shell
+changes only the perturbation, not the background the shift is measured against.
+This is structural — the shipped model's crust layer is fixed at
+`R0` 1703.1→1737.1 km and never moves with `T`.
+
+### What failed
+
+| body | rule | T (km) | \|Δk20\| | step |
+|---|---|---|---:|---:|
+| Moon | twice_max | 65.26 / 76.00 / 85.01 | 7.199e-7 / 6.008e-7 / 5.256e-7 | −16.5% / −12.5% |
+| Moon | range | 52.69 / 60.09 / 63.12 | 9.570e-7 / 8.165e-7 / 7.722e-7 | −14.7% / −5.4% |
+| Mars | twice_max | 68.46 / 69.55 / 71.39 | 3.214e-5 / 3.355e-5 / 3.321e-5 | +4.4% / −1.0% |
+| Mars | range | 57.33 / 62.87 / 63.57 | 4.339e-5 / 3.984e-5 / 4.051e-5 | −8.2% / +1.7% |
+
+No rung sequence is converging. Mars's `twice_max` column looks nearly
+converged (+4.4%, −1.0%) but that is coincidence, not convergence — see below.
+
+### The mechanism: the ladder is still measuring the T-scaling
+
+Compensating each rung by the T-scaling A established in TASK-036b
+(`Δk20 ∝ T^-1.338`, off-modes `∝ T^-0.996`) collapses the ladders almost
+completely:
+
+| body | rule | \|Δk20\| spread, raw | T-compensated | \|k(2,2)\| T-compensated |
+|---|---|---:|---:|---:|
+| Moon | twice_max | 37.0% | **4.0%** | **0.22%** |
+| Moon | range | 23.9% | **2.7%** | 0.36% |
+| Mars | twice_max | 4.4% | 9.3% | 0.38% |
+| Mars | range | 8.9% | **7.2%** | 1.97% |
+
+The per-rung implied exponent `d ln|Δk20| / d ln T` comes out at −1.19/−1.19
+(Moon twice_max) and −1.21/−1.14 (Moon range) against the sweep's −1.338, and
+the off-modes at −0.99 against −0.996. **So the ladder is not failing to
+converge angularly — it is tracking `T`, which is itself moving with `lmax`.**
+Recomputing `T` per rung did not remove the shell dependence; it converted it
+into an `lmax` dependence, which is the same problem wearing the other hat.
+
+This also explains Mars's flat `twice_max` column: Mars's `T` barely moves
+across those three rungs (68.5→71.4 km, 4.3%), so there is little scaling to
+track. Compensating reveals a 9.3% residual — the *largest* of the four, not the
+smallest. Reading that column as converged would have been the trap.
+
+**A's predicted asymmetry is confirmed, and sharply.** The off-forcing modes
+compensate to 0.22–0.38% (Moon) — they are pure first order, so pinning the
+perturbation at `K/2` does pin them. The forcing mode mixes first and second
+order and is not pinned. The asymmetry A anticipated is exactly what the data
+shows, and it again puts the well-behaved spatial information in the
+off-forcing spectrum.
+
+### Why the rule cannot work in this form
+
+The rule ties `T` to `max|dt|`. A spatial extremum of a truncated SH expansion
+**is not a convergent functional of `lmax`** — and for these fields it is not
+even monotonic:
+
+| lmax | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 16 | 20 | 24 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Moon max\|dt\| (km) | 11.4 | 22.3 | 32.6 | 38.0 | 42.5 | 38.8 | 35.0 | 34.8 | 38.6 | 43.2 | 46.0 |
+| Moon area-RMS (km) | 5.74 | 7.78 | 8.72 | 9.03 | 9.26 | 9.50 | 9.72 | 9.89 | 10.11 | 10.30 | 10.43 |
+| Mars max\|dt\| (km) | 25.7 | 28.4 | 34.2 | 34.8 | 35.7 | 43.9 | 47.0 | 46.6 | 52.3 | 55.2 | 60.4 |
+| Mars area-RMS (km) | 12.51 | 13.74 | 14.12 | 14.78 | 15.00 | 15.28 | 15.46 | 15.72 | 15.81 | 15.90 | 16.00 |
+
+(Grid-converged: 360×720 → 1440×2880 moves every extremum by <0.02 km, so the
+non-monotonicity is in the field, not the sampling.)
+
+The Moon's `max|dt|` rises to 42.5 km at lmax=6, **falls to 34.8 km at lmax=12**,
+then climbs past its earlier peak to 46.0 km at lmax=24. The solved 3-rung
+ladder sampled only the rising limb — had it run to lmax=12 the trend would have
+reversed sign. Mars's rises monotonically over this range but shows no sign of
+levelling (25.7 → 60.4 km, still +9.4% on the last step). Adding harmonics adds
+new opportunities for constructive interference at *some* point on the sphere, so
+the peak keeps moving; there is no reason for it to settle.
+
+**The area-weighted RMS converges cleanly over the same range** (Moon +1.19% on
+the last step, Mars +0.54%, both decaying). That contrast is the load-bearing
+finding: RMS is a sum of squared coefficients and converges whenever the power
+spectrum is summable, while an extremum need not. **The defect is therefore in
+the choice of functional, not in the fixed-shell Voigt average.** TASK-036b's
+framing — "the fixed-shell Voigt average simply cannot define a lateral
+amplitude" — is *not* what these data show, and should not be recorded as the
+conclusion.
+
+### Conclusion for TASK-037
+
+1. **The excursion rule does not deliver a truncation-independent amplitude.**
+   Both forms fail on both bodies. `T = 2·max|dt|` fails despite pinning the
+   positivity margin exactly, because pinning the *perturbation* does not pin a
+   *response* that is 43% second order (TASK-036b).
+2. **The no-free-parameter property is real but insufficient.** It is confirmed
+   to 1.1e-16 over ten truncations. It is simply not the property that was
+   needed.
+3. **The failure is attributable to the spatial extremum, not to shell
+   averaging.** An extremum-keyed rule inherits the extremum's
+   non-convergence — and for the Moon, its non-monotonicity. An RMS-keyed rule
+   would not, on this evidence. **That is a specific, testable successor**, and
+   it is a narrower claim than declaring the method incapable. It is not tested
+   here: it would need its own ladder, and an RMS-keyed `T` gives up the exact
+   `K/2` margin, so its positivity bound must be re-derived rather than assumed
+   (area-RMS is ~4.6× below `max|dt|` for the Moon at lmax=6, so the margin
+   would land well above `K/2` and the bound needs checking before any solve).
+4. **The off-forcing modes are pinned by the rule** (0.22–0.38% after
+   T-compensation). If a shell convention is needed only for the off-forcing
+   spectrum, the excursion rule is adequate; it is the forcing-mode shift
+   `Δk20` — the quantity the proposal quotes — that it fails to define.
+5. **Reported amplitudes remain conditional on the reference shell.** Nothing
+   here removes that qualification, and the proposal's §4.4 statement of it
+   stands as written.
