@@ -2497,3 +2497,38 @@ All Andrade-alpha and viscosity constants also collected in
 `pylov3d/anelastic.py` (`MARS_MANTLE_ETA_ANDRADE_RANGE`,
 `ANDRADE_ALPHA_RANGE`, `ANDRADE_ALPHA_COMMON_RANGE`) for stage-b reuse;
 this table is the citation record of provenance.
+
+## Fixed-shell lateral-amplitude bound (TASK-036a)
+
+The amplitude wall described earlier as a limit of a "linearized rigidity
+map" is instead fixed-shell geometry. For crust shear modulus `mu_c`,
+displaced mantle shear modulus `mu_m`, shell thickness `T`, and crustal-
+thickness excursion `dt`, the implemented relation
+
+```
+delta_mu / mu_c = dt * (mu_c - mu_m) / (T * mu_c)
+```
+
+is the exact Voigt volume-fraction average within that fixed shell. Its
+linearity comes from the material fraction, not a solver expansion, so
+raising the coupled solver's perturbation order cannot move this bound.
+
+For the committed Mars constants, `mu_c=30.0 GPa`,
+`mu_m=70.0 GPa * 0.9648247661 = 67.5377336 GPa`, and `T=50 km`. Therefore
+
+- `d(mu/mu_c)/d(dt) = -2.5025156e-5 m^-1`;
+- `|delta_mu/mu_c|=1` at `|dt|=39.9598 km`;
+- the lmax=4 DWAK field's `max|dt|=38.7171 km` gives the reported margin
+  `max|delta_mu/mu_c|=0.968903`; and
+- holding that field and material contrast fixed, `T=60.5564 km` would
+  reduce the maximum rigidity fraction to 0.8.
+
+Mars and the Moon are limited by the **same factor**. Mars reaches unity at
+only 79.92% of its 50 km shell, while the Moon reaches it at 82.38% of its
+40 km shell. In both cases the crust-to-mantle rigidity contrast amplifies a
+sub-full thickness fraction to unity before shell fullness is reached. For
+Mars the contrast factor is 1.25126, slightly larger than the Moon's
+1.21393. Thus DWAK's proximity to the bound is not evidence that its 50 km
+shell is nearly full; it is the fixed-shell Voigt geometry acting through
+the rigidity contrast. No shipped shell thickness or lateral result is
+changed by this diagnostic.

@@ -13,7 +13,13 @@ import pytest
 from pylov3d.love import get_love
 from pylov3d.mapping import latlon_grid, sh_to_latlon
 from pylov3d.mars_lateral import complex_sh_synthesis
-from pylov3d.moon import LAYER_RADII_KM, build_moon_model, moon_forcing, moon_numerics
+from pylov3d.moon import (
+    LAYER_MU,
+    LAYER_RADII_KM,
+    build_moon_model,
+    moon_forcing,
+    moon_numerics,
+)
 from pylov3d.moon_lateral import (
     AIRY_FACTOR,
     CRUST_LAYER_INDEX,
@@ -33,6 +39,40 @@ def test_constants_follow_model_and_adopted_mean():
     assert WEBER_CRUST_SHELL_THICKNESS_M == pytest.approx(34e3)
     assert CRUST_THICKNESS_M == pytest.approx(40e3)
     assert AIRY_FACTOR == pytest.approx(2800.0 / (3220.0 - 2800.0))
+
+
+def test_rigidity_coefficient_is_fixed_shell_voigt_average():
+    mu_crust = LAYER_MU[CRUST_LAYER_INDEX]
+    mu_mantle = LAYER_MU[MANTLE_LAYER_INDEX]
+    expected = (mu_crust - mu_mantle) / (CRUST_THICKNESS_M * mu_crust)
+    assert _dmu_ddt_coeff() == pytest.approx(expected, rel=1e-15)
+
+
+def test_rigidity_unity_crossing_precedes_shell_fullness():
+    """Contrast reaches unity at 32.95 km, below the 40 km shell."""
+    unity_crossing_m = 1.0 / abs(_dmu_ddt_coeff())
+    assert unity_crossing_m / 1e3 == pytest.approx(32.95, abs=0.01)
+    assert unity_crossing_m < CRUST_THICKNESS_M
+
+
+@pytest.mark.parametrize(
+    ("lmax", "expected_margin"),
+    [(4, 0.9902), (5, 1.1531), (6, 1.2897)],
+)
+def test_reported_rigidity_margins(lmax, expected_margin):
+    diag = crustal_thickness_diagnostics(lmax=lmax)
+    assert diag["max_abs_dmu_over_mubar"] == pytest.approx(
+        expected_margin, abs=5e-5,
+    )
+
+
+@pytest.mark.parametrize(
+    ("lmax", "message"),
+    [(5, "non-positive"), (6, "exceeds the 40 km reference crust")],
+)
+def test_nonphysical_high_degree_fields_are_rejected(lmax, message):
+    with pytest.raises(ValueError, match=message):
+        mu_variable_from_topography(lmax=lmax)
 
 
 def test_degree_one_translation_is_removed():
