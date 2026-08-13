@@ -43,6 +43,28 @@ shell**, reached by choosing a round number. That is encouraging — the rule
 picks out the configuration that already worked — but it was not arrived at
 by the rule, so it has not been tested as one.
 
+## Correction from the committed T-sweep artifact (A, 2026-08-13)
+
+The premise above is weaker than first stated, and the ticket is kept
+because of it rather than in spite of it.
+
+`|delta_mu/mu_bar|` is exactly `1/T` — verified to four decimals. But
+`|Delta k20|` is **not**: it follows `T^-1.338`, because it mixes a
+first-order term (`~1/T`) with a second-order one (`~1/T^2`). Fitting
+`a/T + b/T^2` reproduces all four sweep rungs to better than 0.2%.
+
+So fixing `T = 2 max|dt|` fixes the *perturbation* at `K/2` but does
+**not** fix the *response*. The excursion rule removes the arbitrary
+parameter from the perturbation amplitude; whether it yields a
+convergent `Delta k20` is genuinely open, and the test below is
+therefore a real test rather than a formality.
+
+The off-forcing modes *are* pure first order (`T^-0.996`), so for those
+the rule does pin the amplitude. If the ladder converges for the
+off-modes but not the forcing mode, that is a meaningful and reportable
+asymmetry — and it would sharpen the existing conclusion that the
+spatial information lives in the off-forcing spectrum.
+
 ## What to test
 
 The rule ties `T` to the field, so `T` now varies with truncation
