@@ -1,0 +1,36 @@
+
+============ MOON LATERAL COUPLED (OCEAN) CROSS-CHECK (MATLAB LOV3D) ============
+  TASK-035: native-MATLAB anchor for the Moon lateral spectrum (pylov3d.moon_lateral)
+  MATLAB version: 25.2.0.3150157 (R2025b) Update 4
+  Nrbase=30  perturbation_order=2  method=variable  Nlayers=10
+
+------------------------------------------------------------------------
+  FORCING (2,0)
+    N coupled solution modes : 115   (Python: 115)
+    k2 uniform (no lateral)  : 0.023159142227   Python: 0.023159142230   rel err = 1.390e-10
+    k2 forcing (2,0) lateral : 0.023160549350   Python: 0.023160549350   rel err = 1.870e-11
+    k2 lateral shift         : +1.407124e-06   Python: +1.407120e-06   rel err = 2.595e-06
+
+  Named off-forcing pairs (|k|, both signs of m):
+    (n=2, m=+2)  |k| = 3.134708e-06   Python |k| = 3.134710e-06   rel err = 6.601e-07
+    (n=2, m=-2)  |k| = 3.134708e-06   Python |k| = 3.134710e-06   rel err = 6.601e-07
+    (n=2, m=+1)  |k| = 2.768683e-06   Python |k| = 2.768680e-06   rel err = 1.224e-06
+    (n=2, m=-1)  |k| = 2.768683e-06   Python |k| = 2.768680e-06   rel err = 1.224e-06
+    (n=3, m=+3)  |k| = 2.018840e-06   Python |k| = 2.018840e-06   rel err = 9.898e-08
+    (n=3, m=-3)  |k| = 2.018840e-06   Python |k| = 2.018840e-06   rel err = 9.898e-08
+
+  Top 12 lateral-response modes by |k| (forcing mode shown as deviation):
+      (n= 2, m=  2)  k = -9.309488e-08 -3.133325e-06i
+      (n= 2, m= -2)  k = -9.309488e-08 +3.133325e-06i
+      (n= 2, m= -1)  k = -2.768285e-06 +4.699212e-08i
+      (n= 2, m=  1)  k = +2.768285e-06 +4.699212e-08i
+      (n= 3, m= -3)  k = -2.018682e-06 +2.531178e-08i
+      (n= 3, m=  3)  k = +2.018682e-06 +2.531178e-08i
+      (n= 3, m=  1)  k = -1.669415e-06 +3.013213e-07i
+      (n= 3, m= -1)  k = +1.669415e-06 +3.013213e-07i
+      (n= 2, m=  0)  k = +1.407124e-06 -2.179061e-21i  <- forcing (deviation)
+      (n= 4, m=  1)  k = -1.253369e-06 -5.850122e-08i
+      (n= 4, m= -1)  k = +1.253369e-06 -5.850122e-08i
+      (n= 4, m=  2)  k = +4.192652e-07 -7.401174e-07i
+========================================================================
+

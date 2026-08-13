@@ -1413,3 +1413,85 @@ would have to be modelled first. The Moon therefore tests that the prediction is
 *consistent with* the measurement — which it is, comfortably — but cannot test
 the lateral mechanism itself. That negative result is stated here without
 extrapolation and without adjustment toward a detection.
+
+## Native-MATLAB anchor for the lateral spectrum (TASK-035)
+
+Every load-bearing Mars result in this project carries an independent
+native-MATLAB cross-check. The Moon lateral stage was the last unanchored
+link — which mattered because TASK-034 above rests on the spectrum underneath
+it. This closes that gap.
+
+**Method** (following the TASK-029 improvement rather than the TASK-029 spec):
+the committed crust-layer `mu_variable` is exported to
+`data/moon/moon_mu_variable_lateral.npz` by a read-only
+`scripts/export_moon_mu_variable.py`, and `scripts/moon_lateral_cross_check.m`
+reads *that file directly* (via an in-script `.npy` parser — no Python bridge).
+Both codes therefore consume the identical complex field, which isolates the
+solver from any spherical-harmonic re-derivation where a convention mismatch
+could masquerade as a sign error. Settings: `method='variable'`, `Nrbase=30`,
+`perturbation_order=2`, unit (2,0) forcing at the monthly period. MATLAB
+25.2.0.3150157 (R2025b) Update 4. Artifacts:
+`data/tests/moon/moon_lateral_cross_check.{log,mat}`.
+
+**The exported field round-trips bit-exactly.** All 20 complex crust amplitudes
+match the live pipeline to 0.0, and the field satisfies the Condon–Shortley
+real-field condition `f(n,−m) = (−1)^m conj(f(n,m))` to 0.0 — MATLAB echoes
+back the same digits it was handed, including the `(−1)^m` sign on odd `m`.
+
+### Agreement
+
+| Quantity | MATLAB | Python | rel err |
+|---|---:|---:|---:|
+| N coupled modes | 115 | 115 | exact |
+| `k2` uniform | 0.023159142227 | 0.023159142230 | 1.39e-10 |
+| `k2` forcing (2,0), lateral | 0.023160549350 | 0.023160549350 | **1.87e-11** |
+| `Δk20` | +1.407124e-6 | +1.407120e-6 | 2.60e-6 |
+| \|k(2,±2)\| | 3.134708e-6 | 3.134710e-6 | 6.60e-7 |
+| \|k(2,±1)\| | 2.768683e-6 | 2.768680e-6 | 1.22e-6 |
+| \|k(3,±3)\| | 2.018840e-6 | 2.018840e-6 | 9.90e-8 |
+
+The mode count matches exactly *and so does its perturbation-order structure*
+— 1 zeroth-order, 42 first-order, 73 second-order — which is a structural
+match rather than a coincidence of totals. The full 115-mode spectrum matches
+mode for mode, including the conjugate-pair phase structure.
+
+### Is this an anchor of Mars quality? Partly — and the difference is benign
+
+Stated plainly rather than reported as a pass at a looser tolerance:
+
+- **On the Love number, the Moon is within an order of magnitude of Mars.**
+  Absolute agreement on `k2` is 4.33e-13 (Moon) vs 4.99e-14 (Mars). As a
+  *relative* error the Moon's 1.87e-11 is ~60× looser than the Mars lateral
+  precedent's 2.95e-13, which is unsurprising: ten layers and 270 radial
+  points against Mars's four, so more accumulated arithmetic.
+- **On `Δk20` the relative error is 2.60e-6, and that number should not be
+  read as a solver disagreement.** The shift is a difference of two values
+  agreeing to ~1e-11 that is itself ~1e-6 of their size, so the differencing
+  amplifies the error by `k2/Δk20` ≈ 1.6e4. The Mars write-up makes the same
+  argument for its own 7.9e-8 shift residual (amplification ≈ 3.1e3). **The
+  Moon shift is intrinsically the harder anchor**: it is 39× smaller in
+  absolute terms than the Mars shift and rides on a `k2` 7.3× smaller, making
+  the amplification 5.4× worse before any solver difference enters.
+- **Cancellation does not explain the whole residual, on either body.**
+  Predicted-from-cancellation vs observed is 3.1e-7 vs 2.6e-6 for the Moon
+  (~8×) and 9.0e-10 vs 7.9e-8 for Mars (~87×). The unexplained factor is
+  therefore *smaller* for the Moon than for Mars, so whatever it is, this is a
+  property of the comparison method and not a Moon-specific defect. It is
+  recorded here rather than papered over.
+
+**The fluid outer core showed no disagreement.** This was the part with no Mars
+precedent — Mars's core sits at the centre, while the Weber Moon has a fluid
+`outer_core` shell (layer index 2, `mu = 0`, `ocean = 1`) — and the spec flagged
+it as the likeliest site of a real discrepancy given the ocean solver's history
+(TASK-005 through 009). The CMB boundary residual came out at 6.9e-18 and no
+mode deviates beyond the float64 differencing already accounted for. Note the
+model carries **two** `mu = 0` layers: the `artificial_core` at index 0 is an
+innermost numerical device and is correctly *not* flagged as ocean.
+
+**Conclusion for TASK-035.** The Moon lateral spectrum now has an independent
+native-MATLAB anchor: exact mode count and order structure, `k2` agreeing to
+1.87e-11 (4.33e-13 absolute), every named off-mode to ≤1.2e-6, and no
+disagreement attributable to the fluid core. It is a real anchor of the same
+kind as the Mars one, one to two orders looser in relative terms for reasons
+that are understood and quantified above. The Moon lateral numbers used in
+TASK-031/034 are therefore independently corroborated.
