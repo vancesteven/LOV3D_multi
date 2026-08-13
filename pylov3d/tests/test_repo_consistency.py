@@ -37,6 +37,8 @@ def _collect_count(*extra_args: str) -> int:
         "--collect-only",
         *extra_args,
     ]
+    for path in _untracked_test_files():
+        command.extend(["--ignore", str(REPO_ROOT / path)])
     result = subprocess.run(
         command,
         cwd=REPO_ROOT,
@@ -55,14 +57,60 @@ def _collect_count(*extra_args: str) -> int:
     return int(matches[-1].group("selected"))
 
 
+def _untracked_test_files() -> list[str]:
+    """Test modules present in the working tree but absent from the index.
+
+    Another task's work in progress lives here.  Collection counts exclude
+    these so the guard measures the repository, not whatever happens to be
+    lying in one machine's working tree.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "--",
+         "pylov3d/tests/test_*.py"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    return result.stdout.split()
+
+
+def _tracked_test_file_count() -> int:
+    """Return the number of test modules recorded in the Git index."""
+    result = subprocess.run(
+        ["git", "ls-files", "--", "pylov3d/tests/test_*.py"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        output = result.stdout + result.stderr
+        raise AssertionError(
+            f"git ls-files failed with exit code {result.returncode}:\n{output}"
+        )
+    return len(result.stdout.splitlines())
+
+
 def test_readme_validation_counts_match_live_collection():
     """Keep README counts useful without forcing edits for every new test.
 
     Test totals allow a +/-10-test tolerance so ordinary additions in an
     existing file do not create documentation churn; that still catches the
-    large drift this guard was introduced to prevent.  The file count is
-    exact because new test files are comparatively infrequent and the README
-    makes an exact inventory claim.
+    large drift this guard was introduced to prevent.  The file count remains
+    exact, but includes only files tracked by Git so another task's untracked
+    work cannot red-light the suite.  The trade-off is that a genuinely stale
+    README may remain silent in a dirty tree until the new test files are
+    added to the index.
+
+    Both halves measure the same thing: untracked test modules are excluded
+    from the collection counts too, via ``--ignore``.  Making only the file
+    count tracked-aware left an asymmetry -- an untracked module holding more
+    than the tolerance (this repository has shipped one with 29 tests) would
+    still have failed the suite on its test count alone, which is the exact
+    situation this guard was refined to avoid.
 
     Counts come from fresh, independent pytest collection subprocesses rather
     than ``request.session.items``.  This costs under a second but remains
@@ -79,7 +127,7 @@ def test_readme_validation_counts_match_live_collection():
     claimed_fast = int(match.group("fast"))
     actual_full = _collect_count("-m", "")
     actual_fast = _collect_count()
-    actual_files = len(list(TESTS_DIR.glob("test_*.py")))
+    actual_files = _tracked_test_file_count()
 
     counts_within_tolerance = (
         abs(claimed_full - actual_full) <= TEST_TOLERANCE
