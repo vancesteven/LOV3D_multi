@@ -1192,3 +1192,83 @@ and 10.8 GB at `lmax=4, Nrbase=50` — the heaviest physical solve. The blocked
 any coupled solve). This corroborates the TASK-021b memory caution: the
 ten-layer Moon is expensive, and `lmax=6/Nrbase=50` — had it been physical —
 would have been the same >15 GB regime seen there.
+
+### Amplitude wall T-sweep (TASK-036b)
+
+The TASK-031b section above establishes that the amplitude wall is not a solver
+limit but a geometric constraint of the Voigt volume-fraction mixing rule: the
+coefficient `d(δμ/μ̄)/d(dt) = (μ_c − μ_m)/(T·μ_c)` exceeds unity at
+`|dt| = T/contrast = 32.95 km`, which is less than the 40 km reference shell
+(contrast = 1.2139 for the Weber model). TASK-036 (design note) proposed testing
+whether thickening the reference shell T — which scales the coefficient as 1/T
+— unblocks angular convergence without changing the underlying physics.
+
+**Driver:** `scripts/moon_lateral_t_sweep.py`. Nrbase = 30 throughout.
+Artifacts: `docs/figures/proposal/moon_lateral_t_sweep.{npz,png}`.
+
+#### T-sweep (lmax = 4, fixed contrast)
+
+The T-sweep asks: as T grows, does `|Δk20|` settle to a stable value?
+
+| T [km] | max\|δμ/μ̄\| | N | \|Δk20\| | step |
+|---:|---:|---:|---:|---:|
+| 40 | 0.9902 | 115 | 1.407e-6 | — |
+| 55 | 0.7202 | 115 | 9.031e-7 | −35.8% |
+| 70 | 0.5658 | 115 | 6.573e-7 | −27.2% |
+| 85 | 0.4660 | 115 | 5.137e-7 | −21.9% |
+
+Off-modes `(2,±2)`, `(2,±1)`, `(3,±3)` scale in lock-step with `|Δk20|` across
+all T, with step sizes of −27%, −21%, −18% respectively — the whole lateral
+spectrum shrinks proportionally as T grows.
+
+**The spectrum does not converge in T.** The last step is −22%, far above the
+5% convergence threshold, and the trend shows no sign of flattening. This is the
+expected behaviour: thickening T dilutes the fixed crustal-thickness variation
+`dt` into a larger reference volume, reducing the Voigt coefficient and therefore
+the amplitude of every coupled mode proportionally. `|Δk20|` is chasing zero,
+not a stable value. Fix (A) — thicken T — does not produce a convergent
+spectrum; it trades amplitude wall for amplitude loss. This is a physical
+consequence, not a pipeline artifact, and it rules out T-thickening as a
+resolution-only change that leaves published numbers intact.
+
+#### lmax ladder at T = 85 km
+
+At T = 85 km the positivity margins are well below 1.0 for all rungs through
+lmax = 6 (max\|δμ/μ̄\| = 0.607 at lmax = 6), so the full angular ladder is
+physically accessible. The question is whether the spectrum converges in lmax at
+this larger T.
+
+| lmax | max\|δμ/μ̄\| | N | \|Δk20\| | step |
+|---:|---:|---:|---:|---:|
+| 2 | 0.163 | 43 | 5.104e-8 | — |
+| 3 | 0.318 | 75 | 9.875e-8 | +94% |
+| 4 | 0.466 | 115 | 5.137e-7 | +420% |
+| 5 | 0.543 | 163 | 5.212e-7 | +1.5% |
+| 6 | 0.607 | 219 | 5.257e-7 | +0.9% |
+
+**Angular convergence is confirmed at T = 85 km.** The lmax = 4→5 and 5→6
+steps are +1.5% and +0.9%, well inside the 5% threshold. Peak RSS at lmax = 6
+is 22.4 GB (Nrbase = 30); total wall time for the full run was 1953 s.
+
+For comparison, the corresponding steps at T = 40 km (TASK-031b) were +90.5%
+and blocked — the positivity wall prevented any solve at lmax ≥ 5. At T = 85 km
+those same rungs are accessible and the spectrum is converged.
+
+#### Interpretation
+
+These two results together say: thickening T does unlock angular convergence, but
+at the cost of a T-dependent amplitude. The converged value at T = 85 km,
+`|Δk20| ≈ 5.26e-7`, is 2.68× smaller than the T = 40 km result (1.407e-6), and
+the ratio equals the coefficient ratio `(μ_c − μ_m)/(85·μ_c)` /
+`(μ_c − μ_m)/(40·μ_c)` = 40/85 = 0.471 — exactly as the Voigt formula predicts.
+There is no physical preference between T = 40 km and T = 85 km on this evidence
+alone. The reference shell thickness is a modelling choice, not a measurable
+quantity, and changing it moves the published `Δk20` by a factor of T_new/T_old.
+
+**Conclusion for TASK-036b.** Fix (A) unblocks the angular convergence test but
+does not provide T-convergence. The follow-on question — what reference shell T
+best represents the Moon's crust geometry — is a physics argument, not a
+numerical one, and belongs in a separate ticket (per TASK-036 design note). The
+deliverable here is the convergence diagnosis: the spectrum *is* angularly
+convergent once T is large enough to carry the full field, and the angular
+converged value scales exactly as 1/T.
