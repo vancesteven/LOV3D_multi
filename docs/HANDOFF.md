@@ -23,7 +23,14 @@ truth. Refer to the push target by URL — remote *names* differ per machine:
 Only then start work. Same dance to release (`coord: release TASK-NNN`, with a
 log line). Coordination commits (`coord:` prefix, touching only `docs/HANDOFF.md`
 and `docs/tasks/`) are pre-authorized — no per-commit user approval needed.
-**Code commits still require user approval** (standing rule unchanged).
+**Code commits and pushes are also pre-authorized** (PI, 2026-08-13,
+superseding the earlier approval requirement): *"the whole point of git is
+that such changes are traceable."* Commit and push your own code and
+artifacts as you go, on every machine. Do not park finished work uncommitted
+waiting for a gate — that is what once left TASK-031's implementation
+invisible to machine B for days. Traceability comes from the history, and
+review still happens: every deliverable is verified by a different driver
+before its ledger row reaches VERIFIED.
 
 ---
 
@@ -130,7 +137,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 ## Standing rules (both machines)
 
 - Do NOT implement code unless explicitly instructed — summarize & propose first.
-- Code commits only when the user asks. `coord:` commits pre-authorized (above).
+- Commit and push code as you go (PI-authorized 2026-08-13); `coord:` commits likewise. Review is by different-driver verification, not by withholding commits.
 - Keep files < 500 lines; tests in `pylov3d/tests/`; no working files in repo root.
 - graphify re-runs only with user confirmation: `graphify run pylov3d/ --exclude pylov3d/tests/`
 
@@ -225,13 +232,11 @@ to B because it was untracked on A, and that must not recur while A is away.
 | TASK-035 | QUEUED | Moon lateral MATLAB anchor — **now the only unanchored link**; spec written this session |
 | TASK-037 | QUEUED | Excursion-rule ladder; premise deliberately weakened by A's correction, so the test is real |
 
-**On the commit gate.** The standing rule is that code commits need PI
-approval. Read literally during A's absence that would have B pile up
-uncommitted work, which is exactly the failure mode that hid TASK-031 from B
-for days. **A's reading, offered for the PI to overrule:** B should commit
-and push its own code and artifacts as it goes, as it already did for
-`c174373`, and A will verify on return. The gate exists for oversight, not to
-make work invisible to the other machine.
+**On the commit gate — resolved.** The PI authorized code commits and
+pushes on 2026-08-13, superseding the earlier approval requirement, on the
+grounds that git history is itself the traceability mechanism. **Commit and
+push as you go.** A will verify on return; verification, not a commit gate,
+is where review happens.
 
 **What genuinely waits for A** — B should not block on these, just leave them:
 
