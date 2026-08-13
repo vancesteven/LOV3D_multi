@@ -1316,3 +1316,100 @@ excursion rule of TASK-037 does *not* pin the amplitude after all: fixing
 `|dmu/mu_bar| = K/2` fixes the perturbation, but the response still
 depends on T through both terms, so whether it converges under the rule
 remains an open question rather than a foregone one.
+
+## Predicted k2m splitting against GRAIL (TASK-034)
+
+This is the project's cleanest observational comparison, because it requires no
+cross-body step. GRAIL measured `k20`, `k21` and `k22` separately **at the Moon**
+(Konopliv et al. 2013 Table 4; committed in
+`pylov3d/mars_detectability_k2m.py` as `GRAIL_K2M` / `GRAIL_K2M_SIGMA` and
+verified there against the source), and the TASK-031 Moon lateral model predicts
+the splitting those same coefficients should show. Same body, same coefficients,
+real published measurement — unlike the Mars detectability argument (TASK-026),
+which had to borrow GRAIL's lunar precision and correct across bodies by the
+×736 tide-raising ratio.
+
+**Driver:** `scripts/moon_k2m_vs_grail.py`. Three diagonal coupled solves —
+forcing (2,0), (2,1), (2,2) — on the Weber model with the default Airy lateral
+field, `lmax = 4`, `Nrbase = 30`. The truncation is fixed at 4 because TASK-031b
+established that is the highest cutoff the linearization admits, and TASK-036b
+confirmed that widening the reference shell to reach higher `lmax` changes the
+amplitude rather than revealing a converged one — so the shipped T = 40 km shell
+is retained here. Artifacts:
+`docs/figures/proposal/moon_k2m_vs_grail.{npz,png}`. Total wall 573 s, peak RSS
+6.3 GB.
+
+### The three predicted splittings
+
+| m | predicted k2m | `Δk2m` | \|Δk2m\| | σ_GRAIL | \|Δk2m\|/σ_GRAIL | GRAIL k2m |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0.0231605494 | +1.4071e-6 | 1.407e-6 | 4.5e-4 | 3.13e-3 | 0.02408 |
+| 1 | 0.0231592143 | +7.2081e-8 | 7.21e-8 | 2.5e-4 | 2.88e-4 | 0.02414 |
+| 2 | 0.0231599091 | +7.6688e-7 | 7.67e-7 | 2.8e-4 | 2.74e-3 | 0.02394 |
+
+All three shifts are positive (the lateral field stiffens the response relative
+to the uniform Weber background `k2 = 0.02315914223`). The `m = 0` result
+reproduces the TASK-031 value `Δk20 = 1.407e-6` exactly, as it must — that solve
+is the same configuration.
+
+**The (2,1) shift is ~20× smaller than the other two.** This follows from the
+field's composition rather than from anything numerical: with C20 dropped
+(the default, since the Moon's C20 is the permanent tidal-rotational bulge and
+not a crustal load) the field's first-order channel into the `(2,0)` forcing
+mode is `(4,0)`, and the corresponding first-order channels into `m = ±1` are
+absent from the retained harmonics. The `m = 1` response is therefore reached
+only at second order, which is what the ~20× suppression reflects.
+
+### Comparison against the measurement
+
+**Ratio to per-order uncertainty.** The predicted splitting sits between
+2.9e-4 and 3.1e-3 of GRAIL's per-order 1σ — that is, **320× to 3500× below the
+measurement precision** on each coefficient.
+
+**Observed order-to-order spread.** GRAIL's three values span
+`max − min = 2.00e-4`. The predicted spread is `1.335e-6`, i.e. **150× smaller**
+than the observed spread.
+
+**Is the observed spread significant?** No. GRAIL's observed spread (2.00e-4) is
+*smaller than the smallest of its own per-order uncertainties* (2.5e-4 on `k21`,
+with 2.8e-4 and 4.5e-4 on the others). The measured order-to-order differences
+are therefore not statistically significant: the three coefficients are mutually
+consistent within their stated errors, and the apparent ordering
+`k21 > k20 > k22` carries no information. This is worth stating plainly because
+the raw numbers invite the opposite reading.
+
+So the comparison has the expected three-tier structure: the predicted lateral
+splitting lies far below an observed scatter that is itself below the
+measurement precision.
+
+### What the Moon can and cannot test
+
+**Elastic/anelastic gap dominates by three orders of magnitude.** TASK-025a/b
+established that the Weber Moon requires anelasticity to reach the observed `k2`
+at all. Quantifying the two effects against each other:
+
+| quantity | value |
+|---|---:|
+| mean GRAIL `k2` (three orders) | 0.02405 |
+| Weber elastic `k2` (uniform) | 0.02316 |
+| elastic/anelastic gap | 8.942e-4 (3.7%) |
+| mean predicted lateral \|Δk2m\| | 7.487e-7 |
+| **gap / lateral splitting** | **1194×** |
+
+The anelastic deficit is ~1200× larger than the lateral splitting the lateral
+stage predicts. Since the lateral stage is purely elastic, this means the lateral
+signal is **unobservable in principle at the Moon, independent of measurement
+precision**: any determination of `k2m` sharp enough to resolve a 7e-7 splitting
+would first have to model an anelastic correction three orders of magnitude
+larger, and the systematic uncertainty in that correction would swamp the
+lateral term. Improving GRAIL's formal errors would not change this conclusion.
+
+**Conclusion for TASK-034.** The Moon provides the project's only same-body,
+same-coefficient comparison against a real published measurement, and the answer
+is a clean null: the predicted lateral splitting sits roughly three orders of
+magnitude below GRAIL's precision, two orders below an observed scatter that is
+itself not significant, and three orders below the elastic/anelastic gap that
+would have to be modelled first. The Moon therefore tests that the prediction is
+*consistent with* the measurement — which it is, comfortably — but cannot test
+the lateral mechanism itself. That negative result is stated here without
+extrapolation and without adjustment toward a detection.
