@@ -1272,3 +1272,47 @@ numerical one, and belongs in a separate ticket (per TASK-036 design note). The
 deliverable here is the convergence diagnosis: the spectrum *is* angularly
 convergent once T is large enough to carry the full field, and the angular
 converged value scales exactly as 1/T.
+
+### Correction: the response does not scale as 1/T (A, 2026-08-13)
+
+The T-sweep entry above states that `|Delta k20|` scales exactly as `1/T`.
+It does not, and neither does the analytic argument that was offered in
+support of it. Both are corrected here from the sweep's own committed
+artifact.
+
+What *is* exactly `1/T` is the **perturbation amplitude**:
+`max|dmu/mu_bar|` measures 0.9902 / 0.7202 / 0.5658 / 0.4660 at
+T = 40 / 55 / 70 / 85 km, matching `1/T` to four decimals. That part is
+algebraic, since `dmu/mu_bar = dt K / T`.
+
+The **response** does not inherit that scaling. `|Delta k20|` measures
+1.40712 / 0.903108 / 0.657276 / 0.513658 e-6 across the same rungs, a
+`T^-1.338` power law — falling *faster* than `1/T`, and departing from a
+`1/T` law by 22.4% across the sweep.
+
+The reason is visible in the modes. The off-forcing pairs scale as
+`T^-0.996`, `T^-0.996` and `T^-0.995` — pure first-order coupling
+responses, exactly linear in the perturbation, exactly `1/T`. The
+forcing-mode shift is not pure first order, so it does not.
+
+Fitting `Delta k20 = a/T + b/T^2` (first order plus second order)
+reproduces all four rungs to better than 0.2%:
+
+| T [km] | measured [e-6] | fitted [e-6] | residual |
+|---:|---:|---:|---:|
+| 40 | 1.40712 | 1.40671 | -0.03% |
+| 55 | 0.903108 | 0.904293 | +0.13% |
+| 70 | 0.657276 | 0.657190 | -0.01% |
+| 85 | 0.513658 | 0.512799 | -0.17% |
+
+with `a = 3.232e-5` and `b = 9.581e-4`. That decomposes the shipped
+result: at T = 40 km the Moon's forcing-mode shift is **57.4% first
+order and 42.6% second order**, the first-order part being the `(4,0)`
+channel alone, since this field removes `C20`.
+
+Two consequences. The sweep was not a wasted negative result — it
+measures the order decomposition, which no single solve reveals. And the
+excursion rule of TASK-037 does *not* pin the amplitude after all: fixing
+`|dmu/mu_bar| = K/2` fixes the perturbation, but the response still
+depends on T through both terms, so whether it converges under the rule
+remains an open question rather than a foregone one.
