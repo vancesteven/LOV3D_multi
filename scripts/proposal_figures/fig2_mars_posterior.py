@@ -11,10 +11,9 @@
 Runs ``pocomc`` (Preconditioned Monte Carlo) over the 4 free parameters of
 ``pylov3d.mars_mc.MARS_PARAMETERIZATION`` (rho_core, rho_lm, mu_scale,
 R_core), using the committed ``pylov3d.mars_mc`` machinery (mass, mean MoI,
-k2, core_radius_km constraints). Not ``--quick``: n_active=256,
-Nrbase=15 (verified accuracy-free down to Nrbase=10 — k2 constant to
-1e-12, see ``pylov3d/mars.py`` / ``pylov3d/mars_mc.py`` docstrings), fixed
-seed. Saves the chain to
+k2, core_radius_km constraints). Production settings are n_active=256,
+Nrbase=100, and a fixed seed, matching the TASK-011 deterministic fit grid.
+Saves the chain to
 ``docs/figures/proposal/mars_posterior_chain.npz`` for reproducibility.
 
 Diagonal panels are 1-D weighted marginal histograms; the R_core diagonal
@@ -79,7 +78,7 @@ POINT_FIT_COLOR = CATEGORICAL[1]  # "categorical color 2" (1-based index 2)
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--n-active", type=int, default=256)
-    p.add_argument("--nrbase", type=int, default=15)
+    p.add_argument("--nrbase", type=int, default=100)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out-dir", type=Path, default=OUT_DIR)
     p.add_argument(

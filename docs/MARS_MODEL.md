@@ -410,7 +410,33 @@ sigma(rho_core) ≈ 90 kg/m^3, larger than `--quick`'s own marginal). A full
 run (`n_active=256` default, dynamic SMC annealing to beta=1) takes far
 longer since the annealing schedule always runs to completion regardless of
 particle count (measured: ~25 ms/forward-eval at Nrbase=15 warm, ~150
-ms/eval at the fit's `Nrbase=100`; a full run is O(10^3-10^4) evaluations).
+ms/eval at the fit's `Nrbase=100`; the TASK-015 production run used 33,280
+likelihood calls including evidence estimation).
+
+**TASK-015 production posterior.** The canonical proposal driver
+`scripts/proposal_figures/fig2_mars_posterior.py` now defaults to the same
+`Nrbase=100` radial grid as the TASK-011 deterministic fit. With
+`n_active=256`, `n_effective=512`, dynamic SMC, seed 0, and pocomc's default
+`n_total=4096`, the run completed in 5371.7 s (89.5 min). The archived chain
+contains 4288 weighted samples with Kish ESS=4092.5; all samples, weights,
+log likelihoods, and log priors are finite and every sample lies within the
+declared bounds. The reproducible chain and publication corner plot are
+`docs/figures/proposal/mars_posterior_chain.npz` and
+`fig2_mars_posterior.{pdf,png}`.
+
+| Parameter | posterior median | 15.87--84.13% interval | TASK-011 point fit |
+|---|---:|---:|---:|
+| `rho_core` [kg/m^3] | 6113.72 | 6019.97--6203.19 | 6128.08 |
+| `rho_lm` [kg/m^3] | 4135.46 | 4027.10--4238.95 | 4136.50 |
+| `mu_scale` | 0.97702 | 0.91782--1.04389 | 0.96482 |
+| `R_core` [km] | 1835.85 | 1800.57--1871.11 | 1830.00 |
+
+Thus every deterministic point-fit parameter lies inside its corresponding
+central 68.26% marginal interval. Re-evaluating the model at the vector of
+posterior marginal medians on `Nrbase=100` gives mass
+`6.417822e23 kg`, mean MoI `0.3631182`, `k2=0.1684807`, and core radius
+`1835.855 km`. This median vector is a summary of four marginals rather than
+a separately optimized joint fit, but it remains close to all four targets.
 
 **Surface map**: `pylov3d/mapping.py` provides `sh_to_latlon`, backed by
 `fully_normalized_legendre` — a direct port of the MATLAB reference

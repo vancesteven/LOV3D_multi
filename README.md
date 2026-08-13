@@ -127,7 +127,7 @@ The Python version is a line-by-line algorithmic translation of the MATLAB sourc
 
 ### Validation
 
-654 tests across 44 test files (625 in the default fast lane, ~2 min; run the full set with `-m ""`), covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
+663 tests across 45 test files (633 in the default fast lane, ~2 min; run the full set with `-m ""`), covering unit tests, physics tests, analytical cross-validation, lateral variation benchmarks, MATLAB reference cross-validation (both NumPy and JAX solver paths, with and without subsurface oceans), PyALMA3 cross-validation, and JAX↔NumPy equivalence.
 
 #### Models tested
 
@@ -323,4 +323,3 @@ Future developments include:
 - pylov3d post-Milestone-4 work: ocean layers in the coupled solver, batched frequency sweeps, GPU backends (see Future Development above)
 
 Found a bug? Report an “Issue” in the issue's tab. 
-
