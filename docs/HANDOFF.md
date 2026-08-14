@@ -159,6 +159,7 @@ _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
 - `[B][2026-08-13]` **Claiming TASK-037, and the premise check already changes the task.** Spec point 3 asked me to confirm that `2 max|dt|` really spans the boundary excursion rather than assume it. **It does not: the Moon `dt` field is strongly asymmetric.** At lmax=6 the excursion runs +20.6 km to −42.5 km (ratio 0.485), so `2 max|dt|` = 85.0 km against a true range `dt_max − dt_min` = 63.1 km — **a 35% overshoot**, and the asymmetry itself varies with truncation (0.615/0.581/0.485 at lmax 4/5/6). That splits the rule in two, and the two halves disagree: `T = 2 max|dt|` reproduces `|δμ/μ̄| = K/2 = 0.6070` identically at every rung (the no-free-parameter property the argument rests on) but overshoots what the shell is supposed to contain; `T = range` is the shell that actually spans the excursion but then the margin moves with truncation (Moon 0.752/0.768/0.818, climbing toward the bound), reintroducing an lmax dependence in the very quantity the rule was meant to pin. **Correction to this entry as first written:** I said the margin "drifts toward the bound" — that is the Moon's behaviour and overgeneralizes. Mars's range-rule margin is non-monotonic (0.747/0.692/0.703, dipping at lmax=5), so the drift direction is body-specific rather than a property of the rule. **And a third finding the spec did not anticipate: the two bodies are skewed in OPPOSITE directions** — the Moon is negative-skewed (thick crustal roots dominate, |dt_min| > dt_max at every rung) while Mars is positive-skewed (crustal thinning dominates). Since `2 max|dt|` keys off whichever tail is longer, it sizes the Moon's shell from the roots and Mars's from the thinning: the rule is not neutral about which side of the excursion it responds to. Overshoot vs the true range is 24/27/35% (Moon) and 19/11/12% (Mars). **So the rule's headline property and its physical justification select different shells.** Per the spec's instruction to use the actual range if it differs materially and say which, I am running **both ladders** rather than picking the convenient one: Moon at T = 65.3/76.0/85.0 km and at T = 52.7/60.1/63.1 km, then the Mars equivalents (K/2 = 0.626). Reporting `Δk20` and the off-modes separately, since A's correction predicts they may diverge — the off-modes are pure first order so the rule should pin them while `Δk20` mixes orders, and **if the off-modes converge and the forcing mode does not, that asymmetry is the result** and sharpens the standing conclusion that the spatial information lives in the off-forcing spectrum. Re-checking the 1-D background at every T rather than assuming it (spec caveat; 036b flagged it too). Driver only, no shipped default touched. This ledger claim is the pre-authorized coord entry.
+- `[B][2026-08-14]` **B standing down; handoff posted for A at the end of this file.** Both repos clean and pushed: `LOV3D_multi` @ `a78c20c`, `SSS_2025_Mars` @ `d1f1621`. No task IN-PROGRESS, no job running, nothing untracked but `.claude-flow/`, `CLAUDE.md` and the `moon_t_sweep_partial.log`. **Three of B's tasks are DONE and unverified — 034 (`47043d4`), 035 (`47b5377`), 037 (`a78c20c`) — and none can self-clear since B implemented all three.** Suggested order 037 → 035 → 034: 037 because it **re-attributes a conclusion A already recorded** (A's 036b VERIFIED entry says the fixed-shell Voigt average may be unable to define a lateral amplitude at all; B's data narrow that to the *spatial extremum* specifically, since the area-RMS of the same field converges cleanly), then 035 because 034 depends on it. The handoff lists five specific things to attack in 037, including the one place B argues *against* the surface reading of the data (Mars's twice_max column looks converged at +4.4%/−1.0% and B calls it coincidence). The non-monotonicity that carries the argument is re-derivable in under a minute with `--diagnostics-only`, no solves. **No task is queued: TASK-037 closed the shell-convention thread, so the next ticket needs writing rather than claiming — that is A's or the PI's call.** Two candidates are set out with their costs (RMS-keyed rule, which B explicitly does NOT claim works; or accept the shell as a disclosed convention and stop). The two TASK-035 items for A are restated as still open. Proposal: A owns it again; two known-stale passages are flagged rather than silently edited, and it remains **NOT COMPILE-VERIFIED** (pdflatex exit 127 in B's sandbox). This ledger entry is the pre-authorized coord commit.
 - `[B][2026-08-13]` **TASK-037 DONE — awaiting VERIFIED. The rule fails the deciding test, and the reason is not the one the task was built to probe.** `Δk20` does not converge in lmax under either form, on either body: Moon twice_max (T=65.3/76.0/85.0 km) −16.5%/−12.5%, Moon range (52.7/60.1/63.1) −14.7%/−5.4%, Mars twice_max (68.5/69.6/71.4) +4.4%/−1.0%, Mars range (57.3/62.9/63.6) −8.2%/+1.7%. 12 coupled solves, Nrbase=30, N=115/163/219, 7422 s, peak RSS 23.2 GB. **What held, and it is worth stating because it was the whole basis of A's proposal:** under `T = 2·max|dt|` the margin equals `K/2` **identically to 1.11e-16**, verified over ten truncations (lmax 2–20), not just the three solved — 0.606965 Moon, 0.625629 Mars. The no-free-parameter property is real. It is simply not the property that was needed: pinning the *perturbation* does not pin a *response* that TASK-036b showed is 43% second order. **Mechanism — the ladder is still measuring the T-scaling.** Compensating each rung by 036b's exponents (`Δk20 ∝ T^-1.338`, off-modes `∝ T^-0.996`) collapses the ladders: Moon twice_max spread 37.0%→**4.0%**, range 23.9%→**2.7%**, off-modes to **0.22–0.36%**. Per-rung implied exponent `d ln|Δk20|/d ln T` = −1.19/−1.19 vs the sweep's −1.338; off-modes −0.99 vs −0.996. **Recomputing T per rung did not remove the shell dependence — it converted it into an lmax dependence, the same problem wearing the other hat.** **A's predicted asymmetry is confirmed, sharply:** off-forcing modes compensate to 0.22–0.38% (pure first order, so the rule DOES pin them); the forcing mode mixes orders and is not pinned. The well-behaved spatial information is again in the off-forcing spectrum. **A trap avoided:** Mars's twice_max column looks nearly converged (+4.4%/−1.0%) but that is coincidence — Mars's T barely moves across those rungs (4.3%), so there is little scaling to track, and compensation reveals the **largest** residual of the four (9.3%). Reading it as converged would have been wrong. **The load-bearing finding is NARROWER than 036b's framing, and I want it on the record as such:** the failure belongs to keying T to a **spatial extremum**, which is not a convergent functional of lmax — and for the Moon is not even monotonic. Moon max|dt| = 11.4/22.3/32.6/38.0/**42.5**/38.8/35.0/**34.8**/38.6/43.2/**46.0** km at lmax=2…24: it peaks at lmax=6, falls 18% by lmax=12, then climbs past that peak. **The solved 3-rung ladder sampled only a rising limb — at lmax=12 the trend reverses sign.** Mars rises monotonically but is still +9.4% on the last step at lmax=24 with no sign of levelling. Grid-converged: 360×720 → 1440×2880 moves every extremum by <0.02 km, so this is in the field, not the sampling. **By contrast the area-weighted RMS converges cleanly over the same range** (Moon +1.19% last step, Mars +0.54%, both decaying) — RMS is a sum of squared coefficients and converges whenever the power spectrum is summable; an extremum need not. **So 036b's conclusion "the fixed-shell Voigt average simply cannot define a lateral amplitude" is NOT what these data show and should not be recorded as the finding.** The defect is the choice of functional. **An RMS-keyed shell rule is a specific, testable successor** — but untested here, and it forfeits the exact `K/2` margin (area-RMS is ~4.6× below max|dt| for the Moon at lmax=6, so the margin lands well above K/2 and the positivity bound must be re-derived, not assumed, before any solve). I am not claiming it works; I am claiming 036b's negative was drawn too wide. **036b's caveat closed rather than assumed:** the 1-D background is T-independent (Moon 1.7e-12, Mars 0.0), and structurally so — the shipped crust layer is fixed at R0 1703.1→1737.1 km and never moves with T. **Which re-raises the item I flagged for A in TASK-035:** that layer is 34.0 km thick while the Voigt coefficient uses `CRUST_THICKNESS_M` = 40 km, so "T" in this rule is a *reference* thickness for the volume-fraction average and NOT the geometric layer being perturbed. The excursion argument reads as if they were the same thing; they are not, and any successor rule needs to say which it means. Driver only (`scripts/moon_excursion_shell_ladder.py`, new); no shipped module or default touched. Implementation by a Sonnet agent per the standing split, reviewed and analysed at Opus tier. Results in `docs/MOON_MODEL.md` § TASK-037; artifacts `docs/figures/proposal/{moon,mars}_excursion_shell_ladder.{npz,png}`. **Nothing here changes the proposal's §4.4 shell-dependence qualification, which stands as written.**
 - `[B][2026-08-13]` **TASK-035 DONE — awaiting VERIFIED. The last unanchored link is closed: the Moon lateral spectrum now has an independent native-MATLAB anchor.** `scripts/export_moon_mu_variable.py` (new, read-only) + `scripts/moon_lateral_cross_check.m` (new); MATLAB reads the npz directly via an in-script `.npy` parser, so both codes consume the identical complex field. **Results:** N=115 **exact**, and its perturbation-order structure matches too (1/42/73) — a structural match, not a coincidence of totals. `k2` uniform 1.39e-10; **`k2` lateral forcing-mode rel err 1.87e-11**; off-modes (2,±2) 6.60e-7, (2,±1) 1.22e-6, (3,±3) 9.90e-8. Exported field round-trips **bit-exactly** (all 20 amplitudes to 0.0) and satisfies Condon-Shortley `f(n,−m)=(−1)^m conj(f(n,m))` to 0.0. **The fluid outer core — the part with no Mars precedent and the spec's flagged risk given TASK-005–009 — shows no disagreement**; CMB residual 6.9e-18. Note the model has **two** `mu=0` layers; `artificial_core` (idx 0) is an innermost numerical device and correctly not ocean-flagged. **On "is it Mars quality", stated plainly rather than passed at a looser tolerance:** on the Love number the Moon is within an order of magnitude absolutely (4.33e-13 vs Mars 4.99e-14) but ~60× looser relatively than the 2.95e-13 precedent — expected for 10 layers/270 radial points vs Mars's 4. The `Δk20` 2.60e-6 is differencing amplification (`k2/Δk20`≈1.6e4), the same argument the Mars write-up makes for its own 7.9e-8; **the Moon shift is intrinsically 5.4× harder to anchor** (39× smaller shift on a 7.3× smaller k2). Cancellation alone under-predicts the residual on *both* bodies (Moon ~8×, Mars ~87×), so the unexplained factor is a property of the comparison method, not a Moon defect — recorded, not papered over. **One defect found in review and fixed:** the exporter printed the largest SH *coefficient* (5126 m) labelled `max|dt|`, which everywhere else in this project means the *spatial* max (32628 m) that sets the 0.9902 positivity margin — relabeled with a pointer to `crustal_thickness_diagnostics`. Implementation by a Sonnet agent, reviewed at Opus tier per the standing split. Results in `docs/MOON_MODEL.md` § TASK-035; artifacts `data/tests/moon/moon_lateral_cross_check.{log,mat}` + `data/moon/moon_mu_variable_lateral.npz`. MATLAB 25.2.0.3150157 (R2025b) Update 4. Suite 640 passed. **Two items for A, both outside this task's scope:** (1) the TASK-031 plan specified `include_degree1=True` *retaining* degree-1 as the nearside-farside dichotomy, but the shipped `_relief_coefficients` removes degree-1 **unconditionally** as a centre-of-figure offset — a plan/implementation divergence, not introduced here; (2) the crust layer spans 1703.1→1737.1 km = **34.0 km** while the Voigt coefficient uses `CRUST_THICKNESS_M` = **40 km**. Harmless for this anchor (both codes get the same field), but it bears on TASK-037's premise that `T` is pinned by shell geometry — that argument needs to say which thickness it means, since the shipped `T` already differs from the layer the field perturbs.
 - `[B][2026-08-13]` **Claiming TASK-035** (native-MATLAB anchor for the Moon lateral spectrum — the last unanchored link). Method per spec: reuse the TASK-029 improvement rather than the TASK-029 spec — export the committed Moon crust `mu_variable` (lmax=4, shipped config) to `data/moon/moon_mu_variable_lateral.npz` via a new read-only `scripts/export_moon_mu_variable.py`, so MATLAB consumes the *identical* complex field instead of re-deriving the SH bookkeeping (which is where a convention mismatch would masquerade as a sign error). Then `scripts/moon_lateral_cross_check.m` on the as-built ten-layer Weber model at `method='variable'`, Nrbase=30, perturbation_order=2, unit (2,0) monthly forcing; compare **per mode**, not just Δk20. MATLAB R2025b present locally. **Two things flagged for my own review rather than delegated,** both being the error class that has already cost this project twice: (1) the complex-SH round trip (the √2 basis factor), and (2) layer indexing — crust is Python 9 → MATLAB 10 — plus the `eta0`-empty-not-NaN elastic gotcha now across *ten* layers rather than Mars's four. **The fluid outer core is the part with no Mars precedent** (Mars's core sits at the centre), so per spec a disagreement there is a finding, not a nuisance. Artifacts → `data/tests/moon/`; note to `docs/MOON_MODEL.md`. This ledger claim is the pre-authorized coord entry.
@@ -223,6 +224,11 @@ _(Older M4 / M5 / TASK-001…013 entries, all four 2026-08-04 TASK-014 part-1/2 
 
 ## Handoff while machine A is away (posted 2026-08-13)
 
+> **SUPERSEDED 2026-08-14** by "Handoff: machine A takes over" at the end
+> of this file. The B-queue table below is stale: TASK-034 and TASK-035 are
+> both DONE (`47043d4`, `47b5377`) and TASK-037 is DONE (`a78c20c`) — all
+> three awaiting VERIFIED. Kept for the standing-rules content, which holds.
+
 **Everything A has produced is committed and pushed on both repositories.**
 `LOV3D_multi` @ `python-conversion` and `SSS_2025_Mars` @ `main` are both
 clean and in sync with their remotes — nothing of A's is sitting untracked.
@@ -233,8 +239,8 @@ to B because it was untracked on A, and that must not recur while A is away.
 
 | Task | State | Note |
 |---|---|---|
-| TASK-034 | IN-PROGRESS (B) | Moon k2m vs GRAIL — the cleanest test in the project, no cross-body extrapolation |
-| TASK-035 | QUEUED | Moon lateral MATLAB anchor — **now the only unanchored link**; spec written this session |
+| TASK-034 | ~~IN-PROGRESS~~ **DONE (B) `47043d4`, awaiting VERIFIED** | Moon k2m vs GRAIL — clean three-tier null: predicted splitting 320–3500x below GRAIL precision |
+| TASK-035 | ~~QUEUED~~ **DONE (B) `47b5377`, awaiting VERIFIED** | Moon lateral MATLAB anchor — N=115 exact, k2 to 1.87e-11; the last unanchored link is closed |
 | TASK-037 | DONE (B), awaiting VERIFIED | Rule fails: Δk20 non-convergent under both forms, both bodies. K/2 confirmed to 1e-16 but insufficient. Failure traced to the spatial extremum (non-convergent, non-monotonic in lmax), NOT to shell averaging — area-RMS converges, so an RMS-keyed rule is an untested successor. Off-modes ARE pinned (0.2–0.4%) |
 
 **On the commit gate — resolved.** The PI authorized code commits and
@@ -259,3 +265,144 @@ is where review happens.
 - The lateral *absolute* amplitude may simply not be definable under a
   fixed-shell Voigt average. If TASK-037 says so, that limit is the honest
   output and should be reported, not engineered around.
+
+---
+
+## Handoff: machine A takes over (posted 2026-08-14, by B)
+
+**Everything B has produced is committed and pushed.** `LOV3D_multi` @
+`python-conversion` is at `a78c20c`, clean and in sync with `myfork`.
+`SSS_2025_Mars` @ `main` is at `d1f1621`, clean and in sync with `origin`.
+Nothing of B's is sitting untracked. The only untracked paths are
+`.claude-flow/`, `CLAUDE.md` and `docs/figures/proposal/moon_t_sweep_partial.log`,
+all three deliberately so.
+
+**B is standing down. No task is IN-PROGRESS and no job is running.**
+
+### First thing A should do: three of B's tasks are DONE and unverified
+
+This is the whole point of the handoff. Verification is A's standing role and
+is meant to be done by a *different* driver than the implementer — all three
+were implemented by B, so none can self-clear.
+
+| Task | Commit | What to verify | Where |
+|---|---|---|---|
+| TASK-034 | `47043d4` | Moon k2m vs GRAIL: a three-tier null | `docs/MOON_MODEL.md` § "Predicted k2m splitting against GRAIL" |
+| TASK-035 | `47b5377` | Native-MATLAB anchor for the Moon lateral spectrum | `docs/MOON_MODEL.md` § "Native-MATLAB anchor" |
+| TASK-037 | `a78c20c` | Excursion-shell ladder: the rule fails, and why | `docs/MOON_MODEL.md` § "The excursion-determined shell does not pin the amplitude" |
+
+**Suggested verification order: 037 first.** It is the one that changes a
+conclusion A already recorded (see below), so if B is wrong about it, that
+matters more than the other two. 035 second — it is the anchor 034 depends on,
+so a defect there propagates. 034 last.
+
+**Specific things worth attacking in TASK-037**, listed because B would rather
+they were checked than taken on trust:
+
+1. **The central claim is a re-attribution, not just a negative result.**
+   TASK-036b's VERIFIED entry (A's own, in the log above) concluded that the
+   fixed-shell Voigt average may be unable to define a lateral amplitude at
+   all. B's data say something narrower: the failure belongs to keying `T` to a
+   **spatial extremum**, which is not a convergent functional of `lmax`, while
+   the **area-weighted RMS of the same field converges cleanly** (Moon +1.19%,
+   Mars +0.54% on the last step to lmax=24). If that contrast does not hold up,
+   A's original wider conclusion stands and B's section needs retracting.
+2. **The non-monotonicity is the load-bearing evidence** and it is cheap to
+   re-derive: `python scripts/moon_excursion_shell_ladder.py --body moon
+   --diagnostics-only --lmax-list 2 3 4 5 6 8 10 12 16 20` runs no solves and
+   takes under a minute. Moon `max|dt|` should read 42.5 km at lmax=6, **34.8
+   km at lmax=12**, 46.0 km at lmax=24 — peaks, falls 18%, then climbs past the
+   peak. B checked this is grid-converged (360×720 → 1440×2880 moves every
+   extremum by <0.02 km) so it is a property of the field, not the sampling.
+   If it were sampling noise the whole argument collapses.
+3. **B claims Mars's `twice_max` column is coincidence, not convergence.** It
+   reads +4.4%/−1.0%, which looks converged. B's reason for rejecting that
+   reading: Mars's `T` moves only 4.3% across those rungs so there is little
+   scaling to track, and T-compensating reveals the **largest** residual of the
+   four (9.3%). That inference deserves a skeptical look — it is the one place
+   B argues *against* the surface reading of the data.
+4. **The `K/2` property is confirmed to 1.11e-16** over ten truncations, which
+   is A's own proposal and it held exactly. B's position is that it is real and
+   simply insufficient. Worth confirming B did not weaken a correct idea by
+   testing the wrong consequence of it.
+5. **A's predicted asymmetry came out right**: off-forcing modes T-compensate
+   to 0.22–0.38% (pure first order, so the rule pins them), the forcing mode
+   does not. A predicted exactly this in the 036b log entry.
+
+Reproduce the full ladder with `python scripts/moon_excursion_shell_ladder.py
+--body {moon,mars}` — but note the cost: **12 coupled solves, 7422 s wall, peak
+RSS 23.2 GB (Moon) / 11.6 GB (Mars)**. The archived npz files carry every number
+quoted, so re-running is only needed if A doubts a specific figure.
+
+### What A should pick up next, and the one open decision
+
+**There is no queued task.** TASK-037 closed the shell-convention thread, so
+the next ticket needs writing rather than claiming — and that is a call for A
+or the PI, not for B to make unilaterally. The two candidates B's work points
+to, stated so the choice is informed:
+
+- **An RMS-keyed shell rule.** The specific successor TASK-037's evidence
+  implies. **B is not claiming it works** — only that 036b's negative was drawn
+  too wide to rule it out. Two things must be settled *before* any solve: it
+  forfeits the exact `K/2` margin (area-RMS is ~4.6× below `max|dt|` for the
+  Moon at lmax=6, so the margin lands well above `K/2`), and the positivity
+  bound therefore has to be re-derived rather than assumed. A cheap diagnostics
+  pass answers both before committing 2 hours of compute.
+- **Accept the shell as a disclosed convention and stop.** Defensible, and
+  already what the proposal says. On this route no further ticket is needed and
+  the lateral absolute amplitude stays conditional on `T` permanently. The
+  §4.4 qualification already discloses it.
+
+### Two items B flagged for A that are still open
+
+Both found during TASK-035, both outside that task's scope, neither actioned:
+
+1. **Plan/implementation divergence in TASK-031.** The plan specified
+   `include_degree1=True` *retaining* degree-1 as the nearside–farside
+   dichotomy; the shipped `_relief_coefficients` removes degree-1
+   **unconditionally** as a centre-of-figure offset. Not introduced by B. Which
+   behaviour is intended is a science call.
+2. **`CRUST_THICKNESS_M` is 40 km; the crust layer is 34.0 km**
+   (`R0` 1703.1 → 1737.1 km). Harmless for the anchors — both codes get the
+   same field — but it matters for any successor shell rule, because it means
+   `T` is a *reference* thickness for the volume-fraction average and **not**
+   the geometric layer being perturbed. TASK-037's excursion argument reads as
+   if they were the same thing. They are not, and B's §4.4 proposal text says
+   `T` is "inherited from the reference model's crustal thickness", which is
+   loose for the Moon for exactly this reason.
+
+### Proposal state — A now owns this again
+
+`SSS_2025_Mars` @ `d1f1621`, pushed. B's commit rebased onto five upstream
+commits; two of them (`dd69bb7`, `aef3def`) had independently made the same
+amplitude-bound correction in §4.10 prose but added no corrections-table row,
+so B's two rows are additive, not duplicates. Checked, not assumed.
+
+**Two known-stale things in the pushed text, deliberately left alone:**
+
+- The §4.4 `\caveat{}` rejects the excursion rule on **overshoot and opposite
+  skew**. That was accurate when written but is now the *weaker* of the two
+  available arguments: TASK-037 shows the rule fails the convergence test
+  outright. Nothing printed is wrong; the reasoning is just superseded.
+- That same caveat calls `T` "inherited from the reference model's crustal
+  thickness" — loose for the Moon, per item 2 above.
+
+**`NOT COMPILE-VERIFIED`: `pdflatex` returns exit 127 in B's sandbox** (the
+binary exists and `--version` works; output writes are blocked). B validated
+structurally only — brace balance 1132/1132, all environments paired. Upstream
+commits report "Builds clean", so A should compile once before relying on it.
+This is stated in the commit message too.
+
+### Standing context A should not have to rediscover
+
+- **The commit gate is gone.** The PI authorized commits and pushes on
+  2026-08-13; git history is the traceability mechanism. Push as you go.
+- **Model routing** (PI, 2026-08-13): **Sonnet for coding, Opus for reasoning
+  and review.** TASK-035 and TASK-037 were both implemented by Sonnet agents
+  and reviewed at Opus tier. Note that the Opus review *caught a real defect*
+  in the TASK-035 exporter — a mislabeled `max|dt|` — so the split is earning
+  its keep. Anthropic publishes no head-to-head Opus 5 vs Sonnet 5 table, so
+  do not cite numbers for it.
+- **Push target is `myfork` (`vancesteven/LOV3D_multi`) — NEVER upstream
+  `mroviranavarro/LOV3D_multi`.**
+- `matlab/` is source material only: do not scan, grep, or modify it.
