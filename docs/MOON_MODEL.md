@@ -1352,13 +1352,21 @@ to the uniform Weber background `k2 = 0.02315914223`). The `m = 0` result
 reproduces the TASK-031 value `Δk20 = 1.407e-6` exactly, as it must — that solve
 is the same configuration.
 
-**The (2,1) shift is ~20× smaller than the other two.** This follows from the
-field's composition rather than from anything numerical: with C20 dropped
-(the default, since the Moon's C20 is the permanent tidal-rotational bulge and
-not a crustal load) the field's first-order channel into the `(2,0)` forcing
-mode is `(4,0)`, and the corresponding first-order channels into `m = ±1` are
-absent from the retained harmonics. The `m = 1` response is therefore reached
-only at second order, which is what the ~20× suppression reflects.
+**The (2,1) shift is ~20× smaller than the other two.** *[Explanation
+corrected in verification (A, 2026-08-14); the numbers above are unchanged.]*
+The write-up originally attributed the suppression to the first-order channels
+into `m = ±1` being absent from the retained harmonics, making the `m = 1`
+response second-order only. Both halves of that are wrong. The channel is
+present: with C20 dropped, the field's `(4,0)` harmonic self-couples the
+`(2,1)` forcing mode with `max|C| = 0.5714` (`coupling_coefficients(2,1,2,1,4,0)`),
+comparable to the `m = 0` channel's 0.8571. And the shift is predominantly
+first order: rerunning the three diagonal solves at `perturbation_order = 1`
+gives `Δk2m` = +1.400e-6 / +6.26e-8 / +7.58e-7 for `m` = 0/1/2 — i.e. 99.5% /
+86.8% / 98.8% of the full second-order values. The ~20× suppression is a
+property of the *size of the first-order contraction* through `(4,0)` at
+`m = 1`, not of the channel's absence; note that `max|C|` alone does not
+predict it (`m = 2` has the *smallest* `max|C|`, 0.1429, yet a shift 10× the
+`m = 1` one).
 
 ### Comparison against the measurement
 
@@ -1455,29 +1463,33 @@ The mode count matches exactly *and so does its perturbation-order structure*
 match rather than a coincidence of totals. The full 115-mode spectrum matches
 mode for mode, including the conjugate-pair phase structure.
 
-### Is this an anchor of Mars quality? Partly — and the difference is benign
+### Is this an anchor of Mars quality? Yes — the reported looseness was an artifact
 
-Stated plainly rather than reported as a pass at a looser tolerance:
+*[Section rewritten in verification (A, 2026-08-14). The original version
+reported the anchor as ~60× looser than the Mars precedent with an
+"unexplained factor" in the residual. Both statements were artifacts of
+comparing MATLAB's output against the 6-significant-figure reference constants
+baked into the driver (`py_k2_uniform` etc. in the `.mat`), not against the
+full-precision committed Python spectrum.]*
 
-- **On the Love number, the Moon is within an order of magnitude of Mars.**
-  Absolute agreement on `k2` is 4.33e-13 (Moon) vs 4.99e-14 (Mars). As a
-  *relative* error the Moon's 1.87e-11 is ~60× looser than the Mars lateral
-  precedent's 2.95e-13, which is unsurprising: ten layers and 270 radial
-  points against Mars's four, so more accumulated arithmetic.
-- **On `Δk20` the relative error is 2.60e-6, and that number should not be
-  read as a solver disagreement.** The shift is a difference of two values
-  agreeing to ~1e-11 that is itself ~1e-6 of their size, so the differencing
-  amplifies the error by `k2/Δk20` ≈ 1.6e4. The Mars write-up makes the same
-  argument for its own 7.9e-8 shift residual (amplification ≈ 3.1e3). **The
-  Moon shift is intrinsically the harder anchor**: it is 39× smaller in
-  absolute terms than the Mars shift and rides on a `k2` 7.3× smaller, making
-  the amplification 5.4× worse before any solver difference enters.
-- **Cancellation does not explain the whole residual, on either body.**
-  Predicted-from-cancellation vs observed is 3.1e-7 vs 2.6e-6 for the Moon
-  (~8×) and 9.0e-10 vs 7.9e-8 for Mars (~87×). The unexplained factor is
-  therefore *smaller* for the Moon than for Mars, so whatever it is, this is a
-  property of the comparison method and not a Moon-specific defect. It is
-  recorded here rather than papered over.
+Comparing the `.mat`'s full 115-mode MATLAB spectrum against the committed
+full-precision Python spectrum (`docs/figures/proposal/moon_lateral_spectrum.npz`)
+mode by mode:
+
+- **Forcing mode: rel err 9.6e-14** (abs 2.2e-15) — *better* than the Mars
+  lateral precedent's 2.95e-13, not 60× worse.
+- **Every named off-mode: rel err 2e-12 to 8e-12**, not the 1e-7–1e-6 in the
+  table above (those rows compare against rounded reference values and are
+  kept only as the log's literal content).
+- **Worst significant mode across all 115: rel err 1.7e-10**, on a mode of
+  amplitude 6.9e-9. Four modes at the ~1e-20 noise floor agree to ≤3e-19.
+- **Uniform `k2`: rel err 7.5e-11** (abs 1.74e-12) — the loosest of the set,
+  and the entire source of the `Δk20` residual: the *lateral* solves agree to
+  2.2e-15, so the 1.73e-12 absolute difference in the shift is the uniform
+  baseline offset passing straight through the subtraction. The differencing
+  amplification the original section invoked is real, but its input is the
+  uniform-solve difference, not the coupled solve. The "unexplained factor"
+  dissolves entirely.
 
 **The fluid outer core showed no disagreement.** This was the part with no Mars
 precedent — Mars's core sits at the centre, while the Weber Moon has a fluid
@@ -1488,13 +1500,13 @@ mode deviates beyond the float64 differencing already accounted for. Note the
 model carries **two** `mu = 0` layers: the `artificial_core` at index 0 is an
 innermost numerical device and is correctly *not* flagged as ocean.
 
-**Conclusion for TASK-035.** The Moon lateral spectrum now has an independent
-native-MATLAB anchor: exact mode count and order structure, `k2` agreeing to
-1.87e-11 (4.33e-13 absolute), every named off-mode to ≤1.2e-6, and no
-disagreement attributable to the fluid core. It is a real anchor of the same
-kind as the Mars one, one to two orders looser in relative terms for reasons
-that are understood and quantified above. The Moon lateral numbers used in
-TASK-031/034 are therefore independently corroborated.
+**Conclusion for TASK-035** *(restated after verification)*. The Moon lateral
+spectrum now has an independent native-MATLAB anchor of full Mars quality:
+exact mode count and order structure, forcing mode to 9.6e-14 relative,
+all 115 modes to ≤1.7e-10 relative on significant amplitudes, and no
+disagreement attributable to the fluid core. The Moon lateral numbers used in
+TASK-031/034 are independently corroborated at the same precision tier as the
+Mars anchors.
 
 ---
 
@@ -1571,12 +1583,22 @@ across those three rungs (68.5→71.4 km, 4.3%), so there is little scaling to
 track. Compensating reveals a 9.3% residual — the *largest* of the four, not the
 smallest. Reading that column as converged would have been the trap.
 
-**A's predicted asymmetry is confirmed, and sharply.** The off-forcing modes
-compensate to 0.22–0.38% (Moon) — they are pure first order, so pinning the
+**A's predicted asymmetry is confirmed — for the Moon.** The Moon off-forcing
+modes compensate to 0.16–0.76% — they are pure first order, so pinning the
 perturbation at `K/2` does pin them. The forcing mode mixes first and second
-order and is not pinned. The asymmetry A anticipated is exactly what the data
-shows, and it again puts the well-behaved spatial information in the
-off-forcing spectrum.
+order and is not pinned.
+
+*[Caveat added in verification (A, 2026-08-14):* **the Mars off-modes do not
+compensate**, except `(2,±2)`. From the committed npz: Mars `(2,±1)`
+T-compensated spread is 119% (twice_max) / 161% (range) and `(3,±3)` is
+83–84%, driven by a −55% raw jump at lmax 4→5. The cause is field content,
+not the rule: Mars gains large new `m = 1` harmonics as the truncation rises —
+its `(5,1)` field amplitude (0.032) *exceeds* its `(2,1)` (0.026) — so the
+off-mode responses shift wholesale when degree-5 content enters. The Moon is
+immune because its high-degree content is small relative to what is already in
+at lmax = 4 (`(5,1)` is 5% of `(2,1)` in the `dt` field). So "the rule pins
+the off-modes" is a statement about the Moon and about any body whose field
+spectrum is red enough; it is not a property of the rule alone.]*
 
 ### Why the rule cannot work in this form
 
@@ -1629,10 +1651,14 @@ conclusion.
    `K/2` margin, so its positivity bound must be re-derived rather than assumed
    (area-RMS is ~4.6× below `max|dt|` for the Moon at lmax=6, so the margin
    would land well above `K/2` and the bound needs checking before any solve).
-4. **The off-forcing modes are pinned by the rule** (0.22–0.38% after
-   T-compensation). If a shell convention is needed only for the off-forcing
-   spectrum, the excursion rule is adequate; it is the forcing-mode shift
-   `Δk20` — the quantity the proposal quotes — that it fails to define.
+4. **The off-forcing modes are pinned by the rule for the Moon** (0.16–0.76%
+   after T-compensation) **but not for Mars** except `(2,±2)` — Mars's
+   `(2,±1)` and `(3,±3)` responses are dominated by field content still
+   entering at lmax ≥ 5 (see the verification caveat above). If a shell
+   convention is needed only for the off-forcing spectrum, the excursion rule
+   is adequate for the Moon; for Mars the off-mode spectrum must first
+   converge in field content. The forcing-mode shift `Δk20` — the quantity
+   the proposal quotes — is not defined by the rule on either body.
 5. **Reported amplitudes remain conditional on the reference shell.** Nothing
    here removes that qualification, and the proposal's §4.4 statement of it
    stands as written.
