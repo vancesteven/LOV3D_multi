@@ -113,7 +113,7 @@ def main() -> None:
         lmax2_delta_k2=lmax2_shift,
         lmax2_mode_count=lmax2_modes,
         lmax2_wall_s=lmax2_wall_s,
-        degree_one_removed=True,
+        degree_one_removed=False,  # PI decision 2026-08-14: dichotomy retained
         c20_removed=True,
     )
     _save_figure(args.output.with_suffix(".png"), love, forcing_index, args.lmax)

@@ -1049,11 +1049,25 @@ the constants and low-degree choices are Moon-specific:
 1. Truncate GRGM900C and MoonTopo719 to `lmax=4`. Convert normalized gravity
    coefficients to first-order equipotential heights with `N_lm = r0 C_lm`
    (and the sine analogue), then subtract them from LOLA shape.
-2. Remove degree 1 from both fields. MoonTopo719 is in a principal-axis,
-   center-of-mass frame; its degree-1 field reaches +/-1.935 km (3.869 km
-   peak-to-peak) and represents the center-of-figure translation, not a
-   physical crustal load. Retaining it would turn a coordinate-origin offset
-   into a +/-12.9 km (25.8 km peak-to-peak) Airy root.
+2. **Retain degree 1 as the nearside-farside dichotomy** (PI decision,
+   2026-08-14, restoring the original TASK-031 plan; the shipped code had
+   removed it unconditionally, a plan/implementation divergence found in
+   TASK-035 review). Two readings of the shape's degree-1 field compete.
+   The implementation's original reading: MoonTopo719 is in a
+   principal-axis, center-of-mass frame, so its degree-1 field (+/-1.935 km,
+   3.869 km peak-to-peak) is the center-of-figure translation — a
+   coordinate-origin artifact that Airy amplification would inflate into a
+   +/-12.9 km root. The plan's reading, now adopted: in a COM frame the
+   COF offset *is* the isostatic expression of the hemispheric crustal
+   asymmetry (the farside's thicker crust), so removing it removes the
+   dichotomy — the single largest known feature of the lunar crust — from
+   a model of laterally varying crustal structure. The +/-12.9 km Airy
+   root is then not an artifact but the model's estimate of the dichotomy's
+   thickness expression, and its sign structure (thicker farside crust)
+   matches GRAIL crustal-thickness models. The old field remains
+   reproducible with `include_degree1=False`; the committed TASK-035 MATLAB
+   anchor and the TASK-036/037 shell-rule artifacts pin *that* field
+   (superseded for shipping, still valid as anchors of what they anchored).
 3. Remove C20 from both shape and equipotential height, while retaining C21,
    S21, C22, and S22. This treats the zonal hydrostatic/tidal figure as part
    of the reference shape rather than a crustal load. This is not inherited
@@ -1068,11 +1082,18 @@ the constants and low-degree choices are Moon-specific:
    would push the field outside the linear model's domain. The 40-vs-34 km
    mismatch remains a structural approximation, stated rather than hidden.
 
-The default field has per-degree coefficient RMS thicknesses of 5.738,
-5.247, and 3.952 km at degrees 2, 3, and 4. On a 180x360 grid,
-`max|delta_t|=32.628 km` (0.816 of the 40 km reference) and
-`max|delta_mu/mu_bar|=0.9902`. Thus the full-amplitude result is valid but
-only narrowly inside the positive-rigidity boundary; amplitude or density
+The default (dichotomy-retaining) field has per-degree coefficient RMS
+thicknesses of 7.447, 5.738, 5.247, and 3.952 km at degrees 1-4 — degree 1
+is the largest single degree, as the dichotomy reading implies. On a
+180x360 grid, `max|delta_t|=32.616 km` (0.815 of the 40 km reference) and
+`max|delta_mu/mu_bar|=0.9898`. Remarkably, retaining degree 1 *lowers* the
+spatial extremum slightly (the degree-1-removed field gave 32.628 km,
+margin 0.9902): the dichotomy is destructive at the extremal point. At
+`lmax=5/6` the margins are 1.0505/1.0811 (old: 1.1531/1.2897), so
+`lmax=4` remains the only admissible truncation, but the binding guard at
+`lmax=6` is now rigidity positivity rather than shell fullness
+(`max|dt|/T = 0.89`). The full-amplitude result remains valid but only
+narrowly inside the positive-rigidity boundary; amplitude or density
 sweeps cannot be interpreted linearly much beyond this reference case.
 
 ### Why C20 is excluded
@@ -1094,15 +1115,27 @@ fluid outer core, the validated `method="variable"`, `Nrbase=30`,
 `perturbation_order=2`, and a unit `(2,0)` monthly forcing. It activates 115
 coupled modes and completed in 207.5 s on the producing machine.
 
-| Quantity | TASK-031 result |
-|---|---:|
-| uniform Weber `k2` | 0.02315914223 |
-| lateral forcing-mode `k20` | 0.02316054935 |
-| `Delta k20` | +1.40712e-6 |
-| `|Delta k20| / sigma_k2` | 0.6396% |
-| largest off-forcing pair | `(2,+/-2)`, `|k|=3.13471e-6` |
-| next pair | `(2,+/-1)`, `|k|=2.76868e-6` |
-| next pair | `(3,+/-3)`, `|k|=2.01884e-6` |
+| Quantity | dichotomy field (shipped, 2026-08-14) | degree-1-removed field (superseded) |
+|---|---:|---:|
+| uniform Weber `k2` | 0.02315914223 | 0.02315914223 |
+| lateral forcing-mode `k20` | 0.02316128347 | 0.02316054935 |
+| `Delta k20` | +2.14124e-6 | +1.40712e-6 |
+| `|Delta k20| / sigma_k2` | 0.9733% | 0.6396% |
+| `N` coupled modes | 115 | 115 |
+| largest off-forcing pair | `(3,+/-1)`, `|k|=6.37279e-6` | `(2,+/-2)`, `|k|=3.13471e-6` |
+| next pair | `(2,+/-2)`, `|k|=3.03012e-6` | `(2,+/-1)`, `|k|=2.76868e-6` |
+| next pair | `(2,+/-1)`, `|k|=2.63525e-6` | `(3,+/-3)`, `|k|=2.01884e-6` |
+| next pair | `(3,+/-3)`, `|k|=2.02054e-6` | — |
+
+Retaining the dichotomy raises `Delta k20` by 52% and **reorders the
+off-forcing spectrum**: the new dominant pair `(3,+/-1)` at 6.37e-6 — twice
+the old leader — is the direct first-order imprint of the hemispheric
+asymmetry, reached by `(2,0) x (1,+/-1) -> (3,+/-1)` (parity 2+1+3 even).
+The previously dominant pairs shift only mildly ((2,+/-2) −3.3%,
+(2,+/-1) −4.8%, (3,+/-3) +0.1%), so the dichotomy *adds* a strong new
+signature rather than redistributing the old ones. The archived
+`moon_lateral_spectrum.{npz,png}` now carries the dichotomy field; the
+superseded arrays are pinned in git history (`dd86cdb` and earlier).
 
 The diagonal perturbation is negligible against the measured
 `sigma_k2=2.2e-4`; as in the Mars stage, the spatial information resides in
@@ -1110,15 +1143,20 @@ the off-forcing spectrum rather than the bulk k2 shift. No detectability
 claim is made here because converting these Moon coefficients to a mission
 measurement requirement needs a separate observable/noise analysis.
 
-Radial convergence is strong: at the same `lmax=4`, reducing Nrbase from 30
-to 15 changes `Delta k20` from 1.407122e-6 to 1.407061e-6, a relative change
-of 4.3e-5. Angular convergence is not established: the inexpensive
-`lmax=2` comparison gives `Delta k20=2.37290e-7`, so lmax=4 is 5.93 times
-larger. The archived spectrum is therefore the first fixed-cutoff Moon
-lateral prediction, not a truncation-converged endpoint; a Moon analogue of
-TASK-027's lmax ladder is the next numerical check.
+Angular convergence remains not established for the bulk shift: the
+inexpensive `lmax=2` comparison gives `|Delta k20|=7.65196e-7` for the
+dichotomy field, so lmax=4 is 2.80 times larger (the superseded field's
+ratio was 5.93). The archived spectrum is a fixed-cutoff prediction, not a
+truncation-converged endpoint; the ladder analysis below (TASK-031b, run on
+the superseded field) established that the linearization itself caps the
+ladder at `lmax=4`, and that conclusion carries over — the dichotomy
+field's margins are 1.0505/1.0811 at lmax=5/6, still past the bound.
 
 ### Truncation convergence (TASK-031b)
+
+*(Run on the degree-1-removed field. The lmax=4 cap carries over to the
+dichotomy field — its lmax=5/6 margins are 1.0505/1.0811, past the bound —
+but the tabulated `Delta k20` rungs below are the superseded field's.)*
 
 The Moon analogue of TASK-027's lmax ladder was run with the driver
 `scripts/moon_lateral_convergence.py` (consumer only; no solver module was
@@ -1336,47 +1374,72 @@ established that is the highest cutoff the linearization admits, and TASK-036b
 confirmed that widening the reference shell to reach higher `lmax` changes the
 amplitude rather than revealing a converged one — so the shipped T = 40 km shell
 is retained here. Artifacts:
-`docs/figures/proposal/moon_k2m_vs_grail.{npz,png}`. Total wall 573 s, peak RSS
-6.3 GB.
+`docs/figures/proposal/moon_k2m_vs_grail.{npz,png}`.
+
+**Rerun 2026-08-14 with the dichotomy field** (PI decision retaining
+degree 1; see the TASK-031 section). Total wall 630 s, peak RSS 4.8 GB. The
+original degree-1-removed run (573 s) is retained below for comparison; its
+npz is pinned in git history.
 
 ### The three predicted splittings
 
-| m | predicted k2m | `Δk2m` | \|Δk2m\| | σ_GRAIL | \|Δk2m\|/σ_GRAIL | GRAIL k2m |
+Shipped (dichotomy) field:
+
+| m | predicted k2m | `Δk2m` | σ_GRAIL | \|Δk2m\|/σ_GRAIL | GRAIL k2m | N |
 |---:|---:|---:|---:|---:|---:|---:|
-| 0 | 0.0231605494 | +1.4071e-6 | 1.407e-6 | 4.5e-4 | 3.13e-3 | 0.02408 |
-| 1 | 0.0231592143 | +7.2081e-8 | 7.21e-8 | 2.5e-4 | 2.88e-4 | 0.02414 |
-| 2 | 0.0231599091 | +7.6688e-7 | 7.67e-7 | 2.8e-4 | 2.74e-3 | 0.02394 |
+| 0 | 0.0231612835 | +2.1412e-6 | 4.5e-4 | 4.76e-3 | 0.02408 | 115 |
+| 1 | 0.0231602028 | +1.0606e-6 | 2.5e-4 | 4.24e-3 | 0.02414 | 114 |
+| 2 | 0.0231610672 | +1.9250e-6 | 2.8e-4 | 6.88e-3 | 0.02394 | 111 |
+
+Superseded (degree-1-removed) field:
+
+| m | predicted k2m | `Δk2m` | \|Δk2m\|/σ_GRAIL |
+|---:|---:|---:|---:|
+| 0 | 0.0231605494 | +1.4071e-6 | 3.13e-3 |
+| 1 | 0.0231592143 | +7.2081e-8 | 2.88e-4 |
+| 2 | 0.0231599091 | +7.6688e-7 | 2.74e-3 |
 
 All three shifts are positive (the lateral field stiffens the response relative
 to the uniform Weber background `k2 = 0.02315914223`). The `m = 0` result
-reproduces the TASK-031 value `Δk20 = 1.407e-6` exactly, as it must — that solve
-is the same configuration.
+reproduces the regenerated TASK-031 value `Δk20 = 2.1412e-6` exactly, as it
+must — that solve is the same configuration.
 
-**The (2,1) shift is ~20× smaller than the other two.** *[Explanation
-corrected in verification (A, 2026-08-14); the numbers above are unchanged.]*
-The write-up originally attributed the suppression to the first-order channels
-into `m = ±1` being absent from the retained harmonics, making the `m = 1`
-response second-order only. Both halves of that are wrong. The channel is
-present: with C20 dropped, the field's `(4,0)` harmonic self-couples the
-`(2,1)` forcing mode with `max|C| = 0.5714` (`coupling_coefficients(2,1,2,1,4,0)`),
-comparable to the `m = 0` channel's 0.8571. And the shift is predominantly
-first order: rerunning the three diagonal solves at `perturbation_order = 1`
-gives `Δk2m` = +1.400e-6 / +6.26e-8 / +7.58e-7 for `m` = 0/1/2 — i.e. 99.5% /
-86.8% / 98.8% of the full second-order values. The ~20× suppression is a
-property of the *size of the first-order contraction* through `(4,0)` at
-`m = 1`, not of the channel's absence; note that `max|C|` alone does not
-predict it (`m = 2` has the *smallest* `max|C|`, 0.1429, yet a shift 10× the
-`m = 1` one).
+**The `m = 1` suppression was a property of the superseded field.** In the
+degree-1-removed run, `Δk21` sat ~20× below the other two; with the
+dichotomy retained it is +1.0606e-6, within 2× of `Δk20`. The dichotomy's
+`(1,±1)` harmonics open strong pathways into the `m = 1` response that the
+old field lacked, so the near-degeneracy-breaking pattern is now
+comparable across all three orders.
+
+*[Explanation of the old suppression, corrected in verification (A,
+2026-08-14) before the rerun, kept because it applies to the superseded
+table:]* the original write-up attributed the ~20× suppression to the
+first-order channels into `m = ±1` being absent, making the `m = 1`
+response second-order only. Both halves of that were wrong. The channel
+was present: with C20 dropped, the field's `(4,0)` harmonic self-couples
+the `(2,1)` forcing mode with `max|C| = 0.5714`
+(`coupling_coefficients(2,1,2,1,4,0)`), comparable to the `m = 0` channel's
+0.8571. And the shift was predominantly first order:
+`perturbation_order = 1` solves on the old field gave
+`Δk2m` = +1.400e-6 / +6.26e-8 / +7.58e-7 for `m` = 0/1/2 — 99.5% / 86.8% /
+98.8% of the full values. The suppression was the small size of the
+first-order contraction through `(4,0)` at `m = 1`, not the channel's
+absence; `max|C|` alone does not predict it (`m = 2` has the *smallest*
+`max|C|`, 0.1429, yet had a shift 10× the `m = 1` one).
 
 ### Comparison against the measurement
 
 **Ratio to per-order uncertainty.** The predicted splitting sits between
-2.9e-4 and 3.1e-3 of GRAIL's per-order 1σ — that is, **320× to 3500× below the
-measurement precision** on each coefficient.
+4.2e-3 and 6.9e-3 of GRAIL's per-order 1σ — that is, **145× to 236× below the
+measurement precision** on each coefficient. (Superseded field: 320× to
+3500×; the dichotomy roughly halves the shortfall but does not change its
+order of magnitude.)
 
 **Observed order-to-order spread.** GRAIL's three values span
-`max − min = 2.00e-4`. The predicted spread is `1.335e-6`, i.e. **150× smaller**
-than the observed spread.
+`max − min = 2.00e-4`. The predicted spread is `1.081e-6`, i.e. **185× smaller**
+than the observed spread. (Superseded field: 1.335e-6, 150× — the dichotomy
+*narrows* the predicted spread even as it raises every individual shift,
+because the three shifts rise together.)
 
 **Is the observed spread significant?** No. GRAIL's observed spread (2.00e-4) is
 *smaller than the smallest of its own per-order uncertainties* (2.5e-4 on `k21`,
@@ -1401,28 +1464,36 @@ at all. Quantifying the two effects against each other:
 | mean GRAIL `k2` (three orders) | 0.02405 |
 | Weber elastic `k2` (uniform) | 0.02316 |
 | elastic/anelastic gap | 8.942e-4 (3.7%) |
-| mean predicted lateral \|Δk2m\| | 7.487e-7 |
-| **gap / lateral splitting** | **1194×** |
+| mean predicted lateral \|Δk2m\| | 1.709e-6 |
+| **gap / lateral splitting** | **523×** |
 
-The anelastic deficit is ~1200× larger than the lateral splitting the lateral
-stage predicts. Since the lateral stage is purely elastic, this means the lateral
-signal is **unobservable in principle at the Moon, independent of measurement
-precision**: any determination of `k2m` sharp enough to resolve a 7e-7 splitting
-would first have to model an anelastic correction three orders of magnitude
-larger, and the systematic uncertainty in that correction would swamp the
-lateral term. Improving GRAIL's formal errors would not change this conclusion.
+The anelastic deficit is ~520× larger than the lateral splitting the lateral
+stage predicts (superseded field: ~1200×). Since the lateral stage is purely
+elastic, this means the lateral signal is **unobservable in principle at the
+Moon, independent of measurement precision**: any determination of `k2m` sharp
+enough to resolve a ~2e-6 splitting would first have to model an anelastic
+correction more than two orders of magnitude larger, and the systematic
+uncertainty in that correction would swamp the lateral term. Improving GRAIL's
+formal errors would not change this conclusion.
 
-**Conclusion for TASK-034.** The Moon provides the project's only same-body,
-same-coefficient comparison against a real published measurement, and the answer
-is a clean null: the predicted lateral splitting sits roughly three orders of
-magnitude below GRAIL's precision, two orders below an observed scatter that is
-itself not significant, and three orders below the elastic/anelastic gap that
-would have to be modelled first. The Moon therefore tests that the prediction is
-*consistent with* the measurement — which it is, comfortably — but cannot test
-the lateral mechanism itself. That negative result is stated here without
-extrapolation and without adjustment toward a detection.
+**Conclusion for TASK-034** *(restated after the dichotomy rerun)*. The Moon
+provides the project's only same-body, same-coefficient comparison against a
+real published measurement, and the answer is a clean null on both fields:
+the predicted lateral splitting sits more than two orders of magnitude below
+GRAIL's precision (145–236×), two orders below an observed scatter that is
+itself not significant, and more than two orders below the elastic/anelastic
+gap that would have to be modelled first (523×). Retaining the dichotomy
+raises every predicted shift but moves no tier: the comparison tests that the
+prediction is *consistent with* the measurement — which it is, comfortably —
+but cannot test the lateral mechanism itself. That negative result is stated
+here without extrapolation and without adjustment toward a detection.
 
 ## Native-MATLAB anchor for the lateral spectrum (TASK-035)
+
+*(Anchors the degree-1-removed field — the shipped default when it was run.
+The port-fidelity conclusion stands: both codes consumed the identical
+field. The dichotomy field shipped since 2026-08-14 has its own re-anchor
+queued as TASK-038; until that lands, its MATLAB anchor is pending.)*
 
 Every load-bearing Mars result in this project carries an independent
 native-MATLAB cross-check. The Moon lateral stage was the last unanchored
@@ -1511,6 +1582,12 @@ Mars anchors.
 ---
 
 ## The excursion-determined shell does not pin the amplitude (TASK-037)
+
+*(Run on the degree-1-removed field. The shell-convention thread is closed
+— PI decision 2026-08-14: the fixed 40 km reference shell stays as a
+disclosed convention — so this analysis is not being rerun on the
+dichotomy field; its conclusions about extremum- vs RMS-keyed rules are
+field-generic.)*
 
 **Verdict: the rule fails the deciding test, and the reason is not the one
 TASK-037 was set up to probe.** `Δk20` does not converge in `lmax` under either

@@ -57,9 +57,14 @@ def test_rigidity_unity_crossing_precedes_shell_fullness():
 
 @pytest.mark.parametrize(
     ("lmax", "expected_margin"),
-    [(4, 0.9902), (5, 1.1531), (6, 1.2897)],
+    [(4, 0.989844), (5, 1.050508), (6, 1.081111)],
 )
 def test_reported_rigidity_margins(lmax, expected_margin):
+    """Margins for the default (dichotomy-retaining) field.
+
+    Degree-1 partially cancels the high-degree extremes: the old
+    degree-1-removed margins were 0.9902 / 1.1531 / 1.2897.
+    """
     diag = crustal_thickness_diagnostics(lmax=lmax)
     assert diag["max_abs_dmu_over_mubar"] == pytest.approx(
         expected_margin, abs=5e-5,
@@ -67,16 +72,40 @@ def test_reported_rigidity_margins(lmax, expected_margin):
 
 
 @pytest.mark.parametrize(
+    ("lmax", "expected_margin"),
+    [(4, 0.9902), (5, 1.1531), (6, 1.2897)],
+)
+def test_reported_rigidity_margins_degree1_removed(lmax, expected_margin):
+    """The pre-2026-08-14 field is still reproducible via the flag."""
+    diag = crustal_thickness_diagnostics(lmax=lmax, include_degree1=False)
+    assert diag["max_abs_dmu_over_mubar"] == pytest.approx(
+        expected_margin, abs=5e-5,
+    )
+
+
+@pytest.mark.parametrize(
     ("lmax", "message"),
-    [(5, "non-positive"), (6, "exceeds the 40 km reference crust")],
+    [(5, "non-positive"), (6, "non-positive")],
 )
 def test_nonphysical_high_degree_fields_are_rejected(lmax, message):
+    """With degree-1 retained, lmax=6 stays under the 40 km shell
+    (max|dt|/T = 0.89) so the rigidity-positivity guard binds, not the
+    thickness guard that bound the degree-1-removed field."""
     with pytest.raises(ValueError, match=message):
         mu_variable_from_topography(lmax=lmax)
 
 
-def test_degree_one_translation_is_removed():
+def test_degree_one_dichotomy_is_retained_by_default():
+    """PI decision 2026-08-14: the nearside-farside dichotomy is physics,
+    not a frame artifact, per the original TASK-031 plan."""
     dt = crustal_thickness_variation(lmax=4)
+    assert any(n == 1 for n, _m in dt)
+    # and it is the dominant m=1 term of the field, not a trace residue
+    assert abs(dt[(1, 1)]) > 1e3
+
+
+def test_degree_one_removal_is_explicit_option():
+    dt = crustal_thickness_variation(lmax=4, include_degree1=False)
     assert not any(n == 1 for n, _m in dt)
 
 
