@@ -158,6 +158,7 @@ sandbox, network disabled, approval prompts on anything outside the sandbox.
 _Newest on top. Format: `[machine][YYYY-MM-DD] note`. Cap at ~15 entries —
 prune from the bottom when adding (git history keeps the rest)._
 
+- `[A][2026-08-14]` **Handoff posted for B and Codex; two disjoint tasks queued.** TASK-038 (B, MATLAB): re-anchor the dichotomy field, full-precision reference constants — spec `docs/tasks/TASK-038-moon-dichotomy-reanchor.md`. TASK-039 (Codex, no solver): pin the regenerated artifacts, the coupling channels behind the (3,±1) dominance, and the `include_degree1` flag in non-vacuous tests — spec `docs/tasks/TASK-039-codex-pin-dichotomy-field.md`. Channel values pre-verified on A for the spec: `(2,0)×(1,1)→(3,1)` max|C| = 0.7171371656; `(2,0)×(1,0)→(2,0)` **exactly zero** (parity-blocked — so `dt(1,0)` cannot drive `Δk20` at first order, and the +52% rise is carried by the sectoral degree-1 terms and second order); `(2,0)×(1,1)→(2,1)` max|C| = 0.7071067812 (value pinned without interpretation — the 27-slot array mixes parity families, and an interpretive claim on it has already been wrong once this week). Tasks are file-disjoint and may run concurrently; sequencing note in the handoff section. Full details at "Handoff: A → B and Codex" at the end of this file.
 - `[A][2026-08-14]` **Three PI decisions close the open questions from B's handoff.** (1) **The shell-convention thread stops.** No RMS-keyed successor ticket; the fixed shell stays a disclosed convention with its `T`-dependence stated, which the proposal's §4.4 already does. (2) **The degree-1 dichotomy is retained**, resolving the TASK-031 plan/implementation divergence in favor of the plan: `pylov3d.moon_lateral` now defaults to `include_degree1=True` (the old field remains reproducible via the flag). Precondition checked before flipping: the dichotomy field *passes* the positivity guard at lmax=4 — margin 0.9898 vs 0.9902, degree-1 is slightly destructive at the extremal point — and at lmax=6 it now fits inside the 40 km shell (max|dt|/T = 0.89; margins 0.9898/1.0505/1.0811 vs old 0.9902/1.1531/1.2897), so the rigidity guard binds everywhere above lmax=4. New field content: dt(1,1) = −6.83 km, dt(1,−1) = −2.81 km, dt(1,0) = +0.92 km. Downstream artifacts regenerated on A — spectrum: `Δk20 = +2.1412e-6` (was +1.4071e-6, +52%), N=115 unchanged, **new dominant off-pair (3,±1) at 6.37e-6** (the dichotomy's direct first-order imprint, `(2,0)×(1,±1)→(3,±1)`), old leaders shift ≤5%; k2m-vs-GRAIL: `Δk2m` = +2.141e-6/+1.061e-6/+1.925e-6 — **the old ~20× m=1 suppression vanishes** (it was a property of the degree-1-removed field), three-tier null intact at weaker margins (145–236× below GRAIL σ, spread 185× below observed, gap/lateral 523×). **TASK-038 queued for B** — re-anchor the dichotomy field in MATLAB, using full-precision reference constants this time (`docs/tasks/TASK-038-moon-dichotomy-reanchor.md`). The TASK-035 anchor remains valid for the field it anchored (`include_degree1=False`), pinned at `47b5377`/`dd86cdb`. (3) **Published numbers keep their shell:** `CRUST_THICKNESS_M` stays 40 km as the Voigt reference thickness; the 34-vs-40 km distinction stays a disclosure (already in the proposal caveat), not a code change.
 - `[A][2026-08-14]` **TASK-034, TASK-035, TASK-037 all VERIFIED** (different-driver verification per protocol; B implemented, A verified; order 037→035→034 as B suggested). **TASK-037 — central claims confirmed, one conclusion narrowed.** Re-derived the load-bearing non-monotonicity independently via `--diagnostics-only` (Moon max|dt| 42.5/34.8/46.0 km at lmax 6/12/24 ✓), K/2 to 1.1e-16 ✓, and B's Mars-coincidence argument ✓ (T moves 4.3%, compensation exposes the largest residual, 9.3%). A's 036b framing was drawn too wide; B's re-attribution to the spatial extremum stands. **Narrowed:** conclusion #4 ("off-modes are pinned by the rule") is Moon-true, Mars-false except (2,±2) — Mars (2,±1)/(3,±3) T-compensated spreads are 119–161%/83–84% (in B's own npz, unreported), because Mars gains m=1 field content at lmax≥5 ((5,1)=0.032 > (2,1)=0.026) while the Moon's degree-5 content is 5% of its (2,1). Field spectral shape, not the rule. Caveat added to `docs/MOON_MODEL.md` § TASK-037. **TASK-035 — VERIFIED, and the anchor is *stronger* than B reported.** Export re-run reproduces the committed npz with identical array content; all ten MATLAB layers match `pylov3d.moon` exactly (layer-1 missing moduli correct — analytic core); full-precision per-mode comparison of the .mat's 115-mode spectrum against the committed Python npz gives **forcing mode 9.6e-14 rel** (better than the Mars 2.95e-13 precedent), named off-modes 2–8e-12, worst significant mode 1.7e-10. B's "~60× looser"/"unexplained ~8× factor" statements were artifacts of comparing against the 6-significant-figure reference constants in the driver — the mystery dissolves; the Δk20 residual (1.73e-12 abs) is entirely the *uniform*-solve baseline offset (7.5e-11 rel) passing through the subtraction, the lateral solves agree to 2.2e-15. § rewritten in `docs/MOON_MODEL.md`. **TASK-034 — numbers VERIFIED, explanation corrected.** Δk20 matches TASK-031 exactly ✓, tier arithmetic recomputes ✓ (320–3500× below σ, spread 150× below observed, gap/lateral 1194×). **But the (2,1)-suppression explanation was wrong on both counts:** the first-order channel into m=±1 is NOT absent — `coupling_coefficients(2,1,2,1,4,0)` gives max|C|=0.5714 — and three `perturbation_order=1` solves show Δk2m = +1.400e-6/+6.26e-8/+7.58e-7, i.e. the m=1 shift is **87% first order** (m=0 99.5%, m=2 98.8%). The 20× suppression is the small size of the first-order contraction, not a second-order-only path. Paragraph corrected in `docs/MOON_MODEL.md` § TASK-034; the null conclusion is unaffected. Suite 640 passed after edits. B's two open items (degree-1 divergence; 34-vs-40 km thickness) remain open for the PI — both are science calls, not defects. Spec point 3 asked me to confirm that `2 max|dt|` really spans the boundary excursion rather than assume it. **It does not: the Moon `dt` field is strongly asymmetric.** At lmax=6 the excursion runs +20.6 km to −42.5 km (ratio 0.485), so `2 max|dt|` = 85.0 km against a true range `dt_max − dt_min` = 63.1 km — **a 35% overshoot**, and the asymmetry itself varies with truncation (0.615/0.581/0.485 at lmax 4/5/6). That splits the rule in two, and the two halves disagree: `T = 2 max|dt|` reproduces `|δμ/μ̄| = K/2 = 0.6070` identically at every rung (the no-free-parameter property the argument rests on) but overshoots what the shell is supposed to contain; `T = range` is the shell that actually spans the excursion but then the margin moves with truncation (Moon 0.752/0.768/0.818, climbing toward the bound), reintroducing an lmax dependence in the very quantity the rule was meant to pin. **Correction to this entry as first written:** I said the margin "drifts toward the bound" — that is the Moon's behaviour and overgeneralizes. Mars's range-rule margin is non-monotonic (0.747/0.692/0.703, dipping at lmax=5), so the drift direction is body-specific rather than a property of the rule. **And a third finding the spec did not anticipate: the two bodies are skewed in OPPOSITE directions** — the Moon is negative-skewed (thick crustal roots dominate, |dt_min| > dt_max at every rung) while Mars is positive-skewed (crustal thinning dominates). Since `2 max|dt|` keys off whichever tail is longer, it sizes the Moon's shell from the roots and Mars's from the thinning: the rule is not neutral about which side of the excursion it responds to. Overshoot vs the true range is 24/27/35% (Moon) and 19/11/12% (Mars). **So the rule's headline property and its physical justification select different shells.** Per the spec's instruction to use the actual range if it differs materially and say which, I am running **both ladders** rather than picking the convenient one: Moon at T = 65.3/76.0/85.0 km and at T = 52.7/60.1/63.1 km, then the Mars equivalents (K/2 = 0.626). Reporting `Δk20` and the off-modes separately, since A's correction predicts they may diverge — the off-modes are pure first order so the rule should pin them while `Δk20` mixes orders, and **if the off-modes converge and the forcing mode does not, that asymmetry is the result** and sharpens the standing conclusion that the spatial information lives in the off-forcing spectrum. Re-checking the 1-D background at every T rather than assuming it (spec caveat; 036b flagged it too). Driver only, no shipped default touched. This ledger claim is the pre-authorized coord entry.
 - `[B][2026-08-14]` **B standing down; handoff posted for A at the end of this file.** Both repos clean and pushed: `LOV3D_multi` @ `a78c20c`, `SSS_2025_Mars` @ `d1f1621`. No task IN-PROGRESS, no job running, nothing untracked but `.claude-flow/`, `CLAUDE.md` and the `moon_t_sweep_partial.log`. **Three of B's tasks are DONE and unverified — 034 (`47043d4`), 035 (`47b5377`), 037 (`a78c20c`) — and none can self-clear since B implemented all three.** Suggested order 037 → 035 → 034: 037 because it **re-attributes a conclusion A already recorded** (A's 036b VERIFIED entry says the fixed-shell Voigt average may be unable to define a lateral amplitude at all; B's data narrow that to the *spatial extremum* specifically, since the area-RMS of the same field converges cleanly), then 035 because 034 depends on it. The handoff lists five specific things to attack in 037, including the one place B argues *against* the surface reading of the data (Mars's twice_max column looks converged at +4.4%/−1.0% and B calls it coincidence). The non-monotonicity that carries the argument is re-derivable in under a minute with `--diagnostics-only`, no solves. **No task is queued: TASK-037 closed the shell-convention thread, so the next ticket needs writing rather than claiming — that is A's or the PI's call.** Two candidates are set out with their costs (RMS-keyed rule, which B explicitly does NOT claim works; or accept the shell as a disclosed convention and stop). The two TASK-035 items for A are restated as still open. Proposal: A owns it again; two known-stale passages are flagged rather than silently edited, and it remains **NOT COMPILE-VERIFIED** (pdflatex exit 127 in B's sandbox). This ledger entry is the pre-authorized coord commit.
@@ -268,6 +269,11 @@ is where review happens.
   output and should be reported, not engineered around.
 
 ---
+
+> **SUPERSEDED 2026-08-14 (later the same day)** by "Handoff: A → B and
+> Codex" at the end of this file. All three tasks below went VERIFIED, the
+> three open decisions were resolved by the PI, and new work is queued.
+> Kept for the verification-order rationale and the attack lists.
 
 ## Handoff: machine A takes over (posted 2026-08-14, by B)
 
@@ -408,3 +414,60 @@ This is stated in the commit message too.
 - **Push target is `myfork` (`vancesteven/LOV3D_multi`) — NEVER upstream
   `mroviranavarro/LOV3D_multi`.**
 - `matlab/` is source material only: do not scan, grep, or modify it.
+
+---
+
+## Handoff: A → B and Codex (posted 2026-08-14, by A)
+
+**Everything A has produced is committed and pushed.** `LOV3D_multi` @
+`python-conversion` is at `69a71ab` plus this handoff commit, clean and in
+sync with `myfork`. `SSS_2025_Mars` @ `main` is at `a6bda62`, clean, pushed,
+and **compile-verified on A** (pdflatex exit 0: zProposal 10 pp,
+Methods_Models 41 pp) — B's NOT COMPILE-VERIFIED flag is closed.
+
+### State in one paragraph
+
+TASK-034/035/037 are all VERIFIED (with corrections — see the two
+`[A][2026-08-14]` ledger entries). The PI resolved all three open decisions:
+the shell-convention thread is **closed** (fixed 40 km shell stays a
+disclosed convention, no RMS-keyed successor), the **degree-1 dichotomy is
+retained** (default flipped, artifacts regenerated, `Δk20 = +2.1412e-6`,
+new dominant off-pair `(3,±1)` at 6.37e-6), and `CRUST_THICKNESS_M` stays
+40 km. The Moon field that TASK-035 anchored is superseded for shipping but
+remains reproducible via `include_degree1=False` and pinned at `47b5377`.
+
+### Queue
+
+| Task | Engine | Spec | Needs |
+|---|---|---|---|
+| TASK-038 | **B** | `docs/tasks/TASK-038-moon-dichotomy-reanchor.md` | MATLAB — re-anchor the dichotomy field, **full-precision reference constants this time** |
+| TASK-039 | **Codex** | `docs/tasks/TASK-039-codex-pin-dichotomy-field.md` | No solver, no MATLAB — pin the new artifacts, coupling channels, and the flag in tests |
+
+**The two tasks are disjoint by construction and can run concurrently**:
+B touches `scripts/export_moon_mu_variable.py` output verification,
+`scripts/moon_lateral_cross_check.m`, `data/tests/moon/`, and
+`docs/MOON_MODEL.md`; Codex touches `pylov3d/tests/` only (plus README if
+the count guard forces it). No shared file, no shared task — the
+no-two-engines-on-one-task rule holds.
+
+Sequencing note: TASK-039's artifact pins are against the *committed* npz
+files, which B's TASK-038 does not modify (B replaces
+`data/tests/moon/moon_lateral_cross_check.{log,mat}` and re-verifies the
+already-regenerated export — the spectrum and k2m npz stay put).
+
+### What waits for A
+
+- Verify TASK-038 and TASK-039 when they land (different-driver rule; both
+  implemented elsewhere, so neither can self-clear).
+- Commit Codex's output after review (Codex leaves work uncommitted by
+  design — its no-git guardrail is unchanged by the commit-gate removal,
+  which applies to the driving machines).
+- Proposal remains A-owned. Nothing in TASK-038/039 should touch it.
+
+### Standing context (unchanged, restated so nobody rediscovers it)
+
+- Commit gate is gone (PI, 2026-08-13): B commits and pushes as it goes.
+- Model routing (PI): Sonnet implements, Opus reviews/reasons.
+- Push target is `myfork` — never upstream `mroviranavarro/LOV3D_multi`.
+- `matlab/` is source material only: do not scan, grep, or modify it.
+- Prose standard everywhere: never "genuine" or "honest".
