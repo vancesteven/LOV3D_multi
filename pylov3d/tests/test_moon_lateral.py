@@ -7,9 +7,12 @@
 
 """Tests for the TASK-031 Moon lateral-crust pipeline."""
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
+from pylov3d.couplings import coupling_coefficients
 from pylov3d.love import get_love
 from pylov3d.mapping import latlon_grid, sh_to_latlon
 from pylov3d.mars_lateral import complex_sh_synthesis
@@ -31,6 +34,87 @@ from pylov3d.moon_lateral import (
     crustal_thickness_variation,
     mu_variable_from_topography,
 )
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SPECTRUM_PATH = REPO_ROOT / "docs/figures/proposal/moon_lateral_spectrum.npz"
+K2M_PATH = REPO_ROOT / "docs/figures/proposal/moon_k2m_vs_grail.npz"
+MU_VARIABLE_PATH = REPO_ROOT / "data/moon/moon_mu_variable_lateral.npz"
+
+
+def test_committed_dichotomy_spectrum_artifact():
+    with np.load(SPECTRUM_PATH) as data:
+        n = data["n"]
+        m = data["m"]
+        k = data["k"]
+        assert not bool(data["degree_one_removed"])
+        assert int(data["mode_count"]) == len(n) == 115
+        assert complex(data["delta_k2"]) == pytest.approx(2.14124e-6, rel=1e-5)
+
+        off_forcing = ~((n == 2) & (m == 0))
+        index = np.flatnonzero(off_forcing)[np.argmax(np.abs(k[off_forcing]))]
+        assert (int(n[index]), abs(int(m[index]))) == (3, 1)
+        assert abs(k[index]) == pytest.approx(6.37279e-6, rel=1e-5)
+
+
+def test_committed_k2m_artifact_is_a_three_tier_null():
+    with np.load(K2M_PATH) as k2m, np.load(SPECTRUM_PATH) as spectrum:
+        delta = k2m["delta_k2m"]
+        sigma = k2m["grail_k2m_sigma"]
+        np.testing.assert_allclose(
+            delta, [2.1412e-6, 1.0606e-6, 1.9250e-6], rtol=5e-5,
+        )
+        assert np.all(np.abs(delta) / sigma < 0.01)
+        assert delta[0] == pytest.approx(
+            complex(spectrum["delta_k2"]).real, rel=1e-9,
+        )
+
+
+def test_committed_mu_variable_artifact_has_degree_one_and_real_symmetry():
+    with np.load(MU_VARIABLE_PATH) as data:
+        n = data["n"]
+        m = data["m"]
+        amp = data["amp_real"] + 1j * data["amp_imag"]
+        assert len(n) == 23
+        assert set(zip(n[n == 1], m[n == 1])) == {(1, -1), (1, 0), (1, 1)}
+
+        field = {(int(nn), int(mm)): value for nn, mm, value in zip(n, m, amp)}
+        for (nn, mm), value in field.items():
+            if mm > 0:
+                assert field[(nn, -mm)] == (-1) ** mm * np.conj(value)
+
+
+def test_degree_one_sectoral_channel_to_dominant_mode_is_strong():
+    coeffs = coupling_coefficients(3, 1, 2, 0, 1, 1)
+    assert np.max(np.abs(coeffs[:26])) == pytest.approx(
+        0.7171371656, rel=1e-9,
+    )
+
+
+def test_degree_one_zonal_channel_cannot_touch_forcing_mode_at_first_order():
+    """The +52% delta-k20 rise is not a direct first-order dt(1,0) path.
+
+    Parity blocks that zonal channel, leaving sectoral degree-1 terms and
+    second-order paths to carry the forcing-mode change.
+    """
+    coeffs = coupling_coefficients(2, 0, 2, 0, 1, 0)
+    assert np.array_equal(coeffs[:26], np.zeros(26))
+
+
+def test_degree_one_sectoral_channel_to_degree_two_order_one_is_pinned():
+    coeffs = coupling_coefficients(2, 1, 2, 0, 1, 1)
+    assert np.max(np.abs(coeffs[:26])) == pytest.approx(
+        0.7071067812, rel=1e-9,
+    )
+
+
+def test_degree_one_flag_changes_only_the_three_dichotomy_coefficients():
+    retained = crustal_thickness_variation(lmax=4)
+    removed = crustal_thickness_variation(lmax=4, include_degree1=False)
+    degree_one = {(1, -1), (1, 0), (1, 1)}
+    assert set(retained) - set(removed) == degree_one
+    assert set(removed) - set(retained) == set()
+    assert all(retained[key] == removed[key] for key in removed)
 
 
 def test_constants_follow_model_and_adopted_mean():

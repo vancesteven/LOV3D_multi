@@ -22,10 +22,13 @@ Two facts worth knowing before you start:
   0.9902 / 1.1531 / 1.2897). At lmax=6 the field now fits inside the 40 km
   shell (max|dt|/T = 0.89), so the rigidity guard binds there, not the
   thickness guard. lmax=4 remains the only admissible truncation.
-- **The mode set grows.** Degree-1 field harmonics open new coupled modes,
-  so N will exceed the old 115. The committed Python rerun records the new
-  N and spectrum (`docs/figures/proposal/moon_lateral_spectrum.npz`,
-  regenerated).
+- **The mode count does NOT grow.** N = 115 exactly as before — the mode
+  set is the lmax=4 coupling closure, which is independent of which field
+  coefficients happen to be nonzero. (This spec originally predicted N
+  would exceed 115; the rerun refuted that.) Do not assume the
+  *composition* of the 115 modes carried over — derive any per-order
+  breakdown from your own run's output, not from TASK-035's 1/42/73. The
+  committed rerun is `docs/figures/proposal/moon_lateral_spectrum.npz`.
 
 ## Method
 

@@ -1,4 +1,4 @@
-%% MOON LATERAL (COUPLED, OCEAN) CROSS-CHECK (TASK-035)
+%% MOON LATERAL (COUPLED, OCEAN) CROSS-CHECK (TASK-035, re-anchored TASK-038)
 % Runs the native LOV3D *coupled* (mode-coupling) solver on the as-built
 % ten-layer Weber et al. (2011) Moon model -- INCLUDING ITS FLUID OUTER CORE,
 % the part of this cross-check with no Mars precedent -- plus the crust-layer
@@ -10,16 +10,31 @@
 % anchor (1D, lateral spectrum, diagonal k2m, first-order channels); this
 % closes the same gap for the Moon lateral stage.
 %
-% Python reference values (docs/MOON_MODEL.md, "Coupled spectrum"; lmax=4,
-% method='variable', Nrbase=30, perturbation_order=2, unit (2,0) monthly
-% forcing):
-%   uniform Weber k2  = 0.02315914223
-%   lateral k20       = 0.02316054935
-%   Delta k20         = +1.40712e-6
+% TASK-038 (2026-08-14 PI decision): the field this script targets now
+% RETAINS the degree-1 nearside-farside dichotomy (pylov3d.moon_lateral
+% default include_degree1=True), so the committed npz carries 23 complex
+% amplitudes (was 20; the three new entries are (1,0), (1,1), (1,-1)). The
+% reference constants below are read at FULL precision (17 significant
+% digits, repr-level) straight from the committed spectrum npz
+% (docs/figures/proposal/moon_lateral_spectrum.npz) -- the prior 6-significant-
+% figure constants made the anchor look ~60x looser than it is (true
+% forcing-mode agreement is 9.6e-14 relative, not the ~1e-12 the rounded
+% constants implied). The superseded degree-1-removed anchor (this same
+% script, pinned against the pre-dichotomy field) is preserved in git history
+% at 47b5377 (log/mat artifacts at dd86cdb); this file overwrites those
+% artifacts in place per TASK-038.
+%
+% Python reference values (docs/figures/proposal/moon_lateral_spectrum.npz,
+% full precision; lmax=4, method='variable', Nrbase=30, perturbation_order=2,
+% unit (2,0) monthly forcing):
+%   uniform Weber k2  = 0.02315914222851756
+%   lateral k20       = 0.023161283468225102
+%   Delta k20         = +2.1412397075426526e-06
 %   N modes           = 115
-%   |k(2,+/-2)|       = 3.13471e-6
-%   |k(2,+/-1)|       = 2.76868e-6
-%   |k(3,+/-3)|       = 2.01884e-6
+%   |k(3,+/-1)|       = 6.372785331949207e-06   (new dominant off-forcing pair)
+%   |k(2,+/-2)|       = 3.0301228895909613e-06
+%   |k(2,+/-1)|       = 2.6352536444942246e-06
+%   |k(3,+/-3)|       = 2.0205378604363597e-06
 %
 % Model arrays are copied VERBATIM from pylov3d.moon.build_moon_model()'s
 % output (pylov3d/moon.py LAYER_RADII_KM / LAYER_RHO / LAYER_MU / LAYER_KS /
@@ -207,14 +222,24 @@ Forcing(1).n  = 2;
 Forcing(1).m  = 0;
 Forcing(1).F  = 1;
 
-% --- Python reference values (docs/MOON_MODEL.md, "Coupled spectrum") ------
-py_k2_uniform  = 0.02315914223;
-py_k20_lateral = 0.02316054935;
-py_delta_k20   = 1.40712e-6;
-py_N_modes     = 115;
-py_k22_abs     = 3.13471e-6;   % |k(2,+/-2)|
-py_k21_abs     = 2.76868e-6;   % |k(2,+/-1)|
-py_k33_abs     = 2.01884e-6;   % |k(3,+/-3)|
+% --- Python reference values (docs/figures/proposal/moon_lateral_spectrum.npz,
+%     full precision -- TASK-038 re-anchor, dichotomy-retaining field) -------
+py_k2_uniform  = 0.02315914222851756;
+py_k20_lateral = 0.023161283468225102;
+py_delta_k20   = 2.1412397075426526e-06;
+py_N_modes     = 115;   % unchanged from TASK-035's total -- but this script
+                         % does not break N down by perturbation order (no
+                         % hardcoded 1/42/73-style split lives here). B: don't
+                         % assume the *composition* of the 115 modes carried
+                         % over unmodified -- the field gained three degree-1
+                         % amplitudes that couple into the spectrum even
+                         % though the total count landed back on 115; if a
+                         % per-order breakdown is needed, derive it from this
+                         % run's Love_Spectra output, not from TASK-035's.
+py_k31_abs     = 6.372785331949207e-06;   % |k(3,+/-1)| -- new dominant off-forcing pair
+py_k22_abs     = 3.0301228895909613e-06;  % |k(2,+/-2)|
+py_k21_abs     = 2.6352536444942246e-06;  % |k(2,+/-1)|
+py_k33_abs     = 2.0205378604363597e-06;  % |k(3,+/-3)|
 
 out_dir = fullfile(repo_root, 'data', 'tests', 'moon');
 if ~isfolder(out_dir)
@@ -261,10 +286,13 @@ logp('    k2 forcing (2,0) lateral : %.12f   Python: %.12f   rel err = %.3e\n', 
 logp('    k2 lateral shift         : %+.6e   Python: %+.6e   rel err = %.3e\n', ...
     k2_shift, py_delta_k20, abs(k2_shift - py_delta_k20) / abs(py_delta_k20));
 
-%% --- per-mode comparison against the three named off-forcing pairs --------
+%% --- per-mode comparison against the four named off-forcing pairs ---------
 % For each named (n,|m|) pair, report the MATLAB |k| for both signed m and
-% compare against the Python |k| given in docs/MOON_MODEL.md.
-named_pairs = [2, 2, py_k22_abs; 2, 1, py_k21_abs; 3, 3, py_k33_abs];
+% compare against the Python |k| given in docs/figures/proposal/moon_lateral_spectrum.npz.
+% (3,+/-1) is listed first: it is the new dominant off-forcing pair once the
+% degree-1 dichotomy is retained (TASK-038), ahead of the (2,+/-2) pair that
+% was dominant under the superseded degree-1-removed field.
+named_pairs = [3, 1, py_k31_abs; 2, 2, py_k22_abs; 2, 1, py_k21_abs; 3, 3, py_k33_abs];
 logp('\n  Named off-forcing pairs (|k|, both signs of m):\n');
 for irow = 1:size(named_pairs, 1)
     n_named = named_pairs(irow, 1);
@@ -317,6 +345,7 @@ moon_lat.py_k2_uniform       = py_k2_uniform;
 moon_lat.py_k20_lateral      = py_k20_lateral;
 moon_lat.py_delta_k20        = py_delta_k20;
 moon_lat.py_N_modes          = py_N_modes;
+moon_lat.py_k31_abs          = py_k31_abs;
 moon_lat.py_k22_abs          = py_k22_abs;
 moon_lat.py_k21_abs          = py_k21_abs;
 moon_lat.py_k33_abs          = py_k33_abs;
