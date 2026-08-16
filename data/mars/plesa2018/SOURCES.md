@@ -47,3 +47,22 @@ source-driven change from the provisional depth in TASK-042. The pilot treats
 the resulting horizontal template as constant through the model's upper-
 mantle layer; that is a test hypothesis, not a claim that the source field is
 radially uniform.
+
+## Derived low-degree artifact
+
+`plesa2018_t150_l4_template.npz` is produced by
+`scripts/mars_mantle_thermal_pilot.py project`. It contains only degrees 1--4
+of the mean-removed 150 km temperature field, a separately unit-RMS `L=2`
+template, and scalar projection diagnostics; it does not reproduce the raw
+table or gridded field.
+
+- Basis: real 4-pi normalized, no Condon--Shortley phase; positive order is
+  cosine and negative order is sine.
+- Projection: cosine-of-latitude weighted least squares on the registered
+  one-degree grid.
+- Area-weighted source mean: 898.253534 K.
+- Source centered RMS: 129.821070 K.
+- Degree 1--4 RMS: 88.633995, 61.717618, 40.900913, 25.001897 K.
+- Degree-4 projection residual RMS: 53.763654 K.
+- SHA-256:
+  `b0d8e6fc748ce07a86c6f10c045e66413a5bb8e1f2050deb1aeeaa2cf2e5dcc3`.
