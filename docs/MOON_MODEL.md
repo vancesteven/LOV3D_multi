@@ -1599,7 +1599,7 @@ retracted; it is pinned at `47b5377`/`dd86cdb`, git history keeps its
 artifacts, and the port-fidelity conclusion it drew still stands for the
 degree-1-removed field.
 
-**Method, method, method:** identical to TASK-035 — `scripts/
+**Method:** identical to TASK-035 — `scripts/
 export_moon_mu_variable.py` (unmodified; it follows the module default, so
 it now exports the dichotomy field) writes `data/moon/
 moon_mu_variable_lateral.npz`, and `scripts/moon_lateral_cross_check.m`
