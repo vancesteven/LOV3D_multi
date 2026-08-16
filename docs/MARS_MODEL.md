@@ -1025,17 +1025,24 @@ forcing-mode shift Δk20/Δh20); the uniform tide is subtracted.
 
 **The two observables carry different physics.** The gravity map is
 dominated by degree 3 (64.6% of variance; degree 2 32.7%) — a Tharsis
-lobe plus a strong southern zonal band. The displacement map is dominated
-by **degree 1 (70.0% of variance)**: the crustal dichotomy couples the
-(2,0) tide into a north–south asymmetric breathing of the surface,
-h(1,0) = 1.59e-4 — the largest lateral displacement mode — while
-k(1,m) ≈ 1e-18, i.e. zero at machine precision. That zero is a physics
-check, not an omission: the external degree-1 potential must vanish in
-the center-of-mass frame, and the solver delivers exactly that. The
-degree-1 displacement is correspondingly **frame-dependent**: it is
-motion of the surface relative to the body's center of mass, observable
-in principle as differential motion across a lander network, only
-partially as a single-station signal.
+lobe plus a strong southern zonal band. The radial-displacement map is
+dominated by **degree 1 (70.0% of variance)**: the crustal dichotomy
+couples the (2,0) tide into a north–south asymmetric radial component,
+with h(1,0) = 1.59e-4 — the largest lateral radial-displacement mode —
+while k(1,m) ≈ 1e-18, i.e. zero at machine precision. That zero is a
+physics check, not an omission: the external degree-1 potential must
+vanish in the center-of-mass frame, and the solver delivers exactly that.
+
+The degree-1 displacement interpretation needs the tangential Love
+number too. In the standard spheroidal Love-number convention a rigid
+translation has h(1,m) = l(1,m), whereas the committed zonal response has
+h(1,0) = 1.58741e-4 and l(1,0) = 3.40875e-4; the nonzero
+h(1,0)-l(1,0) = -1.82135e-4 shows that the response is not a pure rigid
+translation. Nevertheless, h(1,m) alone is frame-dependent. Predicting a
+differential lander-network observable requires synthesizing the full
+vector displacement (radial h plus tangential l) in a stated ephemeris /
+center-of-mass frame. The radial map by itself establishes the spatial
+component and its scale, not network observability.
 
 **Caveats.**
 
