@@ -1492,8 +1492,8 @@ here without extrapolation and without adjustment toward a detection.
 
 *(Anchors the degree-1-removed field — the shipped default when it was run.
 The port-fidelity conclusion stands: both codes consumed the identical
-field. The dichotomy field shipped since 2026-08-14 has its own re-anchor
-queued as TASK-038; until that lands, its MATLAB anchor is pending.)*
+field. The dichotomy field shipped since 2026-08-14 has its own re-anchor,
+below, at "Native-MATLAB re-anchor for the dichotomy field (TASK-038)".)*
 
 Every load-bearing Mars result in this project carries an independent
 native-MATLAB cross-check. The Moon lateral stage was the last unanchored
@@ -1530,8 +1530,14 @@ back the same digits it was handed, including the `(−1)^m` sign on odd `m`.
 | \|k(3,±3)\| | 2.018840e-6 | 2.018840e-6 | 9.90e-8 |
 
 The mode count matches exactly *and so does its perturbation-order structure*
-— 1 zeroth-order, 42 first-order, 73 second-order — which is a structural
-match rather than a coincidence of totals. The full 115-mode spectrum matches
+— 1 zeroth-order, 41 first-order, 73 second-order — which is a structural
+match rather than a coincidence of totals. *(Corrected in TASK-038 review,
+2026-08-15: originally reported as 42 first-order, which sums to 116, one
+more than N=115. Re-derived directly from `pylov3d.couplings.get_active_modes`
+— the exact function `get_love`'s coupled path uses to build this mode set,
+not a re-implementation — on this field's 20 rheology pairs: 1/41/73. Not a
+new run; a bookkeeping slip in the original count, caught while deriving the
+same statistic for TASK-038's field.)* The full 115-mode spectrum matches
 mode for mode, including the conjugate-pair phase structure.
 
 ### Is this an anchor of Mars quality? Yes — the reported looseness was an artifact
@@ -1578,6 +1584,107 @@ all 115 modes to ≤1.7e-10 relative on significant amplitudes, and no
 disagreement attributable to the fluid core. The Moon lateral numbers used in
 TASK-031/034 are independently corroborated at the same precision tier as the
 Mars anchors.
+
+---
+
+## Native-MATLAB re-anchor for the dichotomy field (TASK-038)
+
+The PI's 2026-08-14 decision to retain the degree-1 nearside–farside
+dichotomy (above, "Field-to-rigidity construction") changed the shipped Moon
+field — it gained `dt(1,1)=-6.83 km`, `dt(1,-1)=-2.81 km`, `dt(1,0)=+0.92 km`
+— so the TASK-035 anchor above now pins the *superseded* field. This repeats
+that anchor's method, unchanged, against the field the project now ships.
+The TASK-035 anchor remains valid for what it anchored and is not
+retracted; it is pinned at `47b5377`/`dd86cdb`, git history keeps its
+artifacts, and the port-fidelity conclusion it drew still stands for the
+degree-1-removed field.
+
+**Method, method, method:** identical to TASK-035 — `scripts/
+export_moon_mu_variable.py` (unmodified; it follows the module default, so
+it now exports the dichotomy field) writes `data/moon/
+moon_mu_variable_lateral.npz`, and `scripts/moon_lateral_cross_check.m`
+reads it directly. Both codes consume the same complex field, now 23
+amplitudes rather than 20 (the three new degree-1 entries). Settings
+unchanged: `method='variable'`, `Nrbase=30`, `perturbation_order=2`, unit
+(2,0) forcing. MATLAB 25.2.0.3150157 (R2025b) Update 4. This run's reference
+constants in `scripts/moon_lateral_cross_check.m` are read at full 17-digit
+precision directly from the regenerated `docs/figures/proposal/
+moon_lateral_spectrum.npz` — TASK-035's verification found the prior
+6-significant-figure constants made that anchor look ~60× looser than it
+was, so this run does not repeat that mistake. Artifacts (overwritten in
+place, old versions kept in git history): `data/tests/moon/
+moon_lateral_cross_check.{log,mat}`.
+
+**The export re-run reproduces the committed npz exactly.** Byte-for-byte
+array comparison against the version already committed at `47b5377`/regen
+on A: identical content (23 amplitudes, dichotomy field, `include_c20=False`).
+
+**The mode count does not grow.** N = 115, unchanged from the degree-1-removed
+field — the mode set is the lmax=4 coupling closure, independent of which
+field coefficients happen to be nonzero. (TASK-038's spec originally
+predicted N would exceed 115; A's rerun refuted that ahead of this run, and
+this run confirms it again.) The perturbation-order composition is also
+unchanged: **1 zeroth-order, 41 first-order, 73 second-order**, identical to
+the degree-1-removed field (computed directly from `pylov3d.couplings.
+get_active_modes` — the exact function `get_love`'s coupled path uses to
+build the mode set, run on each field's own rheology (degree, order) pairs,
+20 for the old field and 23 for this one — no solve required for this count).
+Adding the three degree-1 rheology terms changes which *coefficients* are
+nonzero on the same 115-mode lattice; it does not change the lattice or its
+order structure. (The TASK-035 section above states 1/41/73 for the old
+field too, corrected there from an original 1/42/73 that summed to 116.)
+
+### Agreement
+
+| Quantity | MATLAB | Python | rel err |
+|---|---:|---:|---:|
+| N coupled modes | 115 | 115 | exact |
+| `k2` uniform | 0.023159142227 | 0.023159142229 | 7.50e-11 |
+| `k2` forcing (2,0), lateral | 0.023161283468 | 0.023161283468 | **7.19e-13** |
+| `Δk20` | +2.141241e-6 | +2.141240e-6 | 8.03e-7 |
+| \|k(3,±1)\| | 6.372785e-6 | 6.372785e-6 | 9.25e-13 |
+| \|k(2,±2)\| | 3.030123e-6 | 3.030123e-6 | 5.71e-12 |
+| \|k(2,±1)\| | 2.635254e-6 | 2.635254e-6 | 1.69e-13 |
+| \|k(3,±3)\| | 2.020538e-6 | 2.020538e-6 | 1.83e-12 |
+
+Unlike TASK-035's first pass, this table is already at full precision — no
+rewriting needed for a second "is it Mars quality" section. The forcing-mode
+agreement (7.19e-13) matches the Mars lateral precedent's tier directly
+without the rounding-artifact detour TASK-035 required, and every named
+off-mode agrees to ≤6e-12.
+
+**Full 115-mode comparison against the committed Python spectrum**
+(`docs/figures/proposal/moon_lateral_spectrum.npz`), matched by `(n,m)`:
+
+- **111 of 115 modes carry non-negligible amplitude** (`|k| > 1e-12`); the
+  remaining 4 (`(0,0)`, `(1,0)`, `(1,±1)`) are parity-forbidden for a (2,0)
+  forcing and sit at the float64 noise floor (~1e-19 to ~2e-18) in both
+  codes — comparing rel err on these is comparing round-off to round-off,
+  reported separately rather than folded into a headline number.
+- **Median rel err over the 111 significant modes: 1.5e-11.** Worst: 1.4e-10,
+  on `(5,±5)` (amplitude 2.0e-8) — no outliers, no mode disagreeing by more
+  than two orders above the median.
+- Consistent with, and at the same tier as, TASK-035's post-verification
+  figures for the other field (median well under Mars's 2.95e-13 precedent
+  scaled for the larger mode count and lower per-mode amplitude here).
+
+**No singular-matrix concern.** MATLAB's console emitted `Warning: Matrix is
+close to singular or badly scaled ... RCOND = 1.03e-17` during boundary-
+condition assembly. This warning does not appear in `logf` (the script's own
+log stream, which only captures explicit `fprintf` calls) — only on the
+console — so whether the degree-1-removed run also produced it cannot be
+checked from its committed log; not claimed here either way. The per-mode
+agreement above is the check that matters: it shows this run's solve was not
+compromised by whatever near-singular block triggered the warning.
+
+**Conclusion for TASK-038.** The dichotomy field now has the same independent
+native-MATLAB anchor the degree-1-removed field had: exact mode count,
+forcing mode to 7.2e-13 relative, all significant modes to ≤1.4e-10 relative,
+median 1.5e-11. `docs/MOON_MODEL.md` now states which field each of the two
+anchors pins, so neither section is read as covering the other. The Moon
+lateral numbers currently shipped (used in TASK-031/034 with the dichotomy
+retained) are independently corroborated at the same precision tier as the
+Mars anchors and as TASK-035's own anchor.
 
 ---
 
