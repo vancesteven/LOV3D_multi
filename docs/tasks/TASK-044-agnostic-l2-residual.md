@@ -123,3 +123,48 @@ in shape — produces a response distinguishable from the crust nuisance at the
 1-sigma level; the closest candidate, an almost-pure `C20` pattern, falls short
 at 0.985534 sigma. Per TASK-042's stop rule, the mantle stage stops here; no
 `L=3` or `L=4` solve was run.
+
+## Verification amendment (A, TASK-045, 2026-08-16)
+
+The paragraph above is correct at its stated convention but **the verdict is
+convention-sensitive, and the original artifact could not show it**: the
+driver stored the guard-clamped amplitude (0.439999) in all three positivity
+slots, so the raw grid bounds were unrecoverable. Recomputed at 721x1440:
+
+| amplitude convention | bound | top-direction metric |
+|---|---:|---:|
+| coefficient guard, sign-symmetric (committed gate) | 0.439999 | 0.985534 sigma |
+| raw grid bound, sign-symmetric | 0.447241 | **1.001754 sigma** |
+| raw grid bound, best sign (largest admitted amplitude) | 0.878182 | **1.966996 sigma** |
+
+Under TASK-042's own stop-rule language ("the largest physically admitted
+amplitude"), the best-sign grid bound is the applicable reading, and the
+C20 pattern **clears the gate at ~2 sigma — at an amplitude where the mantle
+rigidity locally approaches zero** (the positivity boundary itself). The
+right statement is therefore a threshold, not a binary: **1-sigma
+distinguishability requires RMS `delta_mu/mu >= 0.4465`** (= 1/2.239854),
+whereas the thermal ceiling at 300 K is 0.0577 RMS — a factor 7.7 short —
+and the 10% RMS context amplitude reaches 0.224 sigma. **The mantle stage
+still stops, but on physical-amplitude grounds rather than on the
+mathematical positivity bound as originally written**, and remains
+conditional on the scenario covariance throughout.
+
+The step-policy mixing concern is closed: recomputing the crust Jacobian at
+the mantle step policy (0.002, half-step residual 2.6e-7) changes it by
+1.9e-4 relative and moves the decision metric by 2.5e-5 sigma — five orders
+below the near-miss margin.
+
+The near-pure-C20 dominance follows from the selection rules: with a (2,0)
+forcing, a zonal `(2,0)` rheology pattern self-couples the forcing mode
+directly (the parity-even `2+2+2` channel), feeding the C20 observable,
+while the `m != 0` L=2 patterns reach the observable vector only through
+off-forcing modes whose sensitivities are two orders smaller under this
+covariance.
+
+The driver now archives the raw grid bounds per sign, the per-convention
+metrics, and the 1-sigma threshold amplitudes; the artifact was
+regenerated (same solve configuration, SHA-256
+`e53ef68330e1488f6ab62f468c737a3894e145ec9e077d66287226f636cd0a27`),
+reproducing every committed number and adding the convention-resolved
+metrics: guard 0.985534, grid-symmetric 1.001750, grid best-sign
+1.966998, threshold 0.446458.

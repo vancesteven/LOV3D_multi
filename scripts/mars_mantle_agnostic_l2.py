@@ -253,6 +253,15 @@ def run(
         amplitude = bounds["amplitude_symmetric"]
         metric_sigma = float(amplitude * S[i])
         context_sigma = float(context_rms_amplitude * S[i])
+        # Convention-resolved metrics (TASK-045 verification finding: the
+        # committed verdict sat 1.4% under the gate using the doubly
+        # conservative guard+symmetric amplitude, and the raw grid bounds
+        # were not archived, so the convention sensitivity could not be
+        # assessed from the artifact.  All three conventions are now
+        # archived; the sign-respecting grid bound is the "largest
+        # physically admitted amplitude" reading of TASK-042's stop rule.)
+        grid_symmetric = min(bounds["grid_bound_plus"], bounds["grid_bound_minus"])
+        grid_best_sign = max(bounds["grid_bound_plus"], bounds["grid_bound_minus"])
         per_direction.append(
             {
                 "index": i,
@@ -261,6 +270,8 @@ def run(
                 "bounds": bounds,
                 "amplitude_used": amplitude,
                 "decision_metric_sigma": metric_sigma,
+                "metric_sigma_grid_symmetric": float(grid_symmetric * S[i]),
+                "metric_sigma_grid_best_sign": float(grid_best_sign * S[i]),
                 "context_metric_sigma": context_sigma,
             }
         )
@@ -359,8 +370,27 @@ def run(
         positivity_amplitude_symmetric=np.asarray(
             [d["amplitude_used"] for d in per_direction]
         ),
+        positivity_grid_bound_plus=np.asarray(
+            [d["bounds"]["grid_bound_plus"] for d in per_direction]
+        ),
+        positivity_grid_bound_minus=np.asarray(
+            [d["bounds"]["grid_bound_minus"] for d in per_direction]
+        ),
+        positivity_coefficient_bound_amplitude=np.asarray(
+            [d["bounds"]["coefficient_bound_amplitude"] for d in per_direction]
+        ),
         decision_metric_sigma_per_direction=np.asarray(
             [d["decision_metric_sigma"] for d in per_direction]
+        ),
+        metric_sigma_grid_symmetric_per_direction=np.asarray(
+            [d["metric_sigma_grid_symmetric"] for d in per_direction]
+        ),
+        metric_sigma_grid_best_sign_per_direction=np.asarray(
+            [d["metric_sigma_grid_best_sign"] for d in per_direction]
+        ),
+        threshold_rms_amplitude_for_1sigma=np.asarray(
+            [1.0 / d["singular_value"] if d["singular_value"] > 0 else np.inf
+             for d in per_direction]
         ),
         context_metric_sigma_per_direction=np.asarray(
             [d["context_metric_sigma"] for d in per_direction]
@@ -372,10 +402,26 @@ def run(
     print(f"artifact SHA-256: {output_sha256}")
     if not gate_pass:
         print(
-            "STOP: TASK-044 agnostic L=2 residual test does not clear 1 sigma "
-            "orthogonal to the crust nuisance under the scenario covariance; "
-            "the mantle stage stops per TASK-042's design"
+            "Guard-convention metric does not clear 1 sigma; see the "
+            "convention-resolved metrics before reading this as a verdict."
         )
+    top_grid_best = per_direction[0]["metric_sigma_grid_best_sign"]
+    top_grid_sym = per_direction[0]["metric_sigma_grid_symmetric"]
+    print(
+        "convention-resolved top-direction metrics: "
+        f"guard+symmetric {per_direction[0]['decision_metric_sigma']:.6f} sigma, "
+        f"grid symmetric {top_grid_sym:.6f} sigma, "
+        f"grid best-sign {top_grid_best:.6f} sigma"
+    )
+    print(
+        "threshold framing: RMS delta-mu/mu for 1 sigma = "
+        f"{1.0/per_direction[0]['singular_value']:.6f}; "
+        "physically flavored amplitudes (thermal ceiling 0.0577 at 300 K, "
+        f"10% RMS context {per_direction[0]['context_metric_sigma']:.6f} sigma) "
+        "sit far below it — the stop decision rests on physical amplitude "
+        "grounds, conditional on the scenario covariance, not on the "
+        "mathematical positivity bound alone."
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
