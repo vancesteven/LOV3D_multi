@@ -56,8 +56,8 @@ a data-layer replacement rather than a solver rewrite.
 
 ### A. Tharsis thermal template (implement first)
 
-**Data source.** Use the present-day three-dimensional Mars mantle-temperature
-field and supplementary data from [Plesa et al. (2018)](https://doi.org/10.1029/2018GL080728),
+**Data source.** Use the present-day Mars mantle-temperature calculations and
+supplementary data from [Plesa et al. (2018)](https://doi.org/10.1029/2018GL080728),
 archived by [TU Berlin DepositOnce](https://depositonce.tu-berlin.de/items/8fe0416f-1ad5-4953-8027-d0374e07e42d).
 That study's reference calculations contain stable Tharsis/Elysium upwellings
 and place the largest lateral temperature differences in the uppermost roughly
@@ -65,7 +65,9 @@ and place the largest lateral temperature differences in the uppermost roughly
 `lmax <= 4` pilot is deliberately a long-wavelength test, not a resolved plume
 model.
 
-Take a horizontal slice at a registered depth `z*` (initially 400 km), remove
+Archive verification in TASK-043 found that Data Set S1 supplies one lateral
+temperature field, at 150 km depth; it does not supply the provisional 400 km
+slice or a gridded three-dimensional volume. Take that registered 150 km map, remove
 its area-weighted mean, project it into the repository's real, 4-pi-normalized
 basis, and truncate to degrees 1--4. Define a unit-RMS template `T_hat` and
 
@@ -89,10 +91,9 @@ fit should therefore expose `A_T` and either fix `beta_mu` with a documented
 factor-of-two sensitivity test or infer their product only. They are perfectly
 degenerate in a linear template model.
 
-Initial free parameters: one signed amplitude `A_T`; optional discrete depth
-`z*` in {300, 400, 500} km; and, only in a sensitivity run, the magnitude of
-`dmu/dT`. The map orientation, phase, and harmonic ratios remain fixed by the
-source model.
+Initial free parameters: one signed amplitude `A_T` and, only in a sensitivity
+run, the magnitude of `dmu/dT`. The archived depth is fixed at 150 km. The map
+orientation, phase, and harmonic ratios remain fixed by the source model.
 
 ### B. Elastic-lithosphere thickness map
 

@@ -487,26 +487,3 @@ def jacobian_distinguishability(
         correlation_warning=abs(correlation) >= threshold,
         passes_one_sigma=max_sigma >= 1.0,
     )
-
-
-__all__ = [
-    "BETA_MU_PER_K",
-    "EXPECTED_L2_ACTIVE_MODES",
-    "UPPER_MANTLE_LAYER_INDEX",
-    "DistinguishabilityMetrics",
-    "PlesaS1Grid",
-    "PositivityDiagnostics",
-    "active_modes_for_mu_variable",
-    "area_weighted_mean",
-    "jacobian_distinguishability",
-    "l2_mode_closure",
-    "load_plesa_s1",
-    "merge_mantle_crust_mu_variable",
-    "positivity_diagnostics",
-    "project_temperature_real_sh",
-    "remove_area_weighted_mean",
-    "thermal_fractional_coefficients",
-    "thermal_mu_variable",
-    "unit_rms_coefficients",
-    "unit_rms_coefficients_by_cutoff",
-]

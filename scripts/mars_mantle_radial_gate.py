@@ -1,0 +1,232 @@
+"""One-dimensional radial evidence for the TASK-043 driver."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import numpy as np
+
+from pylov3d.energy import compute_stress_strain
+from pylov3d.grid import set_boundary_indices
+from pylov3d.love import get_love
+from pylov3d.mars import MARS_FORCING_TD, build_mars_model
+from pylov3d.rheology import get_rheology
+from pylov3d.solver import get_solution
+from pylov3d.types import make_forcing, make_numerics
+
+
+UPPER_MANTLE_LAYER = 2
+CRUST_LAYER = 3
+
+
+def _forcing():
+    return make_forcing(Td=MARS_FORCING_TD, n=2, m=0, F=1.0)
+
+
+def _numerics(nrbase: int):
+    return make_numerics(
+        n_layers=4,
+        method="combination",
+        Nrbase=nrbase,
+        perturbation_order=2,
+    )
+
+
+def _k2_for_layer_scale(layer: int, factor: float, nrbase: int) -> float:
+    model = build_mars_model()
+    model = model._replace(mu0=model.mu0.at[layer].set(model.mu0[layer] * factor))
+    love, _radial, _normalized = get_love(model, _forcing(), _numerics(nrbase))
+    return float(np.real(np.asarray(love.k)[0]))
+
+
+def _finite_difference(layer: int, epsilon: float, nrbase: int) -> float:
+    """Central derivative of real k2 with respect to fractional layer mu."""
+    plus = _k2_for_layer_scale(layer, 1.0 + epsilon, nrbase)
+    minus = _k2_for_layer_scale(layer, 1.0 - epsilon, nrbase)
+    return (plus - minus) / (2.0 * epsilon)
+
+
+def _layer_interval_integrals(
+    r: np.ndarray,
+    weighted_profile: np.ndarray,
+    boundary_radii: np.ndarray,
+) -> np.ndarray:
+    """Trapezoidal integrals, assigning intervals by their radial midpoint."""
+    mids = 0.5 * (r[:-1] + r[1:])
+    pieces = 0.5 * (weighted_profile[:-1] + weighted_profile[1:]) * np.diff(r)
+    result = np.zeros(len(boundary_radii), dtype=float)
+    lower = 0.0
+    for layer, upper in enumerate(boundary_radii):
+        mask = (mids > lower) & (mids <= upper)
+        result[layer] = float(np.sum(pieces[mask]))
+        lower = float(upper)
+    return result
+
+
+def kernel_record(nrbase: int, epsilon: float) -> dict[str, np.ndarray | float | int]:
+    """Compute the gate-1 record at one radial resolution."""
+    forcing = _forcing()
+    numerics = _numerics(nrbase)
+    numerics, model = set_boundary_indices(numerics, build_mars_model())
+    model = get_rheology(model, forcing)
+    y, r, _fundamental, aprop_aux = get_solution(model, forcing, numerics)
+    _u, stress, strain = compute_stress_strain(
+        y, r, aprop_aux, model, forcing, numerics
+    )
+
+    # LOV3D's stress sign convention makes this contraction negative for the
+    # elastic Mars reference. Negation yields the positive radial proxy.
+    shear_contraction = np.real(
+        np.sum(np.conj(stress[:, 1:]) * strain[:, 1:], axis=1)
+    )
+    weighted_profile = -shear_contraction * np.asarray(r) ** 2
+    if np.min(weighted_profile) < -1e-12 * np.max(np.abs(weighted_profile)):
+        raise RuntimeError("deviatoric energy proxy has a material negative region")
+    weighted_profile = np.maximum(weighted_profile, 0.0)
+
+    boundary_radii = np.asarray(model.R[: model.n_layers], dtype=float)
+    layer_integrals = _layer_interval_integrals(
+        np.asarray(r, dtype=float), weighted_profile, boundary_radii
+    )
+    solid_total = float(np.sum(layer_integrals[1:]))
+    layer_fractions = layer_integrals / solid_total
+
+    derivatives = np.array(
+        [
+            _finite_difference(UPPER_MANTLE_LAYER, epsilon, nrbase),
+            _finite_difference(CRUST_LAYER, epsilon, nrbase),
+        ],
+        dtype=float,
+    )
+    derivatives_half = np.array(
+        [
+            _finite_difference(UPPER_MANTLE_LAYER, epsilon / 2.0, nrbase),
+            _finite_difference(CRUST_LAYER, epsilon / 2.0, nrbase),
+        ],
+        dtype=float,
+    )
+
+    return {
+        "nrbase": nrbase,
+        "nr": int(numerics.Nr),
+        "epsilon": epsilon,
+        "r_normalized": np.asarray(r, dtype=float),
+        "r_km": np.asarray(r, dtype=float) * float(model.R0[model.n_layers - 1]),
+        "shear_energy_weight": weighted_profile,
+        "stress_real": np.real(stress),
+        "stress_imag": np.imag(stress),
+        "strain_real": np.real(strain),
+        "strain_imag": np.imag(strain),
+        "boundary_radii_normalized": boundary_radii,
+        "boundary_radii_km": np.asarray(model.R0[: model.n_layers], dtype=float),
+        "mu0_pa": np.asarray(model.mu0[: model.n_layers], dtype=float),
+        "layer_integrals": layer_integrals,
+        "layer_fractions": layer_fractions,
+        "dk2_dfraction_layers_2_3": derivatives,
+        "dk2_dfraction_layers_2_3_halfstep": derivatives_half,
+    }
+
+
+def run_kernel(
+    output: Path,
+    nrbase_values: list[int],
+    epsilon: float,
+    tolerance: float,
+) -> None:
+    if len(nrbase_values) < 2:
+        raise ValueError("kernel evidence needs at least two Nrbase values")
+    if sorted(nrbase_values) != nrbase_values or len(set(nrbase_values)) != len(nrbase_values):
+        raise ValueError("Nrbase values must be unique and increasing")
+    if not (0.0 < epsilon < 0.1):
+        raise ValueError("epsilon must lie between 0 and 0.1")
+
+    records = [kernel_record(nrbase, epsilon) for nrbase in nrbase_values]
+    finest = records[-1]
+    fractions = np.vstack([record["layer_fractions"] for record in records])
+    derivatives = np.vstack(
+        [record["dk2_dfraction_layers_2_3"] for record in records]
+    )
+    derivatives_half = np.vstack(
+        [record["dk2_dfraction_layers_2_3_halfstep"] for record in records]
+    )
+    fraction_convergence = np.max(
+        np.abs(fractions[-1, 1:] - fractions[-2, 1:])
+        / np.maximum(np.abs(fractions[-1, 1:]), np.finfo(float).tiny)
+    )
+    derivative_convergence = np.max(
+        np.abs(derivatives[-1] - derivatives[-2])
+        / np.maximum(np.abs(derivatives[-1]), np.finfo(float).tiny)
+    )
+    halfstep_convergence = np.max(
+        np.abs(derivatives[-1] - derivatives_half[-1])
+        / np.maximum(np.abs(derivatives_half[-1]), np.finfo(float).tiny)
+    )
+
+    energy_ordering_pass = bool(
+        finest["layer_integrals"][UPPER_MANTLE_LAYER]
+        > finest["layer_integrals"][CRUST_LAYER]
+    )
+    derivative_ordering_pass = bool(abs(derivatives[-1, 0]) > abs(derivatives[-1, 1]))
+    convergence_pass = bool(
+        max(fraction_convergence, derivative_convergence, halfstep_convergence)
+        < tolerance
+    )
+    gate_pass = energy_ordering_pass and derivative_ordering_pass and convergence_pass
+
+    metadata = {
+        "task": "TASK-043 gate 1",
+        "description": (
+            "1D degree-2 deviatoric strain-energy radial proxy, corroborated "
+            "by central finite differences of k2"
+        ),
+        "forcing": {"n": 2, "m": 0, "F": 1.0, "Td_s": MARS_FORCING_TD},
+        "method": "combination",
+        "layers": {"upper_mantle": UPPER_MANTLE_LAYER, "crust": CRUST_LAYER},
+        "epsilon": epsilon,
+        "tolerance": tolerance,
+        "fraction_convergence": float(fraction_convergence),
+        "derivative_convergence": float(derivative_convergence),
+        "halfstep_convergence": float(halfstep_convergence),
+        "energy_ordering_pass": energy_ordering_pass,
+        "derivative_ordering_pass": derivative_ordering_pass,
+        "convergence_pass": convergence_pass,
+        "gate_pass": gate_pass,
+        "caveat": (
+            "The energy profile is a radial sensitivity proxy, not an "
+            "absolutely normalized Frechet kernel; finite-difference k2 "
+            "derivatives provide the independent layer-ordering check."
+        ),
+    }
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        output,
+        metadata_json=np.array(json.dumps(metadata, sort_keys=True)),
+        nrbase=np.asarray(nrbase_values, dtype=int),
+        nr=np.asarray([record["nr"] for record in records], dtype=int),
+        layer_fractions_by_resolution=fractions,
+        dk2_dfraction_layers_2_3_by_resolution=derivatives,
+        dk2_dfraction_layers_2_3_halfstep_by_resolution=derivatives_half,
+        r_normalized=finest["r_normalized"],
+        r_km=finest["r_km"],
+        shear_energy_weight=finest["shear_energy_weight"],
+        stress_real=finest["stress_real"],
+        stress_imag=finest["stress_imag"],
+        strain_real=finest["strain_real"],
+        strain_imag=finest["strain_imag"],
+        boundary_radii_normalized=finest["boundary_radii_normalized"],
+        boundary_radii_km=finest["boundary_radii_km"],
+        mu0_pa=finest["mu0_pa"],
+        layer_integrals=finest["layer_integrals"],
+        layer_fractions=finest["layer_fractions"],
+    )
+
+    print(json.dumps(metadata, indent=2, sort_keys=True))
+    energy_ratio = finest["layer_integrals"][2] / finest["layer_integrals"][3]
+    derivative_ratio = abs(derivatives[-1, 0] / derivatives[-1, 1])
+    print(f"upper-mantle/crust energy ratio: {energy_ratio:.6g}")
+    print(f"upper-mantle/crust |dk2/dln(mu)| ratio: {derivative_ratio:.6g}")
+    print(f"archived: {output}")
+    if not gate_pass:
+        raise SystemExit("TASK-043 gate 1 failed; stop before coupled pilot")

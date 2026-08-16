@@ -2595,6 +2595,65 @@ All Andrade-alpha and viscosity constants also collected in
 `ANDRADE_ALPHA_RANGE`, `ANDRADE_ALPHA_COMMON_RANGE`) for stage-b reuse;
 this table is the citation record of provenance.
 
+## Upper-mantle thermal-template pilot (TASK-043)
+
+The verified TASK-042 design was implemented at the smallest cutoff, `L=2`,
+using Plesa et al. (2018) Data Set S1. Archive inspection corrected the
+provisional depth: S1 contains a lateral temperature map at **150 km**, not a
+400 km map or a gridded three-dimensional field. The registered raw file is a
+64,800-by-8 one-degree table with longitude 0--359 degrees east and latitude
+90--(-89) degrees. Because the archive records both open access and AGU
+copyright/in-copyright status, the repository provides an exact verified
+fetch path but does not redistribute the raw 7.8 MB table. Full provenance,
+checksums, column schema, and derived-coefficient metadata are in
+`data/mars/plesa2018/SOURCES.md`.
+
+The T150 field's cosine-latitude-weighted mean is 898.253534 K and its
+mean-removed RMS is 129.821070 K. Weighted least squares in the repository's
+real, 4-pi-normalized basis gives degree 1--4 RMS values 88.633995, 61.717618,
+40.900913, and 25.001897 K. Each cutoff is normalized independently; the
+`L=2` template has unit spherical RMS, fixed phase/harmonic ratios, and no
+degree-zero term. A signed RMS amplitude `A_T` maps to fractional shear
+modulus through the fixed TASK-042 prior
+`delta_mu/mu = -1.92485e-4 K^-1 * A_T * T_hat`.
+
+Before any coupled interpretation, the missing one-dimensional radial
+evidence was archived. At `Nrbase=200`, the degree-2 deviatoric strain-energy
+proxy assigns 38.7064% of the solid-shell integral to the upper mantle and
+1.05115% to the crust, a ratio of 36.8231. Central layer-only finite
+differences independently give `dk2/dln(mu)=-0.0640410` for the upper mantle
+and `-0.00099102` for the crust, a magnitude ratio of 64.6215. The latter
+corroborates the layer ordering without pretending that the energy proxy is
+an absolutely normalized Frechet kernel. Resolution and epsilon-halving
+checks pass the 1% gate.
+
+At the declared scenario bound `|A_T|=300 K`, the thermal field remains safely
+positive: the sampled `min(1+delta_mu/mu)` is 0.875521 and the independent
+addition-theorem coefficient margin is 0.735325. Zero amplitude reproduces
+the one-dimensional `(k,h,l)` solution exactly when the crust field is absent;
+conjugate synthesis is real; and the shared `L=2` mantle/crust support closes
+at `N=43`, so adding the second layer does not double the coupled state.
+
+The distinguishability gate uses signed
+`[C20,C30,C31,S31,C32,S32,C33,S33]` response coefficients. Its diagonal
+covariance is explicitly a scenario analogue: the existing seasonal
+`sigma(C20)=1.6e-11` and `sigma(C30)=1.1e-11`, with the latter applied to all
+degree-3 C/S channels because no complete mission covariance is committed.
+It must not be read as a mission-detectability forecast. Central differences
+at `Nrbase=30` converge under step halving (thermal 3.12e-6, crust 1.30e-4).
+The whitened thermal/crust correlation is **0.972940**, triggering the 0.95
+degeneracy warning, and the thermal component orthogonal to the crust reaches
+only **0.050187 sigma at 300 K**. This fails the required one-sigma gate by a
+factor of about 20.
+
+TASK-043 therefore stops at `L=2`. The result does not justify `L=3`/`L=4` or
+a thermal-template inversion under this covariance scenario. Per TASK-042,
+the next scientific test is an agnostic `L=2` residual parameterization.
+Reproduction commands and artifact schemas are in
+`scripts/mars_mantle_thermal_pilot.py`; the evidence files are
+`docs/figures/proposal/mars_1d_shear_kernel.npz` and
+`docs/figures/proposal/mars_mantle_thermal_l2_pilot.npz`.
+
 ## Fixed-shell lateral-amplitude bound (TASK-036a)
 
 The amplitude wall described earlier as a limit of a "linearized rigidity
