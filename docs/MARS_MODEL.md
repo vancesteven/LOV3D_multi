@@ -1,4 +1,31 @@
-# Mars 1D Radial Reference Model (TASK-011)
+# Mars Reference Model and 3D Tidal Response
+
+*(Retitled 2026-08-16, TASK-041. This document was called "Mars 1D Radial
+Reference Model" long after half of it stopped being 1D — the title
+actively hid the 3D capability, and the PI read it as "3D Mars isn't
+implemented." It is; the map below says where.)*
+
+## What exists — capability map
+
+| Capability | Section (task) | Code |
+|---|---|---|
+| 1-D elastic reference model, fit + anchors | TASK-011 (below) | `pylov3d/mars.py` |
+| Monte Carlo / posterior over interior parameters | TASK-012 | `pylov3d/mars_mc.py` |
+| **3D lateral crust → coupled Love-number spectrum** (N=115, MATLAB-anchored) | TASK-016 | `pylov3d/mars_lateral.py` |
+| Non-Airy crustal model substitution (InSight Moho) | TASK-028 | `pylov3d/mars_crust_models.py` |
+| Hydration-front tidal signature | TASK-021 | `pylov3d/mars_hydration.py` |
+| Off-(2,0) detectability vs mission precision | TASK-026 | `pylov3d/mars_detectability.py`, `mars_detectability_k2m.py` |
+| Anelasticity audit (Maxwell-only; Andrade via PyALMA3) | TASK-025a | `pylov3d/anelastic.py` |
+| Fixed-shell amplitude bound (closed form) | TASK-036a | tests + `docs/tasks/TASK-036*` |
+| **3D spatial response maps** (gravity/displacement over the surface) | TASK-041 | `scripts/mars_response_maps.py` |
+
+"3D" here is the LOV3D sense: lateral variations of interior properties
+solved by spectral mode coupling (Rovira-Navarro et al. 2024), not a
+finite-element volume mesh. The lateral stage currently varies one layer
+(crustal rigidity); a laterally varying mantle is designed, not built —
+`docs/tasks/TASK-042-design-mars-mantle-3d.md`.
+
+## 1-D radial reference model (TASK-011)
 
 A stage-1, purely elastic, 4-layer radial interior model for Mars, fit to
 published bulk geophysical constraints and solved through the existing
@@ -961,6 +988,69 @@ TASK-014 part 1: Python uses `eta0 = NaN` for elastic, MATLAB requires
 (`crust_layer_index` is 0-based Python numbering, 3; the same layer is
 MATLAB `Interior_Model(4)`, 1-based) -- for machine B's native-MATLAB
 coupled cross-check (TASK-014 part 2).
+
+## 3D spatial response maps (TASK-041)
+
+The lateral stage's deliverables had all been spectral. This section is the
+first spatial synthesis: the time-varying tidal gravity and radial
+displacement anomaly over Mars's surface that the lateral spectrum implies.
+Drivers: `scripts/mars_lateral_spectrum.py` (part 0),
+`scripts/mars_response_maps.py` (part 1),
+`scripts/proposal_figures/fig10_mars_response_maps.py` (part 2). Artifacts:
+`docs/figures/proposal/mars_lateral_spectrum.npz`,
+`mars_response_maps.npz`, `fig10_mars_response_maps.{png,pdf}`.
+
+**Part 0 closed an artifact gap:** Mars had no committed full-spectrum
+archive (the Moon has one; Mars's record was the k-only MATLAB anchor
+`.mat`). One coupled solve (shipped config, 150.6 s) produced n/m/k/h/l +
+uniform references; gated on per-mode agreement with the `.mat` before
+use — 115/115 modes, median rel err 4.61e-12, worst 1.55e-10 at (8,±3).
+
+**Scaling convention** (reused from TASK-026, not re-derived):
+`S = solar_tide_amplitude_parameter × peak_legendre_factor(2,0)` =
+2.278e-9, the (2,0) solar tide's dimensionless potential amplitude at the
+obliquity-constrained sub-solar peak. TASK-026's scope caveat carries
+over verbatim: the spectrum is the response to unit (2,0) forcing; the
+real solar tide has m=0/1/2 components at distinct frequencies, so these
+maps are the spatial pattern of the off-(2,0) response as a class.
+Mapped is the **lateral part only** (off-forcing modes plus the
+forcing-mode shift Δk20/Δh20); the uniform tide is subtracted.
+
+**Results:**
+
+| Observable | Peak | Location | Tharsis | Dichotomy (repr.) | Hellas | InSight |
+|---|---:|---|---:|---:|---:|---:|
+| gravity anomaly | 0.0011 µGal | 80.6°S, 247.5°E | 0.0008 | 0.0004 | 0.0004 | 0.0001 |
+| radial displacement | 0.00355 mm | 57.7°N, 329.5°E | 0.00236 | 0.00169 | 0.00167 | 0.00070 |
+
+**The two observables carry different physics.** The gravity map is
+dominated by degree 3 (64.6% of variance; degree 2 32.7%) — a Tharsis
+lobe plus a strong southern zonal band. The displacement map is dominated
+by **degree 1 (70.0% of variance)**: the crustal dichotomy couples the
+(2,0) tide into a north–south asymmetric breathing of the surface,
+h(1,0) = 1.59e-4 — the largest lateral displacement mode — while
+k(1,m) ≈ 1e-18, i.e. zero at machine precision. That zero is a physics
+check, not an omission: the external degree-1 potential must vanish in
+the center-of-mass frame, and the solver delivers exactly that. The
+degree-1 displacement is correspondingly **frame-dependent**: it is
+motion of the surface relative to the body's center of mass, observable
+in principle as differential motion across a lander network, only
+partially as a single-station signal.
+
+**Caveats.**
+
+1. **The h spectrum has no MATLAB anchor.** The `.mat` cross-check
+   carries k only, so the displacement map rests on Python-only h values
+   (the uniform h2 is validated through the 1-D anchors, but the coupled
+   lateral h modes are not). Extending the MATLAB cross-check to h/l is
+   a natural ticket if displacement numbers become load-bearing.
+2. Amplitudes are small in absolute terms (sub-µGal, µm-scale). The
+   detection pathway remains the spectral/Stokes route of TASK-026 —
+   these maps say *where* the signal lives and its pattern, not that an
+   instantaneous surface measurement resolves it.
+3. The reference-shell qualification (§4.4 of the proposal; TASK-036/037)
+   applies to every amplitude here: the absolute scale is conditional on
+   the 50 km Voigt shell.
 
 ## Non-Airy crustal model substitution (TASK-028)
 
