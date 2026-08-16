@@ -10,9 +10,11 @@
 Driver only; no pylov3d module is modified.
 
 Runs three diagonal coupled solves — forcing (2,0), (2,1), (2,2) — on the
-Weber model with the TASK-031 Airy lateral field at lmax=4 (the highest
-cutoff the linearization admits; TASK-031b confirmed max|dmu/mu_bar|=0.9902
-crosses unity at lmax=5).  Reports each predicted k2m against:
+Weber model with the shipped Airy lateral field at lmax=4 (the highest
+cutoff the linearization admits: the dichotomy-retaining default's margin is
+max|dmu/mu_bar|=0.9898 at lmax=4 and crosses unity at lmax=5; the superseded
+degree-1-removed field's margin was 0.9902).  Reports each predicted k2m
+against:
   - the uniform Weber background k2 = WEBER_K2_UNIFORM (0.02315914223)
   - GRAIL's measured values: k20=0.02408±0.00045, k21=0.02414±0.00025,
     k22=0.02394±0.00028 (Konopliv et al. 2013 Table 4, already committed in

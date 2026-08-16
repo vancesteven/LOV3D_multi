@@ -1613,7 +1613,12 @@ moon_lateral_spectrum.npz` — TASK-035's verification found the prior
 6-significant-figure constants made that anchor look ~60× looser than it
 was, so this run does not repeat that mistake. Artifacts (overwritten in
 place, old versions kept in git history): `data/tests/moon/
-moon_lateral_cross_check.{log,mat}`.
+moon_lateral_cross_check.{log,mat}`. *(Provenance note from the TASK-040
+audit: the committed log's banner line still self-identifies as "TASK-035"
+— the run predates the banner fix, and run artifacts are not edited after
+the fact. The values in it are this TASK-038 run's. The `.m` banner, the
+exporter's docstring/readme, and the npz's provenance keys were corrected
+on 2026-08-16, including a new `include_degree1` key in the export.)*
 
 **The export re-run reproduces the committed npz exactly.** Byte-for-byte
 array comparison against the version already committed at `47b5377`/regen

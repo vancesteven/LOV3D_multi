@@ -246,13 +246,14 @@ if ~isfolder(out_dir)
     mkdir(out_dir);
 end
 
-% open a combined log (TASK-035 deliverable): tee fprintf to console+file.
+% open a combined log (TASK-035/038 deliverable): tee fprintf to console+file.
 log_path = fullfile(out_dir, 'moon_lateral_cross_check.log');
 logf = fopen(log_path, 'w');
 logp = @(varargin) both_print(logf, varargin{:});
 
 logp('\n============ MOON LATERAL COUPLED (OCEAN) CROSS-CHECK (MATLAB LOV3D) ============\n');
-logp('  TASK-035: native-MATLAB anchor for the Moon lateral spectrum (pylov3d.moon_lateral)\n');
+logp('  TASK-038 re-anchor (method: TASK-035): native-MATLAB anchor for the Moon lateral\n');
+logp('  spectrum (pylov3d.moon_lateral, dichotomy-retaining field, include_degree1=True)\n');
 logp('  MATLAB version: %s\n', version);
 logp('  Nrbase=%d  perturbation_order=%d  method=%s  Nlayers=%d\n', ...
     Numerics.Nrbase, Numerics.perturbation_order, Numerics.method, Numerics.Nlayers);

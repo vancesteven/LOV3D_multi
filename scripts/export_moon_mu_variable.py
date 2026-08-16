@@ -7,18 +7,21 @@
 
 """Export the Moon Airy-crust lateral ``mu_variable`` to an .npz for MATLAB.
 
-TASK-035: the Moon lateral stage (``pylov3d.moon_lateral``, TASK-031) is the
-only load-bearing Mars/Moon result in this project without an independent
-native-MATLAB anchor. TASK-034's k2m-vs-GRAIL comparison depends on that
-spectrum, so it needs one. This mirrors
+TASK-035 (original anchor, degree-1-removed field) / TASK-038 (re-anchor of
+the shipped dichotomy field): the Moon lateral stage (``pylov3d.moon_lateral``,
+TASK-031) needs an independent native-MATLAB anchor because TASK-034's
+k2m-vs-GRAIL comparison depends on that spectrum. This mirrors
 :func:`pylov3d.mars_lateral.export_mu_variable_lateral` (via
 ``scripts/export_mars_dwak_mu_variable.py``, the exact precedent for this
 file) but for the Moon crust field:
 
   * ``dt`` from :func:`pylov3d.moon_lateral.crustal_thickness_variation`
     (LOLA relief above the GRAIL equipotential surface, Airy-compensated;
-    C00 and degree-1 always removed, C20 removed by the shipped default
-    ``include_c20=False``);
+    C00 always removed, C20 removed by the shipped default
+    ``include_c20=False``, and degree 1 RETAINED by the shipped default
+    ``include_degree1=True`` — the nearside-farside dichotomy, PI decision
+    2026-08-14; pass ``include_degree1=False`` for the pre-decision field
+    that TASK-035 anchored);
   * complex ``mu_variable`` from
     :func:`pylov3d.moon_lateral.mu_variable_from_topography` (the same
     ``_dmu_ddt_coeff`` linearization + ``_real_sh_to_complex_mu_variable``
@@ -57,15 +60,20 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = _REPO_ROOT / "data" / "moon" / "moon_mu_variable_lateral.npz"
 
 _README = """\
-TASK-035 Moon Airy-crust lateral rigidity export -- for the native-MATLAB
-lateral anchor (scripts/moon_lateral_cross_check.m).
+Moon Airy-crust lateral rigidity export -- for the native-MATLAB lateral
+anchor (scripts/moon_lateral_cross_check.m). Originally the TASK-035
+deliverable (degree-1-removed field, 20 amplitudes); since the 2026-08-14
+PI decision this carries the shipped dichotomy-retaining field
+(include_degree1=True, 23 amplitudes -- re-anchored in TASK-038). The
+include_degree1 key in this archive records which field this is; the
+superseded 20-amplitude export is pinned in git history at 47b5377.
 
 This is the committed lmax=4, shipped-default (include_c20=False) field from
-pylov3d.moon_lateral.mu_variable_from_topography -- the same field TASK-031's
-Python lateral Love-number spectrum (docs/MOON_MODEL.md) was computed from.
-It exists so MATLAB is handed the *exact* complex mu_variable Python used,
-isolating the solver's sign convention from any spherical-harmonic
-re-derivation.
+pylov3d.moon_lateral.mu_variable_from_topography -- the same field the
+regenerated Python lateral Love-number spectrum (docs/MOON_MODEL.md) was
+computed from. It exists so MATLAB is handed the *exact* complex mu_variable
+Python used, isolating the solver's sign convention from any
+spherical-harmonic re-derivation.
 
 Contents
 --------
@@ -99,13 +107,18 @@ def export_moon_mu_variable(
     path: Path | str = DEFAULT_OUT,
     lmax: int = 4,
     include_c20: bool = False,
+    include_degree1: bool = True,
 ) -> Path:
     """Write the Moon crust ``mu_variable`` + provenance to ``path`` (.npz)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    dt = crustal_thickness_variation(lmax=lmax, include_c20=include_c20)
-    mu_variable = mu_variable_from_topography(lmax=lmax, include_c20=include_c20)
+    dt = crustal_thickness_variation(
+        lmax=lmax, include_c20=include_c20, include_degree1=include_degree1,
+    )
+    mu_variable = mu_variable_from_topography(
+        lmax=lmax, include_c20=include_c20, include_degree1=include_degree1,
+    )
     entries = mu_variable[CRUST_LAYER_INDEX]
 
     layer_idx = np.full(len(entries), CRUST_LAYER_INDEX, dtype=int)
@@ -130,6 +143,7 @@ def export_moon_mu_variable(
         mantle_layer_index=MANTLE_LAYER_INDEX,
         lmax=lmax,
         include_c20=include_c20,
+        include_degree1=include_degree1,
         readme=_README,
     )
     return path
@@ -153,10 +167,12 @@ if __name__ == "__main__":
     #
     # NOTE the distinction, which is load-bearing elsewhere in this project:
     # this is the largest SH *coefficient*, NOT the spatial maximum of the
-    # synthesized field.  For this broadband field the spatial max is ~6.4x
-    # larger (32.63 km vs 5.13 km), and it is the spatial max that sets the
-    # positivity margin max|dmu/mu_bar| = 0.9902 quoted in TASK-031b/036.
-    # Use crustal_thickness_diagnostics()['max_abs_dt_m'] for that number.
+    # synthesized field.  For the shipped dichotomy field the spatial max is
+    # 32.616 km (largest coefficient: |dt(1,1)| = 6.834 km), and it is the
+    # spatial max that sets the positivity margin max|dmu/mu_bar| = 0.9898
+    # (the superseded degree-1-removed field's margin was 0.9902, quoted in
+    # TASK-031b/036).  Use
+    # crustal_thickness_diagnostics()['max_abs_dt_m'] for that number.
     idx_max_dt = int(np.argmax(np.abs(data["dt_val_m"])))
     print(f"  max|dt| SH coefficient = {abs(data['dt_val_m'][idx_max_dt]):.4f} m "
           f"at (n={int(data['dt_n'][idx_max_dt])}, m={int(data['dt_m'][idx_max_dt])})")
