@@ -16,6 +16,9 @@ data/*
 !/data/README.md
 !/data/mars
 !/data/moon
+# Plesa et al. (2018) supplementary table is fetched locally.  The archive is
+# open-access, but its file-level downstream redistribution terms are unclear.
+data/mars/plesa2018/grl58258-sup-0002-data
 /files/couplings
 /files/output
 *.asv
