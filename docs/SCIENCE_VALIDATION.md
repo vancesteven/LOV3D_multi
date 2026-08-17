@@ -32,10 +32,11 @@ python scripts/run_science_benchmarks.py --with-pyalma3
 58 passed in 88.57s (0:01:28)
 ```
 
-This result should be treated as the current integrated science-validation
-baseline for the `python-conversion` branch. Future publication tables should
-record the exact git commit and dependency versions in addition to the test
-count and wall time.
+This result is the last verified baseline before the dissipation sanity cases
+were added to the benchmark runner. The expanded suite should be re-run after
+pulling commit `830831d` or later. Future publication tables should record the
+exact git commit and dependency versions in addition to the test count and wall
+time.
 
 ## Validation matrix
 
@@ -45,6 +46,7 @@ count and wall time.
 | Elastic lateral heterogeneity | Enceladus, rigid interior/ocean plus elastic shell with degree-1/2 shear-modulus variations | coupled Love-number spectrum and forcing-mode `k2` | archived MATLAB LOV3D outputs from the published Enceladus lateral-variation benchmark | uniform `k2` <0.1% relative; first-order spectral modes <1%; second-order modes <5% | `test_matlab_validation.py` |
 | Fluid layer + lateral heterogeneity | Weber Moon with fluid outer core and upper/lower-mantle lateral shear-modulus variations | 1-D `k2` and coupled Love-number spectrum | archived MATLAB/Qin reference arrays used by the LOV3D Moon benchmark | uniform `k2` <1e-6 relative; measured order-1 coupled errors are ~2e-6 to 5e-6 relative, with test ceiling 0.1%; forcing-mode deviation uses a 5% ceiling | `test_matlab_validation_ocean.py` |
 | Multilayer planetary structure with density discontinuities | Four-layer Mars reference model | mass, mean moment of inertia, `k2`, `h2`, `l2`, radial density ordering | published Mars bulk constraints plus pylov3d/MATLAB cross-check artifacts in `data/tests/mars/` | mass within 0.1%; MoI within stated uncertainty; `k2` within observational uncertainty; `h2/l2` regression pins | selected classes in `test_mars.py` |
+| Dissipation sanity | uniform elastic sphere + multilayer viscoelastic Io | radial energy integral and global heating sign/scaling | constitutive physics invariants; Io model follows the MATLAB energy-consistency setup | elastic integral ~0; viscoelastic Io integral non-zero; Im(`k`) heating has correct sign and linear scaling | selected cases in `test_energy.py` |
 | Independent elastic implementation | Uniform elastic sphere | complex `k2` (imaginary part ~0) | PyALMA3 plus analytic elastic sphere | pylov3d and PyALMA3 agree within 1%; both agree with analytic solution | `test_benchmark_pyalma3.py` |
 | Independent Maxwell viscoelastic implementation | Fluid core + Maxwell mantle, forcing period 1 day, viscosity 1e15 Pa s | real and imaginary parts of complex `k2` | PyALMA3 | Re(`k2`) and Im(`k2`) agree within 0.1% | `test_benchmark_pyalma3.py` |
 
@@ -53,17 +55,23 @@ count and wall time.
 The core conversion is not validated by a single favorable planet or a single
 solver path. The selected cases exercise: (1) the analytic elastic limit,
 (2) density jumps and multilayer propagation, (3) a zero-shear fluid layer,
-(4) spectral coupling from lateral rheology, and (5) complex viscoelastic
-response. The Enceladus and Moon cases compare against archived outputs from
-the original MATLAB LOV3D workflow, while the PyALMA3 case is an independent
-implementation and therefore protects against a bug shared by the Python port
-and its MATLAB parent.
+(4) spectral coupling from lateral rheology, (5) complex viscoelastic response,
+and (6) basic tidal-dissipation invariants. The Enceladus and Moon cases compare
+against archived outputs from the original MATLAB LOV3D workflow, while the
+PyALMA3 case is an independent implementation and therefore protects against a
+bug shared by the Python port and its MATLAB parent.
 
 The Mars entry is deliberately included as a planetary-structure validation,
 not merely as another numerical parity test. Its mass, moment of inertia,
 density ordering, and Love numbers must remain simultaneously physical. The
 separate committed MATLAB artifacts under `data/tests/mars/` provide the
 stronger code-to-code parity record for the same reference model.
+
+The dissipation entry is currently a **sanity/invariant level** validation, not
+yet a parent-code parity benchmark. It is included because zero dissipation in
+an elastic body and non-zero dissipation in the viscoelastic Io model are
+necessary conditions for a physically useful energy implementation, while the
+separate Im(`k`) formula tests the expected heating sign and scaling.
 
 ## Lateral bulk-modulus status: upstream functionality is incomplete
 
@@ -99,7 +107,9 @@ feature. The remaining high-value additions are:
 2. add an archived MATLAB reference for a genuinely **viscoelastic lateral**
    case, which would exercise complex rheology and spectral coupling
    simultaneously;
-3. add a dedicated end-to-end **tidal dissipation / energy** benchmark;
+3. upgrade dissipation from invariant-level checks to a quantitative
+   **MATLAB/internal-consistency energy benchmark**, ideally using the existing
+   Io `Consistency_test_Energy.m` setup;
 4. generate a publication table from machine-readable benchmark output rather
    than transcription from pytest prose.
 
@@ -109,8 +119,9 @@ with MATLAB LOV3D.
 
 ## Interpretation for publication
 
-A methods paper should distinguish three validation levels:
+A methods paper should distinguish four validation levels:
 
+* **physics invariant / sanity:** necessary sign, scaling, or limiting behavior;
 * **analytic validation:** a known closed-form limit is recovered;
 * **parent-code parity:** pylov3d reproduces archived MATLAB LOV3D outputs;
 * **independent-code validation:** pylov3d agrees with PyALMA3 where the two
