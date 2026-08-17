@@ -1,10 +1,10 @@
 # pylov3d science validation matrix
 
 This document is the compact, publication-facing validation record for the
-Python conversion.  It is intentionally distinct from the full regression
-test suite: the goal here is to show that qualitatively different physical
-regimes reproduce analytic solutions, archived MATLAB LOV3D results, or an
-independent Love-number implementation.
+Python conversion. It is intentionally distinct from the full regression test
+suite: the goal here is to show that qualitatively different physical regimes
+reproduce analytic solutions, archived MATLAB LOV3D results, or an independent
+Love-number implementation.
 
 Run the core matrix with
 
@@ -22,6 +22,21 @@ The benchmark runner disables the repository's default `not slow` filter so
 that the selected science cases cannot silently disappear because of pytest
 marker configuration.
 
+## Verified benchmark run
+
+A full independent-code run was executed on 2026-08-17 using
+`/Users/svance/mamba/envs/PPcl/bin/python`:
+
+```text
+python scripts/run_science_benchmarks.py --with-pyalma3
+58 passed in 88.57s (0:01:28)
+```
+
+This result should be treated as the current integrated science-validation
+baseline for the `python-conversion` branch. Future publication tables should
+record the exact git commit and dependency versions in addition to the test
+count and wall time.
+
 ## Validation matrix
 
 | Physical regime | Body / model | Observable | Reference | Current acceptance criterion | Test |
@@ -36,36 +51,60 @@ marker configuration.
 ## What this matrix establishes
 
 The core conversion is not validated by a single favorable planet or a single
-solver path.  The selected cases exercise: (1) the analytic elastic limit,
+solver path. The selected cases exercise: (1) the analytic elastic limit,
 (2) density jumps and multilayer propagation, (3) a zero-shear fluid layer,
 (4) spectral coupling from lateral rheology, and (5) complex viscoelastic
-response.  The Enceladus and Moon cases compare against archived outputs from
+response. The Enceladus and Moon cases compare against archived outputs from
 the original MATLAB LOV3D workflow, while the PyALMA3 case is an independent
 implementation and therefore protects against a bug shared by the Python port
 and its MATLAB parent.
 
 The Mars entry is deliberately included as a planetary-structure validation,
-not merely as another numerical parity test.  Its mass, moment of inertia,
-density ordering, and Love numbers must remain simultaneously physical.  The
+not merely as another numerical parity test. Its mass, moment of inertia,
+density ordering, and Love numbers must remain simultaneously physical. The
 separate committed MATLAB artifacts under `data/tests/mars/` provide the
 stronger code-to-code parity record for the same reference model.
+
+## Lateral bulk-modulus status: upstream functionality is incomplete
+
+The next planned validation target was lateral bulk-modulus (`K`) heterogeneity.
+Inspection of both implementations shows that this cannot yet be treated as a
+straight parent-code parity benchmark.
+
+The Python `process_lateral_variations()` API accepts `K_variable`, and the
+coupled propagator has a `K_amp` path in its constitutive coupling matrices.
+However, the current rheology processing fills `K_amp` with zero. The original
+MATLAB source shows the same deeper problem: `get_rheology.m` parses
+`K_variable`, but the elastic branch explicitly sets
+`rheology_variable(:,3)=0`, while the viscoelastic branch populates the complex
+shear-modulus column but does not populate the bulk-modulus column. In
+`get_solution.m`, column 3 is nevertheless read as `K_nm` and used in the
+isotropic constitutive coupling term.
+
+Therefore a MATLAB-vs-Python `K` comparison made without first resolving this
+path could give a misleading result: agreement with zero response would verify
+shared omission rather than physical correctness. The next step is to derive
+and test the intended normalization of the lateral bulk-modulus coefficient,
+repair the parent and/or Python path, and only then archive a non-zero MATLAB
+reference case. See `docs/LATERAL_K_VALIDATION.md`.
 
 ## Known gaps before a methods-paper validation claim
 
 This matrix does **not** yet constitute exhaustive validation of every LOV3D
-feature.  The remaining high-value additions are:
+feature. The remaining high-value additions are:
 
-1. a compact archived MATLAB reference for a laterally varying **bulk modulus**
-   (`K`) case, rather than relying mainly on implementation-level tests;
-2. an archived MATLAB reference for a genuinely **viscoelastic lateral** case,
-   which would exercise complex rheology and spectral coupling simultaneously;
-3. a dedicated end-to-end **tidal dissipation / energy** benchmark once the
-   ocean-energy path (TASK-010) is resumed;
-4. a publication table generated from machine-readable benchmark output rather
+1. resolve the dormant/broken lateral **bulk modulus** (`K`) path, including its
+   normalization in the isotropic stress term, then create a non-zero archived
+   reference case;
+2. add an archived MATLAB reference for a genuinely **viscoelastic lateral**
+   case, which would exercise complex rheology and spectral coupling
+   simultaneously;
+3. add a dedicated end-to-end **tidal dissipation / energy** benchmark;
+4. generate a publication table from machine-readable benchmark output rather
    than transcription from pytest prose.
 
-Those are feature-coverage gaps, not evidence of failure in the regimes already
-listed above.  They should be closed before claiming complete feature parity
+These are feature-coverage gaps, not evidence of failure in the regimes already
+listed above. They should be closed before claiming complete feature parity
 with MATLAB LOV3D.
 
 ## Interpretation for publication
