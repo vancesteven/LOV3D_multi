@@ -5,7 +5,7 @@
 
 """Run the compact, publication-facing pylov3d science validation suite.
 
-This is intentionally narrower than the full unit/regression suite.  It gathers
+This is intentionally narrower than the full unit/regression suite. It gathers
 benchmarks that exercise qualitatively different physics and independent
 validation paths into one reproducible command.
 
@@ -37,8 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Each entry is deliberately science-facing rather than a broad unit-test file.
 # The selected cases jointly cover an analytic elastic limit, a laterally
-# heterogeneous shell, a fluid layer, multilayer planetary structure, and
-# independent viscoelastic validation.
+# heterogeneous shell, a fluid layer, multilayer planetary structure,
+# dissipation sanity checks, and independent viscoelastic validation.
 CORE_BENCHMARKS = [
     # Analytic homogeneous elastic body / convention anchor.
     "pylov3d/tests/test_analytical.py",
@@ -53,6 +53,12 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars.py::TestK2",
     "pylov3d/tests/test_mars.py::TestLoveNumberSanity",
     "pylov3d/tests/test_mars.py::TestDensityProfile",
+    # Dissipation sanity: elastic material must dissipate zero energy, while
+    # the viscoelastic Io reference model must dissipate non-zero energy.
+    "pylov3d/tests/test_energy.py::TestGetEnergy::test_elastic_zero_dissipation",
+    "pylov3d/tests/test_energy.py::TestGetEnergy::test_io_nonzero_dissipation",
+    # Sign and scaling of the independent Im(k)-based global heating formula.
+    "pylov3d/tests/test_energy.py::TestGlobalDissipation",
 ]
 
 PYALMA3_BENCHMARK = "pylov3d/tests/test_benchmark_pyalma3.py"
