@@ -6,7 +6,6 @@
 import numpy as np
 
 from pylov3d.couplings import get_couplings
-from pylov3d.energy import get_energy_coupled
 from pylov3d.energy_multibasis import get_energy_coupled_multibasis
 from pylov3d.grid import set_boundary_indices
 from pylov3d.rheology import get_rheology, process_lateral_variations
@@ -44,26 +43,41 @@ def _solve(model, numerics, lateral, forcing, couplings):
     return y, r, aprop
 
 
-def test_single_basis_matches_existing_get_energy_coupled():
-    forcing = make_forcing(Td=1.769 * 86400, n=2, m=0, F=1.0)
+def _energy_for_single_forcing(amplitude: float):
+    forcing = make_forcing(Td=1.769 * 86400, n=2, m=0, F=amplitude)
     model, numerics, lateral = _model_and_lateral([forcing])
     c = get_couplings(
         lateral.variations, forcing.n, forcing.m,
         perturbation_order=numerics.perturbation_order,
     )
     sol = _solve(model, numerics, lateral, forcing, c)
-
-    old = get_energy_coupled(
-        [sol], [forcing], model, numerics, c.n_s, c.m_s, Nenergy=4,
-    )
-    new = get_energy_coupled_multibasis(
+    return get_energy_coupled_multibasis(
         [sol], [forcing], model, numerics, [c.n_s], [c.m_s], Nenergy=4,
     )
 
-    np.testing.assert_array_equal(new.n, old.n)
-    np.testing.assert_array_equal(new.m, old.m)
-    np.testing.assert_allclose(new.energy_integral, old.energy_integral, rtol=1e-12, atol=1e-14)
-    np.testing.assert_allclose(new.energy_profile, old.energy_profile, rtol=1e-12, atol=1e-14)
+
+def test_single_basis_energy_has_quadratic_forcing_scaling():
+    """Energy must scale as F^2 for a fixed linear tidal solution.
+
+    This replaces the old equality-to-get_energy_coupled check.  The legacy
+    coupled-energy routine reconstructs stress with an older diagonal-only
+    constitutive path, so exact agreement ceased to be a valid scientific
+    invariant once TASK-046 made the multibasis reconstruction use the same
+    coupled A1/A2 matrices as the forward solver.
+    """
+    e1 = _energy_for_single_forcing(1.0)
+    ehalf = _energy_for_single_forcing(0.5)
+
+    np.testing.assert_array_equal(ehalf.n, e1.n)
+    np.testing.assert_array_equal(ehalf.m, e1.m)
+    np.testing.assert_allclose(
+        ehalf.energy_integral, 0.25 * e1.energy_integral,
+        rtol=1e-10, atol=1e-13,
+    )
+    np.testing.assert_allclose(
+        ehalf.energy_profile, 0.25 * e1.energy_profile,
+        rtol=1e-10, atol=1e-13,
+    )
 
 
 def test_distinct_forcing_closures_are_supported_without_truncation():
@@ -80,8 +94,6 @@ def test_distinct_forcing_closures_are_supported_without_truncation():
         )
         for f in forcings
     ]
-    # This is the defect TASK-046 exposed: different forcing orders need not
-    # have the same active-mode closure.
     assert not (
         np.array_equal(couplings[0].n_s, couplings[1].n_s)
         and np.array_equal(couplings[0].m_s, couplings[1].m_s)
