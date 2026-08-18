@@ -4,7 +4,7 @@
 """Regression for MATLAB column-major grouping in energy couplings.
 
 MATLAB ``reshape(Caux, 9, [])`` groups consecutive blocks in Fortran/
-column-major order.  NumPy's default C-order reshape produces different
+column-major order. NumPy's default C-order reshape produces different
 nine-term contractions and previously corrupted the radial energy profile
 while leaving the propagated fields unchanged.
 """
@@ -18,7 +18,7 @@ def test_couplings_coefficient_uses_matlab_column_major_grouping(monkeypatch):
     """Pin the reshape semantics independently of Wigner-symbol numerics."""
 
     # Isolate the reshape/grouping behavior by replacing each Wigner symbol
-    # with unity.  The remaining prefactors vary across the 324 entries, so
+    # with unity. The remaining prefactors vary across the 324 entries, so
     # C- and Fortran-order grouping produce measurably different results.
     monkeypatch.setattr(ecmod, "wigner3j", lambda *args: np.ones_like(np.asarray(args[0]), dtype=float))
     monkeypatch.setattr(ecmod, "wigner6j", lambda *args: np.ones_like(np.asarray(args[0]), dtype=float))
@@ -62,5 +62,12 @@ def test_couplings_coefficient_uses_matlab_column_major_grouping(monkeypatch):
     expected_matlab = caux.reshape(9, -1, order="F").sum(axis=0)
     wrong_c_order = caux.reshape(9, -1, order="C").sum(axis=0)
 
-    np.testing.assert_allclose(got, expected_matlab, rtol=0.0, atol=0.0)
-    assert not np.allclose(got, wrong_c_order)
+    # Different floating-point evaluation order can move the final bit even
+    # when the grouping is identical. The observed discrepancy is O(eps), so
+    # test the intended grouping to near-machine precision rather than asking
+    # for bitwise equality.
+    np.testing.assert_allclose(got, expected_matlab, rtol=1e-15, atol=1e-12)
+
+    # The incorrect C-order grouping is a substantive numerical difference,
+    # not roundoff, and must remain distinguishable from the MATLAB result.
+    assert not np.allclose(got, wrong_c_order, rtol=1e-10, atol=1e-10)
