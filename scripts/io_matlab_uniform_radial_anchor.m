@@ -105,8 +105,10 @@ energy_profile = Energy.energy;
 Nrlayer = Numerics.Nrlayer;
 BCindices = Numerics.BCindices;
 Gg = IM(end).Gg;
-muC = arrayfun(@(x) x.muC, IM);
-lambda = arrayfun(@(x) x.lambda, IM);
+
+% Do not export IM.muC / IM.lambda here. At least one layer may carry these as
+% non-scalar internal representations, so arrayfun with UniformOutput=true is
+% not robust. They are not needed for the point-by-point radial parity test.
 
 % Forcing-mode k values, explicitly archived as a quick identity check.
 k_forcing = zeros(1,length(Forcing));
@@ -118,8 +120,8 @@ end
 
 out_path = fullfile(out_dir,'io_uniform_radial_anchor.mat');
 save(out_path,'r','y_m0','y_mm2','y_mp2','energy_n','energy_m', ...
-    'energy_integral','energy_profile','Nrlayer','BCindices','Gg','muC', ...
-    'lambda','k_forcing','-v7');
+    'energy_integral','energy_profile','Nrlayer','BCindices','Gg', ...
+    'k_forcing','-v7');
 
 fprintf('\nTASK-046 MATLAB uniform radial anchor\n');
 fprintf('Nrbase=50, Nr=%d\n',Numerics.Nr);
