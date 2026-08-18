@@ -30,7 +30,13 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import sys
 from pathlib import Path
+
+# Allow direct execution from a source checkout without requiring an editable
+# install.  Keep this consistent with the other standalone science diagnostics.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 from pylov3d.love import get_love
 from pylov3d.mars import LAYER_MU_CRUST, MARS, MARS_FORCING_TD, build_mars_model
