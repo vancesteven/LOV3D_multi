@@ -68,9 +68,15 @@ def recover_coupled_fields(
 
     u = (A3_inv @ U_all.T).T
 
-    # Reconstruct the same layer map used by the solver.
+    # Reconstruct the layer ownership used by MATLAB's auxiliary-field loop.
+    # The forward Python solver labels the CMB node as core because no radial
+    # propagation occurs inside the core, but Aprop_aux[0] is explicitly built
+    # with the first solid-layer properties. MATLAB likewise computes u_dot,
+    # stress, and strain at the CMB as part of layer 2 (1-based). Therefore the
+    # CMB must belong to Python layer index 1 for post-solve field recovery.
     layer_map = np.zeros(Nr + 1, dtype=int)
-    layer_map[0] = 0
+    if model.n_layers > 1:
+        layer_map[0] = 1
     k = 1
     for ilayer in range(1, model.n_layers):
         for _ in range(int(numerics.Nrlayer[ilayer])):
@@ -117,10 +123,11 @@ def recover_coupled_fields(
         x_dot = Aprop_aux[kr] @ y_sol[kr]
         u_dot[kr] = A3_inv @ x_dot
 
-        # Match the *Python forward propagator* convention exactly:
-        #   derivative term -> A2
-        #   angular u/r term -> A1
-        # Strain uses the independently defined A14/A15 pair.
+        # Match MATLAB's operational convention exactly. get_A1A2.m returns
+        # [A1,A2], but get_solution.m intentionally calls it as [A2,A1], so
+        # the derivative term uses the second returned matrix and the angular
+        # u/r term uses the first. That is the same convention as the Python
+        # forward propagator.
         if r > 0:
             stress[kr] = A2_cache[ilayer] @ u_dot[kr] + A1_cache[ilayer] @ u[kr] / r
             strain[kr] = A14 @ u_dot[kr] + A15 @ u[kr] / r
