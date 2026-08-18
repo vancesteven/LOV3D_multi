@@ -6,6 +6,11 @@ suite: the goal here is to show that qualitatively different physical regimes
 reproduce analytic solutions, archived MATLAB LOV3D results, or an independent
 Love-number implementation.
 
+For the **required testing order, rationale, exact commands, failed diagnostic
+runs, and result history**, see `docs/VALIDATION_WORKFLOW.md`. That file is the
+canonical procedural record; this file summarizes only validation claims that
+are safe to make publicly.
+
 Run the core matrix with
 
 ```bash
@@ -32,11 +37,12 @@ python scripts/run_science_benchmarks.py --with-pyalma3
 58 passed in 88.57s (0:01:28)
 ```
 
-This result is the last verified baseline before the dissipation sanity cases
-were added to the benchmark runner. The expanded suite should be re-run after
-pulling commit `830831d` or later. Future publication tables should record the
-exact git commit and dependency versions in addition to the test count and wall
-time.
+This result is the last verified complete publication-facing baseline whose
+final pytest summary was recorded. Dissipation sanity cases were subsequently
+added to the benchmark runner, but no later final suite count is claimed here
+until its terminal summary is captured. Future publication tables should record
+the exact git commit and dependency versions in addition to the test count and
+wall time.
 
 ## Validation matrix
 
@@ -73,11 +79,36 @@ an elastic body and non-zero dissipation in the viscoelastic Io model are
 necessary conditions for a physically useful energy implementation, while the
 separate Im(`k`) formula tests the expected heating sign and scaling.
 
+## TASK-046 viscoelastic-lateral energy status
+
+TASK-046 now has a genuine native-MATLAB Gate-C anchor rather than only a
+planned reference. At `Nrbase=50`, MATLAB returns 125 coupled modes for each of
+the three Io eccentricity-tide forcing components and direct-vs-Love energy
+mismatches of about 2.19% for both the uniform and laterally varying models.
+The archived values are in `data/tests/io/io_energy_cross_check.{log,mat}`.
+
+A new Python multibasis energy path has passed its focused bookkeeping tests,
+but the cheap `Nrbase=10` diagnostic exposed two **resolution-independent
+blockers**, so TASK-046 is explicitly **not yet a passing publication-facing
+benchmark**:
+
+1. the already-correct uniform Love solution gives the correct Love-derived
+   energy, while the Python direct stress-strain energy has the wrong magnitude
+   and sign, isolating a direct-energy normalization/assembly defect;
+2. Python currently retains only 29 lateral solution modes per forcing while
+   the MATLAB anchor retains 125, so the two codes are not yet solving the same
+   lateral rheology spectrum/closure.
+
+The failed diagnostic result is intentionally preserved in
+`docs/VALIDATION_WORKFLOW.md` and in
+`docs/tasks/TASK-046-io-viscoelastic-lateral-energy-validation.md`. The full
+`Nrbase=50 --assert-matlab` check should not be run or promoted as validation
+until those two blockers are resolved.
+
 ## Lateral bulk-modulus status: upstream functionality is incomplete
 
-The next planned validation target was lateral bulk-modulus (`K`) heterogeneity.
-Inspection of both implementations shows that this cannot yet be treated as a
-straight parent-code parity benchmark.
+Lateral bulk-modulus (`K`) heterogeneity cannot yet be treated as a straight
+parent-code parity benchmark.
 
 The Python `process_lateral_variations()` API accepts `K_variable`, and the
 coupled propagator has a `K_amp` path in its constitutive coupling matrices.
@@ -99,34 +130,33 @@ reference case. See `docs/LATERAL_K_VALIDATION.md`.
 ## Known gaps before a methods-paper validation claim
 
 This matrix does **not** yet constitute exhaustive validation of every LOV3D
-feature. The remaining high-value additions are:
+feature. The remaining high-value work is:
 
-1. resolve the dormant/broken lateral **bulk modulus** (`K`) path, including its
+1. close TASK-046 in the documented order: uniform direct-energy parity,
+   lateral rheology-spectrum/125-mode parity, lateral complex-Love parity, then
+   multibasis direct-energy parity and the final `Nrbase=50` MATLAB assertion;
+2. resolve the dormant/broken lateral **bulk modulus** (`K`) path, including its
    normalization in the isotropic stress term, then create a non-zero archived
    reference case;
-2. add an archived MATLAB reference for a genuinely **viscoelastic lateral**
-   case, which would exercise complex rheology and spectral coupling
-   simultaneously;
-3. upgrade dissipation from invariant-level checks to a quantitative
-   **MATLAB/internal-consistency energy benchmark**, ideally using the existing
-   Io `Consistency_test_Energy.m` setup;
-4. generate a publication table from machine-readable benchmark output rather
+3. generate a publication table from machine-readable benchmark output rather
    than transcription from pytest prose.
 
-These are feature-coverage gaps, not evidence of failure in the regimes already
-listed above. They should be closed before claiming complete feature parity
+These are feature-coverage gaps or explicitly diagnosed compound-benchmark
+failures, not evidence of failure in the regimes already listed as independently
+validated above. They should be closed before claiming complete feature parity
 with MATLAB LOV3D.
 
 ## Interpretation for publication
 
-A methods paper should distinguish four validation levels:
+A methods paper should distinguish five validation levels:
 
-* **physics invariant / sanity:** necessary sign, scaling, or limiting behavior;
+* **unit / physics invariant:** local algebra, necessary sign, scaling, or limiting behavior;
 * **analytic validation:** a known closed-form limit is recovered;
 * **parent-code parity:** pylov3d reproduces archived MATLAB LOV3D outputs;
-* **independent-code validation:** pylov3d agrees with PyALMA3 where the two
-  implementations overlap.
+* **independent-code validation:** pylov3d agrees with PyALMA3 where the two implementations overlap;
+* **planetary/science validation:** a physically defensible planetary model simultaneously satisfies relevant observables and convergence tests.
 
 That distinction matters because parent-code parity establishes a faithful port,
 but independent-code and analytic agreement are what test the underlying
-physics most strongly.
+physics most strongly. A failed new compound benchmark must remain visible in
+the record without erasing earlier, independently established validation.
