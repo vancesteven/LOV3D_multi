@@ -50,10 +50,10 @@ The upstream script uses `Nbase=[5,10,20,50,100,200,500,1000]`. The Python publi
 
 For both the uniform and laterally varying cases, compare:
 
-1. integrated direct stress-strain dissipation from `pylov3d.energy.get_energy`; and
+1. integrated direct stress-strain dissipation from the full MATLAB-equivalent generalized-spherical-harmonic angular contraction; and
 2. the forcing-work estimate constructed from the imaginary Love spectra using the same forcing normalization as the MATLAB test.
 
-The fractional mismatch must decrease with radial refinement. Do **not** hard-code a tight publication tolerance until the MATLAB normalization and Python normalization have been checked term by term.
+The fractional mismatch must decrease with radial refinement. A plain radial `Im(conj(stress)*strain)` contraction is **not** equivalent to MATLAB `get_energy.m` for the three-component eccentricity forcing, even when the interior is laterally uniform.
 
 ### Gate C — MATLAB numerical anchor
 
@@ -122,17 +122,45 @@ mismatch uni/lat = 100.0801% / 10397631.3687%
 Interpretation:
 
 1. The uniform complex Love response is already essentially identical to the MATLAB anchor, even at low radial resolution.
-2. The uniform Love-derived energy is also essentially identical to MATLAB. Therefore the uniform direct-energy discrepancy is a separate normalization/assembly defect, not a solver or lateral-coupling error.
+2. The uniform Love-derived energy is also essentially identical to MATLAB. Therefore the uniform direct-energy discrepancy is a separate assembly defect, not a solver or lateral-coupling error.
 3. Python retains only 29 lateral solution modes per forcing versus 125 in MATLAB. Because active-mode count is set by the rheology spectrum and perturbation closure rather than radial resolution, this must be resolved before a `Nrbase=50` run can be interpreted as Gate C.
 4. The lateral forcing-mode Love numbers therefore do not yet represent the same 3-D problem as the MATLAB anchor.
-5. The multibasis fix is necessary but not sufficient: the fields being contracted still differ from the parent-code target, and the direct-energy path also needs independent correction.
+5. The multibasis fix is necessary but not sufficient: the fields being contracted still differ from the parent-code target.
+
+### Root cause 1 — uniform direct energy used the wrong contraction
+
+Inspection on 2026-08-18 showed that `pylov3d.energy.get_energy()` is a simplified single-mode radial contraction,
+
+```text
+Im(sum(conj(stress) * strain))
+```
+
+whereas MATLAB `get_energy.m` retains the full generalized-spherical-harmonic angular contraction even for a laterally uniform body under the three eccentricity-tide forcings. MATLAB first forms the union of the forcing `(n,m)` modes, constructs the positive/negative-`m` stress and strain fields, applies the energy-coupling tensor, `2*pi` factors and parity phases, then performs the radial integral.
+
+Therefore the `Nrbase=10` uniform direct-energy failure was primarily a **driver-path error**, not evidence that the validated 1-D solver or stress/strain fields were wrong. Commit `f59ea9f` changes `scripts/io_energy_gate_bc_multibasis.py` so the uniform control is evaluated through `get_energy_coupled_multibasis` using three native one-mode bases: `[(2,0)]`, `[(2,-2)]`, and `[(2,+2)]`.
+
+The simplified `get_energy()` remains useful as a local invariant/sanity utility, but it must not be described as MATLAB-equivalent for a multi-component physical tide.
+
+### Root cause 2 — viscoelastic rheology is spectrally truncated too early
+
+Inspection of MATLAB `get_rheology.m` identified a second independent mismatch. For coefficient-based viscoelastic lateral rheology, MATLAB uses
+
+```text
+l_max_base_value = 30
+```
+
+as the working spatial resolution, evaluates the nonlinear Maxwell complex shear-modulus field on that grid, re-expands it through degrees `0..(2*l_max-1)` (degree 59 for the default), and only then applies `Numerics.rheology_cutoff=2` plus the minimum-amplitude guard.
+
+The Python `process_lateral_variations()` currently instead sets its nonlinear working/analysis ceiling from the maximum degree present in the input `mu_variable`/`eta_variable` coefficients and re-analyses only to roughly twice that input degree. For the Io degree-2 starting pattern this truncates the nonlinear harmonic tail **before** the two-decade rheology cutoff can decide which generated harmonics are significant.
+
+This is the leading explanation for the observed `[29,29,29]` Python solution closures versus MATLAB `[125,125,125]`. The next code change should reproduce MATLAB's degree-30 working resolution and degree-59 re-expansion for coefficient-based viscoelastic layers, followed by the same amplitude filtering. A regression should pin the retained rheology spectrum and the resulting 125-mode closure before any expensive radial convergence run.
 
 ## Current blocker order
 
 Resolve in this order to minimize confounding:
 
-1. **Uniform direct-energy parity.** Reproduce MATLAB `E_direct_uni=2.1668778416` from the already-correct uniform solutions. This isolates stress-strain energy normalization/assembly without lateral complications.
-2. **Lateral rheology-spectrum parity.** Reproduce the MATLAB retained `mu`/`eta` spectrum and the resulting 125-mode forcing closures. Audit spherical-harmonic conventions, filtering/cutoff rules, mean handling, and active-mode construction.
+1. **Re-run uniform direct-energy control after `f59ea9f`.** The uniform calculation now uses the MATLAB-style angular contraction. It should move from the spurious ~100% mismatch toward the MATLAB ~2.19% value.
+2. **Lateral rheology-spectrum parity.** Match MATLAB's degree-30 working grid / degree-59 nonlinear re-expansion and filtering. Pin the retained `muC` spectrum and require 125 solution modes for each Io forcing.
 3. **Lateral forcing-mode Love parity.** Match all three archived complex `k` values before judging the energy contraction.
 4. **Multibasis direct lateral energy.** With the same physical fields and closures as MATLAB, compare the union-field contraction quantitatively.
 5. **Final Gate B/C.** Run `python scripts/io_energy_gate_bc_multibasis.py --nrbase 50 --assert-matlab` and require the declared Love-number and energy tolerances plus <3% direct-vs-Love mismatch.
