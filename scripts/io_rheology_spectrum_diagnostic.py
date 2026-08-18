@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Diagnose TASK-046 Io viscoelastic rheology-spectrum parity.
 
-This script isolates the 29-vs-125 active-mode discrepancy without running the
-radial solver.  It compares the current Python viscoelastic processing with a
-MATLAB-faithful spectral work path:
+This script isolates the active-mode discrepancy without running the radial
+solver. It compares the current Python viscoelastic processing with the
+MATLAB-faithful raw-grid/work-grid path established during TASK-046:
 
-* degree-30 working grid for coefficient-based viscoelastic rheology;
+* degree-30 working grid for viscoelastic rheology;
 * nonlinear Maxwell complex shear modulus evaluated on that grid;
 * re-analysis through degree 59; and
 * real/imaginary amplitude filtering within ``rheology_cutoff`` decades of
   the strongest nonzero component, matching ``get_rheology.m``.
 
-The native MATLAB TASK-046 anchor retains a spectrum whose perturbation-order-2
-closures contain 125 solution modes for each of the three Io eccentricity-tide
-forcing components.
+The authoritative native-MATLAB raw-grid diagnostic retains six rheology
+modes and gives perturbation-order-2 solution closures [43, 41, 41] for the
+three Io eccentricity-tide forcing components. The earlier [125,125,125]
+coefficient-path result is retired because it mixed Python and MATLAB SH
+coefficient conventions before the nonlinear grid transform.
 """
 from __future__ import annotations
 
@@ -44,6 +46,9 @@ from pylov3d.rheology import (
     process_lateral_variations,
 )
 
+TARGET_RETAINED_RHEOLOGY_MODES = 6
+TARGET_ACTIVE_COUNTS = [43, 41, 41]
+
 
 def matlab_work_spectrum(model, mu_variable, eta_variable, cutoff=2.0):
     ilayer = IO_ASTHENOSPHERE_LAYER_INDEX
@@ -67,7 +72,6 @@ def matlab_work_spectrum(model, mu_variable, eta_variable, cutoff=2.0):
     cmu_field = mu_i * mu_field / (1.0 - 1j / (maxwell_field * maxwell_mean))
     cmu_sh = _sh_analysis(cmu_field, theta, phi, weights, analysis_lmax)
 
-    # scipy's orthonormal c00 is sqrt(4pi) times the spatial mean.
     y00 = 1.0 / np.sqrt(4.0 * np.pi)
     mu00 = cmu_sh[(0, 0)] * y00
 
@@ -75,8 +79,6 @@ def matlab_work_spectrum(model, mu_variable, eta_variable, cutoff=2.0):
     for (n, m), amp in cmu_sh.items():
         if n == 0:
             continue
-        # MATLAB thresholds real and imaginary spectra independently relative
-        # to their respective mean components, then takes the union.
         rr = abs(amp.real * y00 / max(abs(mu00.real), np.finfo(float).tiny))
         ii = abs(amp.imag * y00 / max(abs(mu00.imag), np.finfo(float).tiny))
         lr = np.log10(max(rr, np.finfo(float).tiny))
@@ -84,10 +86,27 @@ def matlab_work_spectrum(model, mu_variable, eta_variable, cutoff=2.0):
         rows.append((n, m, amp, lr, li))
 
     max_log = max(max(r[3], r[4]) for r in rows)
-    kept = [(n, m, amp, lr, li) for n, m, amp, lr, li in rows
-            if (lr - max_log >= -cutoff) or (li - max_log >= -cutoff)]
+    kept = [
+        (n, m, amp, lr, li)
+        for n, m, amp, lr, li in rows
+        if (lr - max_log >= -cutoff) or (li - max_log >= -cutoff)
+    ]
     variations = np.asarray(sorted((n, m) for n, m, *_ in kept), dtype=int)
     return mu00, kept, variations
+
+
+def closure_counts(variations, forcings, perturbation_order):
+    return [
+        len(
+            get_couplings(
+                variations,
+                f.n,
+                f.m,
+                perturbation_order=perturbation_order,
+            ).n_s
+        )
+        for f in forcings
+    ]
 
 
 def main():
@@ -98,7 +117,6 @@ def main():
     model = get_rheology(model, forcings)
     mu_variable, eta_variable, _ = io_mu_eta_variable()
 
-    # Current Python path.
     _, lateral_current = process_lateral_variations(
         model,
         forcings,
@@ -106,24 +124,16 @@ def main():
         eta_variable=eta_variable,
         rheology_cutoff=numerics.rheology_cutoff,
     )
-    current_counts = [
-        len(get_couplings(
-            lateral_current.variations, f.n, f.m,
-            perturbation_order=numerics.perturbation_order,
-        ).n_s)
-        for f in forcings
-    ]
+    current_counts = closure_counts(
+        lateral_current.variations, forcings, numerics.perturbation_order
+    )
 
     mu00, kept, variations = matlab_work_spectrum(
-        model, mu_variable, eta_variable, cutoff=numerics.rheology_cutoff,
+        model, mu_variable, eta_variable, cutoff=numerics.rheology_cutoff
     )
-    parity_counts = [
-        len(get_couplings(
-            variations, f.n, f.m,
-            perturbation_order=numerics.perturbation_order,
-        ).n_s)
-        for f in forcings
-    ]
+    parity_counts = closure_counts(
+        variations, forcings, numerics.perturbation_order
+    )
 
     print("TASK-046 Io rheology-spectrum diagnostic")
     print(f"current Python retained rheology modes: {len(lateral_current.variations)}")
@@ -138,13 +148,23 @@ def main():
             f"  ({n:2d},{m:+3d})  muC={amp.real:+.6e}{amp.imag:+.6e}i  "
             f"logR={lr:+.3f} logI={li:+.3f}"
         )
-    print("native MATLAB target active solution counts: [125, 125, 125]")
+    print(
+        "native MATLAB raw-grid target: "
+        f"{TARGET_RETAINED_RHEOLOGY_MODES} rheology modes, "
+        f"active counts {TARGET_ACTIVE_COUNTS}"
+    )
 
-    if parity_counts == [125, 125, 125]:
-        print("spectrum/closure hypothesis: CONFIRMED")
-        return 0
-    print("spectrum/closure hypothesis: NOT YET CONFIRMED")
-    return 2
+    reference_ok = (
+        len(variations) == TARGET_RETAINED_RHEOLOGY_MODES
+        and parity_counts == TARGET_ACTIVE_COUNTS
+    )
+    current_ok = (
+        len(lateral_current.variations) == TARGET_RETAINED_RHEOLOGY_MODES
+        and current_counts == TARGET_ACTIVE_COUNTS
+    )
+    print(f"MATLAB-work/raw-grid reference reproduction: {'PASS' if reference_ok else 'FAIL'}")
+    print(f"general Python processor parity: {'PASS' if current_ok else 'OPEN'}")
+    return 0 if (reference_ok and current_ok) else 2
 
 
 if __name__ == "__main__":
