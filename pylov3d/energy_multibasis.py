@@ -4,26 +4,22 @@
 """Coupled tidal-energy contraction for forcings with different mode bases.
 
 TASK-046 showed that each forcing component in a laterally heterogeneous
-problem must retain its own perturbation-order closure.  Solving all forcings
+problem must retain its own perturbation-order closure. Solving all forcings
 on the closure generated from a single forcing can truncate legitimate modes
 and corrupt the quadratic energy contraction.
 
 This module preserves each forcing's native coupled solution basis, computes
-stress/strain on that native basis, maps the resulting *fields* into the union
-of all (n,m) modes, and only then performs the quadratic energy contraction.
-That is equivalent to summing the physical fields before evaluating the
-energy, while avoiding an oversized solve basis that could introduce coupling
-paths beyond the requested perturbation order.
+stress/strain on that native basis, maps the resulting physical fields into
+the union of all (n,m) modes, and only then performs the quadratic energy
+contraction. The solve basis is never enlarged.
 """
-
 from __future__ import annotations
 
 import math
-
 import numpy as np
 
-from .energy import compute_stress_strain_coupled
 from .energy_couplings import get_energy_couplings
+from .energy_fields import recover_coupled_fields
 from .types import EnergySpectra, Forcing, InteriorModel, NumericsConfig
 
 
@@ -35,20 +31,24 @@ def get_energy_coupled_multibasis(
     n_s_list: list[np.ndarray],
     m_s_list: list[np.ndarray],
     Nenergy: int = 8,
+    *,
+    couplings_list: list | None = None,
+    lateral=None,
 ) -> EnergySpectra:
     """Compute coupled dissipation from forcing solutions on distinct bases.
 
-    Parameters are the same as :func:`pylov3d.energy.get_energy_coupled`,
-    except ``n_s_list`` and ``m_s_list`` provide one native mode basis per
-    forcing.  All solutions must share the same radial grid.
+    ``couplings_list`` and ``lateral`` should be supplied for a laterally
+    heterogeneous solve so stress recovery includes the same off-diagonal
+    constitutive terms used by the forward propagator. They are unnecessary
+    for one-mode uniform solutions.
     """
     n_forcing = len(forcings)
-    if not (
-        len(y_solutions) == len(n_s_list) == len(m_s_list) == n_forcing
-    ):
+    if not (len(y_solutions) == len(n_s_list) == len(m_s_list) == n_forcing):
         raise ValueError("one solution and one mode basis are required per forcing")
     if n_forcing == 0:
         raise ValueError("at least one forcing is required")
+    if couplings_list is not None and len(couplings_list) != n_forcing:
+        raise ValueError("couplings_list must contain one entry per forcing")
 
     r_grid = np.asarray(y_solutions[0][1])
     nr = numerics.Nr
@@ -82,8 +82,16 @@ def get_energy_coupled_multibasis(
         if y_sol.shape[1] != 8 * len(ns):
             raise ValueError("solution width does not match its native mode basis")
 
-        _, stress_flat, strain_flat = compute_stress_strain_coupled(
-            y_sol, np.asarray(r_j), aprop_j, model, ns, numerics,
+        couplings = None if couplings_list is None else couplings_list[j]
+        _, stress_flat, strain_flat = recover_coupled_fields(
+            y_sol,
+            np.asarray(r_j),
+            aprop_j,
+            model,
+            ns,
+            numerics,
+            couplings=couplings,
+            lateral=lateral,
         )
         stress_native = stress_flat.reshape(nr + 1, len(ns), 6).transpose(0, 2, 1)
         strain_native = strain_flat.reshape(nr + 1, len(ns), 6).transpose(0, 2, 1)
@@ -93,7 +101,7 @@ def get_energy_coupled_multibasis(
             stress_union[:, :, u] += float(forcing.F) * stress_native[:, :, k]
             strain_union[:, :, u] += float(forcing.F) * strain_native[:, :, k]
 
-    # Match get_energy_coupled's MATLAB component ordering.
+    # Match MATLAB get_energy component ordering.
     reorder = [1, 2, 3, 4, 5, 0]
     stress_p = stress_union[:, reorder, :]
     strain_p = strain_union[:, reorder, :]
