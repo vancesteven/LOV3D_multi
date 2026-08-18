@@ -101,13 +101,17 @@ Numerics.method = 'combination';
 Numerics.Nrbase = 50;
 Numerics.perturbation_order = 2;
 Numerics.solution_cutoff = 12;
-Numerics.load_couplings = 0;
+% get_Love defines Couplings only when lateral rheology is present and
+% load_couplings is 1 or 2.  Use the original consistency-test path (1):
+% load a matching file if present, otherwise compute and cache it.
+Numerics.load_couplings = 1;
 Numerics.Nenergy = 12;
 Numerics.rheology_cutoff = 2;
 Numerics.minimum_rheology_value = -13;
 Numerics.parallel_sol = 0;
 Numerics.parallel_gen = 0;
 Numerics.coupling_file_location = [fullfile(repo_root,'data','couplings') filesep];
+if ~isfolder(Numerics.coupling_file_location), mkdir(Numerics.coupling_file_location); end
 [Numerics, Interior_Model] = set_boundary_indices(Numerics, Interior_Model);
 
 omega0 = 4.1086E-05;
