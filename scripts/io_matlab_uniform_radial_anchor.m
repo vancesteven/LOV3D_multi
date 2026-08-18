@@ -77,19 +77,26 @@ Forcing(3).Td = 2*pi/omega0; Forcing(3).n = 2; Forcing(3).m = 2;  Forcing(3).F =
 
 IM = get_rheology(Interior_Model,Numerics,Forcing);
 
-Love = repmat(struct(),1,length(Forcing));
-y = repmat(struct(),1,length(Forcing));
+% Use cell arrays here. get_Love may return structs with fields populated in a
+% forcing-dependent order/shape, and assigning those into a preallocated struct
+% array can trigger "Subscripted assignment between dissimilar structures".
+% Cells preserve each returned struct exactly and are converted back to a struct
+% array only where get_energy requires one.
+Love = cell(1,length(Forcing));
+y = cell(1,length(Forcing));
 for j=1:length(Forcing)
-    [Love(j),y(j)] = get_Love(IM,Forcing(j),Numerics);
+    [Love{j},y{j}] = get_Love(IM,Forcing(j),Numerics);
 end
-Energy = get_energy(y,Numerics,Forcing,IM);
+
+y_struct = [y{:}];
+Energy = get_energy(y_struct,Numerics,Forcing,IM);
 
 % Uniform response has one solution mode per forcing. Keep complete 24-column
 % get_solution output so Python can compare state, GSH displacement, stress,
 % and strain without reconstructing MATLAB internals.
-y_m0  = squeeze(y(1).y(:,:,1));
-y_mm2 = squeeze(y(2).y(:,:,1));
-y_mp2 = squeeze(y(3).y(:,:,1));
+y_m0  = squeeze(y{1}.y(:,:,1));
+y_mm2 = squeeze(y{2}.y(:,:,1));
+y_mp2 = squeeze(y{3}.y(:,:,1));
 r = y_m0(:,1);
 energy_n = Energy.n;
 energy_m = Energy.m;
@@ -104,8 +111,9 @@ lambda = arrayfun(@(x) x.lambda, IM);
 % Forcing-mode k values, explicitly archived as a quick identity check.
 k_forcing = zeros(1,length(Forcing));
 for j=1:length(Forcing)
-    idx = find(Love(j).n==Forcing(j).n & Love(j).m==Forcing(j).m,1);
-    k_forcing(j) = Love(j).k(idx);
+    Lj = Love{j};
+    idx = find(Lj.n==Forcing(j).n & Lj.m==Forcing(j).m,1);
+    k_forcing(j) = Lj.k(idx);
 end
 
 out_path = fullfile(out_dir,'io_uniform_radial_anchor.mat');
