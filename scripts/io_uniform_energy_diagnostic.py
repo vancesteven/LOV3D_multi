@@ -3,12 +3,16 @@
 
 The uniform Love solution is already validated against the MATLAB Gate-C
 anchor, so this script isolates only the post-solve stress/strain and energy
-reconstruction. It reports the radial contribution to the monopole energy,
-then repeats the contraction after imposing MATLAB get_solution.m's endpoint
+reconstruction. It reports the radial contribution to the monopole energy and
+repeats the contraction after imposing MATLAB get_solution.m's endpoint
 convention: the outermost u_dot/stress/strain row is left zero.
+
+Use ``--nrbase`` to build a radial-convergence ladder without changing any
+other physics or sign conventions.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -85,9 +89,13 @@ def contract_uniform(results, forcings, model, numerics, zero_surface=False):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nrbase", type=int, default=10)
+    args = parser.parse_args()
+
     raw = build_io_model()
     forcings = build_io_forcings()
-    numerics = io_default_numerics(10)
+    numerics = io_default_numerics(args.nrbase)
     numerics, model = set_boundary_indices(numerics, raw)
     model = get_rheology(model, forcings)
     results = []
@@ -98,11 +106,14 @@ def main():
     e_full, prof, shell, r = contract_uniform(results, forcings, model, numerics, False)
     e_zero, _, shell_zero, _ = contract_uniform(results, forcings, model, numerics, True)
 
-    print("TASK-046 uniform energy diagnostic, Nrbase=10")
+    matlab_target = 2.1668778416
+    print(f"TASK-046 uniform energy diagnostic, Nrbase={args.nrbase}")
     print(f"r range: {r[0]:.8f} .. {r[-1]:.8f}")
     print(f"direct E, solver-consistent endpoint handling: {e_full:.12e}")
     print(f"direct E, MATLAB zero-surface convention: {e_zero:.12e}")
-    print("MATLAB coefficient-path target at Nrbase=50: 2.1668778416e+00")
+    print(f"|E_direct|: {abs(e_full):.12e}")
+    print(f"MATLAB coefficient-path target at Nrbase=50: {matlab_target:.12e}")
+    print(f"magnitude relerr vs coefficient-path target: {abs(abs(e_full)-matlab_target)/matlab_target:.6%}")
     order = np.argsort(np.abs(shell))[::-1][:10]
     print("largest |radial shell contributions| (solver-consistent):")
     for k in order:
