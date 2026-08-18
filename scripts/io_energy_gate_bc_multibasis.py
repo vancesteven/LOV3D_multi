@@ -25,7 +25,6 @@ for the MATLAB quantitative anchor; coupling construction can be expensive.
 from __future__ import annotations
 
 import argparse
-import math
 import sys
 import time
 from pathlib import Path
@@ -138,7 +137,7 @@ def main() -> int:
     raw_model = build_io_model()
     forcings = build_io_forcings()
     numerics = io_default_numerics(args.nrbase)
-    mu_variable, eta_variable = io_mu_eta_variable()
+    mu_variable, eta_variable, _diagnostics = io_mu_eta_variable()
 
     model_u, num_u, uniform = solve_uniform(raw_model, forcings, numerics)
     model_l, num_l, _lat, couplings, lateral = solve_lateral_native(
@@ -149,14 +148,12 @@ def main() -> int:
     k_l = [forcing_mode_k(r[3], f) for r, f in zip(lateral, forcings)]
     mode_counts = [len(c.n_s) for c in couplings]
 
-    # Uniform direct energy: independent angular modes, weighted by F^2.
     e_direct_u_raw = 0.0
     for forcing, (y, r, aprop, _love) in zip(forcings, uniform):
         e = get_energy(y, r, aprop, model_u, forcing, num_u)
         e_direct_u_raw += float(forcing.F) ** 2 * float(e.energy_integral[0])
     e_direct_u = -e_direct_u_raw
 
-    # Lateral direct energy: preserve native solve bases, union only physical fields.
     y_solutions = [(r[0], r[1], r[2]) for r in lateral]
     e_lat = get_energy_coupled_multibasis(
         y_solutions,
@@ -177,8 +174,6 @@ def main() -> int:
     ek_u = love_energy_estimate(love_u, forcings)
     ek_l = love_energy_estimate(love_l, forcings)
 
-    # Use the literal normalization in upstream Consistency_test_Energy.m:
-    # 2*pi*10/(4*pi*Gg) = 5/Gg.
     matlab_prefactor = 5.0 / float(model_u.Gg)
     e_love_u = matlab_prefactor * ek_u
     e_love_l = matlab_prefactor * ek_l
@@ -196,7 +191,7 @@ def main() -> int:
 
     if args.nrbase == 50:
         print("\nMATLAB Gate C anchor comparison:")
-        for i, (f, ku, kl) in enumerate(zip(forcings, k_u, k_l)):
+        for f, ku, kl in zip(forcings, k_u, k_l):
             k_lat_ref = MATLAB["k_lat_m0"] if f.m == 0 else MATLAB["k_lat_m2"]
             print(
                 f"  m={f.m:+d}: relerr k_uni={relerr(ku, MATLAB['k_uni']):.3e}, "
@@ -214,9 +209,6 @@ def main() -> int:
         )
 
         if args.assert_matlab:
-            # Love numbers should be extremely tight.  Energy is a radial
-            # quadrature benchmark, so allow 0.5% relative to the archived
-            # MATLAB values while requiring the internal mismatch to be <3%.
             assert all(relerr(x, MATLAB["k_uni"]) < 1e-7 for x in k_u)
             for f, x in zip(forcings, k_l):
                 ref = MATLAB["k_lat_m0"] if f.m == 0 else MATLAB["k_lat_m2"]
