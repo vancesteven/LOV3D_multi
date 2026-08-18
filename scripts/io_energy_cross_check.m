@@ -193,20 +193,33 @@ IM_uni(3).mu_variable  = [];
 IM_uni(3).eta_variable = [];
 IM_uni = get_rheology(IM_uni, Numerics, Forcing);
 
-Love_Uni = repmat(struct(), 1, length(Forcing));
-y_Uni = repmat(struct(), 1, length(Forcing));
+% NOTE (B, TASK-046 Gate C): get_Love's Love struct's field set is NOT
+% guaranteed identical across different forcings (mode counts/order
+% structure differ per (n,m) -- confirmed empirically: forcing 1 (2,0)
+% assigns fine, forcing 2 (2,-2) throws "Subscripted assignment between
+% dissimilar structures" on Love alone, whereas get_Love's y struct has
+% an identical field set -- y,nf,mf,n,m -- across all three forcings,
+% verified directly). get_energy requires its y argument to be a genuine
+% struct array (it dot-indexes y(i).n internally), so Love is collected
+% into a cell array (never concatenated) while y is collected into a
+% cell then horzcat'd into a real struct array. Every downstream
+% Love_Uni/Love_Lat index below is {i}/{j}; y_Uni/y_Lat keep plain (i)/(j).
+Love_Uni = cell(1, length(Forcing));
+y_Uni_cell = cell(1, length(Forcing));
 for i = 1:length(Forcing)
-    [Love_Uni(i), y_Uni(i)] = get_Love(IM_uni, Forcing(i), Numerics, 'verbose');
+    [Love_Uni{i}, y_Uni_cell{i}] = get_Love(IM_uni, Forcing(i), Numerics, 'verbose');
 end
+y_Uni = [y_Uni_cell{:}];
 
 %% --- lateral (coupled) solve, all three forcings ---------------------------
 IM_lat = get_rheology(Interior_Model, Numerics, Forcing);
 
-Love_Lat = repmat(struct(), 1, length(Forcing));
-y_Lat = repmat(struct(), 1, length(Forcing));
+Love_Lat = cell(1, length(Forcing));
+y_Lat_cell = cell(1, length(Forcing));
 for i = 1:length(Forcing)
-    [Love_Lat(i), y_Lat(i)] = get_Love(IM_lat, Forcing(i), Numerics, 'verbose');
+    [Love_Lat{i}, y_Lat_cell{i}] = get_Love(IM_lat, Forcing(i), Numerics, 'verbose');
 end
+y_Lat = [y_Lat_cell{:}];
 
 %% --- direct integrated energy (get_energy.m general multi-forcing form) ---
 [Energy_Uni] = get_energy(y_Uni, Numerics, Forcing, IM_uni, 'verbose', 1, 'calc_E_contribution', 0);
@@ -223,13 +236,13 @@ for i = 1:length(Forcing)
     n_f = Forcing(i).n;
     m_f = Forcing(i).m;
     for j = 1:length(Forcing)
-        ind1 = find(Love_Uni(j).n == n_f & Love_Uni(j).m == m_f);
-        ind2 = find(Love_Lat(j).n == n_f & Love_Lat(j).m == m_f);
+        ind1 = find(Love_Uni{j}.n == n_f & Love_Uni{j}.m == m_f);
+        ind2 = find(Love_Lat{j}.n == n_f & Love_Lat{j}.m == m_f);
         if ~isempty(ind1)
-            E_k_uni = E_k_uni - Forcing(i).F*Forcing(j).F*imag(Love_Uni(j).k(ind1));
+            E_k_uni = E_k_uni - Forcing(i).F*Forcing(j).F*imag(Love_Uni{j}.k(ind1));
         end
         if ~isempty(ind2)
-            E_k_lat = E_k_lat - Forcing(i).F*Forcing(j).F*imag(Love_Lat(j).k(ind2));
+            E_k_lat = E_k_lat - Forcing(i).F*Forcing(j).F*imag(Love_Lat{j}.k(ind2));
         end
     end
 end
@@ -245,14 +258,14 @@ e_love_lat_matlab_norm = 2*pi*10/(4*pi*IM_lat(end).Gg) * E_k_lat;
 logp('\n------------------------------------------------------------------------\n');
 logp('  Forcing-mode complex k (all three forcings, uniform then lateral):\n');
 for i = 1:length(Forcing)
-    idx_u = find(Love_Uni(i).n == Forcing(i).n & Love_Uni(i).m == Forcing(i).m, 1);
-    idx_l = find(Love_Lat(i).n == Forcing(i).n & Love_Lat(i).m == Forcing(i).m, 1);
+    idx_u = find(Love_Uni{i}.n == Forcing(i).n & Love_Uni{i}.m == Forcing(i).m, 1);
+    idx_l = find(Love_Lat{i}.n == Forcing(i).n & Love_Lat{i}.m == Forcing(i).m, 1);
     logp('    forcing %d (n=%d,m=%+d): k_uni=%+.10f%+.10fi   k_lat=%+.10f%+.10fi\n', ...
         i, Forcing(i).n, Forcing(i).m, ...
-        real(Love_Uni(i).k(idx_u)), imag(Love_Uni(i).k(idx_u)), ...
-        real(Love_Lat(i).k(idx_l)), imag(Love_Lat(i).k(idx_l)));
+        real(Love_Uni{i}.k(idx_u)), imag(Love_Uni{i}.k(idx_u)), ...
+        real(Love_Lat{i}.k(idx_l)), imag(Love_Lat{i}.k(idx_l)));
 end
-logp('\n  N coupled modes (lateral, per forcing): %s\n', mat2str(arrayfun(@(s) length(s.n), Love_Lat)));
+logp('\n  N coupled modes (lateral, per forcing): %s\n', mat2str(cellfun(@(s) length(s.n), Love_Lat)));
 logp('  Direct energy (uniform, lateral): %.10e   %.10e\n', e_direct_uni, e_direct_lat);
 logp('  E_k raw double-sum (uniform, lateral): %.10e   %.10e\n', E_k_uni, E_k_lat);
 logp('  Love-derived energy, MATLAB x10/Gg norm (uniform, lateral): %.10e   %.10e\n', ...
@@ -265,15 +278,15 @@ fprintf('  saved log: %s\n', log_path);
 %% --- selected first-/second-order coupled complex k coefficients ----------
 % "First-order" here means a coupled mode reached by a single lateral-
 % variation step from the forcing mode; "second-order" means two steps.
-% Reported for the (2,0) forcing's own coupled spectrum (Love_Lat(1)),
+% Reported for the (2,0) forcing's own coupled spectrum (Love_Lat{1}),
 % which is built from Numerics.perturbation_order = 2 -- i.e. it already
 % contains both orders together; this block just lists every non-forcing
 % mode present (no separate order bookkeeping is exposed by get_Love, so
 % "selected" here means "all coupled modes other than the forcing mode
 % itself", sorted by |k|).
-n_s = Love_Lat(1).n(:);
-m_s = Love_Lat(1).m(:);
-k_s = Love_Lat(1).k(:);
+n_s = Love_Lat{1}.n(:);
+m_s = Love_Lat{1}.m(:);
+k_s = Love_Lat{1}.k(:);
 is_forcing_mode = (n_s == Forcing(1).n) & (m_s == Forcing(1).m);
 [~, ord] = sort(abs(k_s), 'descend');
 nshow = min(20, length(ord));
@@ -288,9 +301,9 @@ io_energy.Nenergy = Numerics.Nenergy;
 io_energy.forcing_n = arrayfun(@(f) f.n, Forcing);
 io_energy.forcing_m = arrayfun(@(f) f.m, Forcing);
 io_energy.forcing_F = arrayfun(@(f) f.F, Forcing);
-io_energy.k_uni_forcing = arrayfun(@(i) Love_Uni(i).k(find(Love_Uni(i).n==Forcing(i).n & Love_Uni(i).m==Forcing(i).m,1)), 1:length(Forcing));
-io_energy.k_lat_forcing = arrayfun(@(i) Love_Lat(i).k(find(Love_Lat(i).n==Forcing(i).n & Love_Lat(i).m==Forcing(i).m,1)), 1:length(Forcing));
-io_energy.N_coupled_modes = arrayfun(@(s) length(s.n), Love_Lat);
+io_energy.k_uni_forcing = arrayfun(@(i) Love_Uni{i}.k(find(Love_Uni{i}.n==Forcing(i).n & Love_Uni{i}.m==Forcing(i).m,1)), 1:length(Forcing));
+io_energy.k_lat_forcing = arrayfun(@(i) Love_Lat{i}.k(find(Love_Lat{i}.n==Forcing(i).n & Love_Lat{i}.m==Forcing(i).m,1)), 1:length(Forcing));
+io_energy.N_coupled_modes = cellfun(@(s) length(s.n), Love_Lat);
 io_energy.n_s_forcing1 = n_s;
 io_energy.m_s_forcing1 = m_s;
 io_energy.k_s_forcing1 = k_s;

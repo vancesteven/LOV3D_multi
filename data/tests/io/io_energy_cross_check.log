@@ -1,0 +1,25 @@
+
+============ IO LATERAL VISCOELASTIC ENERGY CROSS-CHECK (MATLAB LOV3D) ============
+  TASK-046 Gate C anchor: pylov3d.io_lateral / scripts/io_energy_consistency.py
+  MATLAB version: 25.2.0.3150157 (R2025b) Update 4
+  Nrbase=50  perturbation_order=2  method=combination  Nlayers=4  Nenergy=12
+  DEBUG y_Uni_cell{1} fields: y,nf,mf,n,m
+  DEBUG y_Uni_cell{2} fields: y,nf,mf,n,m
+  DEBUG y_Uni_cell{3} fields: y,nf,mf,n,m
+  DEBUG y_Lat_cell{1} fields: y,nf,mf,n,m
+  DEBUG y_Lat_cell{2} fields: y,nf,mf,n,m
+  DEBUG y_Lat_cell{3} fields: y,nf,mf,n,m
+
+------------------------------------------------------------------------
+  Forcing-mode complex k (all three forcings, uniform then lateral):
+    forcing 1 (n=2,m=+0): k_uni=+0.7337217069-0.0151236751i   k_lat=+0.7325399703-0.0153355564i
+    forcing 2 (n=2,m=-2): k_uni=+0.7337217069-0.0151236751i   k_lat=+0.7381214321-0.0198692819i
+    forcing 3 (n=2,m=+2): k_uni=+0.7337217069-0.0151236751i   k_lat=+0.7381214321-0.0198692819i
+
+  N coupled modes (lateral, per forcing): [125 125 125]
+  Direct energy (uniform, lateral): 2.1668778416e+00   2.8404609804e+00
+  E_k raw double-sum (uniform, lateral): 1.5879858903e-02   2.0815065342e-02
+  Love-derived energy, MATLAB x10/Gg norm (uniform, lateral): 2.2144024348e+00   2.9026033327e+00
+  Gg (uniform model, surface layer): 3.5855855858e-02
+========================================================================
+
