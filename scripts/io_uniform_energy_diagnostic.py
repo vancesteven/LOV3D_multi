@@ -9,7 +9,13 @@ convention: the outermost u_dot/stress/strain row is left zero.
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 from pylov3d.energy import compute_stress_strain_coupled
 from pylov3d.energy_couplings import get_energy_couplings
@@ -20,7 +26,6 @@ from pylov3d.solver import get_solution
 
 
 def contract_uniform(results, forcings, model, numerics, zero_surface=False):
-    # Union modes are exactly the three physical forcing harmonics.
     modes = sorted((f.n, f.m) for f in forcings)
     n_s = np.asarray([x[0] for x in modes], dtype=int)
     m_s = np.asarray([x[1] for x in modes], dtype=int)
