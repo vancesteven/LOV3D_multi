@@ -8,6 +8,14 @@ The coupled solver stores state by field blocks,
 For laterally heterogeneous layers, stress recovery must also use the same
 coupled A1/A2 constitutive matrices used by the propagator, including the
 off-diagonal rheology terms.
+
+Important convention
+--------------------
+``pylov3d.propagator`` deliberately uses the matrices returned by
+``build_A1_A2`` as ``A2`` for the radial-derivative contribution and ``A1``
+for the angular ``u/r`` contribution.  Field recovery must follow that same
+convention; otherwise a solution that is correct at the Love-number level can
+produce a catastrophically mis-scaled post-solve stress field.
 """
 from __future__ import annotations
 
@@ -109,12 +117,15 @@ def recover_coupled_fields(
         x_dot = Aprop_aux[kr] @ y_sol[kr]
         u_dot[kr] = A3_inv @ x_dot
 
-        # Literal MATLAB get_solution.m auxiliary-field convention.
+        # Match the *Python forward propagator* convention exactly:
+        #   derivative term -> A2
+        #   angular u/r term -> A1
+        # Strain uses the independently defined A14/A15 pair.
         if r > 0:
-            stress[kr] = A1_cache[ilayer] @ u_dot[kr] + A2_cache[ilayer] @ u[kr] / r
+            stress[kr] = A2_cache[ilayer] @ u_dot[kr] + A1_cache[ilayer] @ u[kr] / r
             strain[kr] = A14 @ u_dot[kr] + A15 @ u[kr] / r
         else:
-            stress[kr] = A1_cache[ilayer] @ u_dot[kr]
+            stress[kr] = A2_cache[ilayer] @ u_dot[kr]
             strain[kr] = A14 @ u_dot[kr]
 
     return u, stress, strain
