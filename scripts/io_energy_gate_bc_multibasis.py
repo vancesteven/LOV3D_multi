@@ -2,11 +2,17 @@
 """TASK-046 Gate B/C cross-check using each forcing's native coupling basis.
 
 This is the quantitative follow-up to the MATLAB anchor committed in
-``data/tests/io/io_energy_cross_check.{log,mat}``.  The old Python driver
-incorrectly reused the (2,0) coupling closure for the (2,-2) and (2,+2)
-forcings.  Here each forcing is solved on the closure generated from its own
-(n,m), and the resulting stress/strain fields are combined only at the energy
-contraction stage with ``get_energy_coupled_multibasis``.
+``data/tests/io/io_energy_cross_check.{log,mat}``.  Each forcing is solved on
+the closure generated from its own (n,m), and the resulting stress/strain
+fields are combined only at the energy-contraction stage with
+``get_energy_coupled_multibasis``.
+
+The same multibasis angular contraction is used for the uniform control.  This
+is important: MATLAB ``get_energy.m`` does not reduce the uniform multi-forcing
+case to a simple radial Im(conj(stress)*strain) sum.  It still forms the union
+of forcing (n,m) modes, constructs the +/-m stress and strain fields, applies
+the generalized-spherical-harmonic energy coupling coefficients and phase
+factors, and only then performs radial integration.
 
 The archived MATLAB reference at Nrbase=50 is:
 
@@ -35,7 +41,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from pylov3d.couplings import get_couplings
-from pylov3d.energy import get_energy
 from pylov3d.energy_multibasis import get_energy_coupled_multibasis
 from pylov3d.grid import set_boundary_indices
 from pylov3d.io_lateral import (
@@ -77,6 +82,33 @@ def forcing_mode_k(love, forcing) -> complex:
     if not len(idx):
         raise RuntimeError(f"forcing mode ({forcing.n},{forcing.m}) missing from Love spectrum")
     return complex(love.k[idx[0]])
+
+
+def monopole_direct_energy(
+    results,
+    forcings,
+    model,
+    numerics,
+    n_s_list,
+    m_s_list,
+) -> float:
+    """Return -E_00 from the MATLAB-style GSH energy contraction."""
+    y_solutions = [(r[0], r[1], r[2]) for r in results]
+    energy = get_energy_coupled_multibasis(
+        y_solutions,
+        forcings,
+        model,
+        numerics,
+        n_s_list,
+        m_s_list,
+        Nenergy=numerics.Nenergy,
+    )
+    zero = np.where(
+        (np.asarray(energy.n) == 0) & (np.asarray(energy.m) == 0)
+    )[0]
+    if not len(zero):
+        raise RuntimeError("monopole energy term (0,0) missing")
+    return -float(energy.energy_integral[zero[0]])
 
 
 def solve_uniform(raw_model, forcings, numerics):
@@ -148,26 +180,23 @@ def main() -> int:
     k_l = [forcing_mode_k(r[3], f) for r, f in zip(lateral, forcings)]
     mode_counts = [len(c.n_s) for c in couplings]
 
-    e_direct_u_raw = 0.0
-    for forcing, (y, r, aprop, _love) in zip(forcings, uniform):
-        e = get_energy(y, r, aprop, model_u, forcing, num_u)
-        e_direct_u_raw += float(forcing.F) ** 2 * float(e.energy_integral[0])
-    e_direct_u = -e_direct_u_raw
+    # Uniform MATLAB get_energy still performs the full angular/GSH contraction
+    # across the three physical forcing modes.  Each uniform solve has a native
+    # one-mode basis, so preserve those three bases and combine only here.
+    uniform_n_s = [np.asarray([f.n], dtype=int) for f in forcings]
+    uniform_m_s = [np.asarray([f.m], dtype=int) for f in forcings]
+    e_direct_u = monopole_direct_energy(
+        uniform, forcings, model_u, num_u, uniform_n_s, uniform_m_s,
+    )
 
-    y_solutions = [(r[0], r[1], r[2]) for r in lateral]
-    e_lat = get_energy_coupled_multibasis(
-        y_solutions,
+    e_direct_l = monopole_direct_energy(
+        lateral,
         forcings,
         model_l,
         num_l,
         [c.n_s for c in couplings],
         [c.m_s for c in couplings],
-        Nenergy=num_l.Nenergy,
     )
-    zero = np.where((np.asarray(e_lat.n) == 0) & (np.asarray(e_lat.m) == 0))[0]
-    if not len(zero):
-        raise RuntimeError("monopole energy term (0,0) missing")
-    e_direct_l = -float(e_lat.energy_integral[zero[0]])
 
     love_u = [r[3] for r in uniform]
     love_l = [r[3] for r in lateral]
