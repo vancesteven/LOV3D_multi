@@ -113,7 +113,7 @@ Interpretation:
 1. This resolves the catastrophic direct-energy scale error: the magnitude is now O(1), consistent with the independently validated Love-derived dissipation.
 2. The zero-surface convention changes the result by only ~0.23%, so the surface endpoint is not the source of the discrepancy.
 3. The remaining sign reversal must not be flipped ad hoc; first compare pointwise fields with MATLAB.
-4. `pytest -q pylov3d/tests/test_energy_multibasis.py` passes: `2 passed in 0.73 s`.
+4. `pytest -q pylov3d/tests/test_energy_multibasis.py` passes.
 
 ## Uniform radial-convergence diagnostic
 
@@ -134,7 +134,7 @@ Interpretation:
 - the discrepancy does **not** converge away with radial refinement;
 - the outer-surface endpoint remains negligible at each resolution;
 - because the uniform complex Love number remains essentially exact, the remaining mismatch is isolated to the post-solve radial auxiliary fields or their energy contraction;
-- a scalar integrated comparison is no longer sufficient for diagnosis. The next step is point-by-point MATLAB/Python comparison of `U,V,W,R,S,T,Phi,dPhi`, GSH `u`, stress, and strain at `Nrbase=50`.
+- a scalar integrated comparison is no longer sufficient for diagnosis.
 
 ## Rheology-spectrum diagnostic
 
@@ -177,26 +177,50 @@ Interpretation:
 1. **`[43,41,41]` is the authoritative closure for the intended Io physical field.** MATLAB raw-grid and the Python MATLAB-work-grid diagnostic agree exactly in active-mode count.
 2. The previous `[125,125,125]` coefficient-path result is a basis-mismatched diagnostic artifact and must not be used as a publication-facing acceptance criterion.
 3. The Python general rheology processor still retains only four modes / `[29,29,29]`; it should now be changed specifically to reproduce the six-mode raw-grid physical spectrum, not to chase 125.
-4. The six retained degree/order pairs are `(2,-2),(2,0),(2,2),(4,-2),(4,0),(4,2)`. This gives a precise regression target for lateral rheology processing.
+4. The six retained degree/order pairs are `(2,-2),(2,0),(2,2),(4,-2),(4,0),(4,2)`.
 
 ## CMB auxiliary-field convention
 
 Inspection of MATLAB `get_solution.m` shows that the CMB node participates in the first solid layer's auxiliary-field loop. Python's forward solver already constructs `Aprop_aux[0]` with first-solid-layer properties, but the TASK-046 recovery layer map had labelled that point as core and skipped its stress/strain reconstruction.
 
-Commit `2a4fbee` changes the post-solve recovery map so the CMB node belongs to Python layer index 1, matching MATLAB's first solid layer for auxiliary fields. This is a definite parity correction; its quantitative effect on the integrated energy must be measured rather than assumed.
+Commit `2a4fbee` changes the post-solve recovery map so the CMB node belongs to Python layer index 1, matching MATLAB's first solid layer for auxiliary fields.
 
-## Point-by-point uniform radial anchor
+## Point-by-point uniform radial anchor: field parity established
 
-Two scripts now isolate the remaining uniform discrepancy:
+The authoritative MATLAB uniform anchor at `Nrbase=50` reports:
 
 ```text
-scripts/io_matlab_uniform_radial_anchor.m
-scripts/io_compare_uniform_radial_anchor.py
+Nr=198
+Nrlayer=[0 86 61 51]
+k=+0.7337217069-0.0151236751i
+direct E00=2.166877841569e+00
 ```
 
-The MATLAB script exports the complete `Nrbase=50` uniform `get_solution` radial vector for the `(2,0)` forcing, including all 24 columns: radius; `U,V,W,R,S,T,Phi,dPhi`; GSH displacement; six stress components; and six strain components. It also archives `Nrlayer`, `BCindices`, complex `k`, and the direct energy spectrum.
+The Python point-by-point comparison reported on 2026-08-18:
 
-The Python comparison reports blockwise and componentwise relative errors. This is now the preferred diagnostic over further scalar energy tuning.
+```text
+shape: (199,24)
+max |dr|: 0
+k relerr: 3.08e-11
+
+excluding the outermost row:
+state U..dPhi relL2 = 3.58e-11
+u_GSH          relL2 = 3.96e-11
+stress         relL2 = 3.85e-11
+strain         relL2 = 5.42e-11
+```
+
+Every non-identically-zero stress/strain component agrees at roughly `3e-11` to `7e-11` relative L2. The only large all-row discrepancy comes from the known MATLAB convention of leaving the outermost recovered stress/strain row zero, while Python evaluates it.
+
+Interpretation:
+
+1. **Uniform forward propagation is parent-code equivalent.** The primary state and Love number agree to ~1e-11.
+2. **Uniform GSH displacement, stress, and strain recovery are parent-code equivalent throughout the interior.** The earlier A1/A2 and CMB fixes are validated quantitatively.
+3. Therefore the remaining ~27% direct-energy discrepancy is **not** in the solver, rheology, constitutive stress recovery, strain recovery, radial grid, or layer assignment.
+4. The remaining discrepancy is now isolated to the GSH energy contraction or its treatment of the assembled `+m/-m` forcing fields, phase factors, coupling coefficients, profile sign, or final radial integral.
+5. The `ComplexWarning` previously emitted when printing MATLAB `E00` was only an output-casting nuisance; the comparison now uses `real_if_close`.
+
+Commit `1733639` extends `scripts/io_compare_uniform_radial_anchor.py` to compare the Python and MATLAB `E00(r)` profiles directly, including a global-sign test and best-fit scalar diagnostic. This is the next required rung.
 
 ## Code changes through this diagnostic stage
 
@@ -207,24 +231,24 @@ The Python comparison reports blockwise and componentwise relative errors. This 
 - `63cbfac`: wired the Io Gate B/C driver to pass each forcing's native couplings/lateral rheology.
 - `cb94378`: replaced obsolete legacy-energy equality testing with quadratic forcing-amplitude scaling.
 - `68fb191`: corrected the A1/A2 pairing in post-solve stress recovery to match MATLAB/Python propagation.
-- `63ad709`: updated the uniform diagnostic to use the solver-consistent recovery.
+- `63ad709`: updated the uniform diagnostic to use solver-consistent recovery.
 - `8c40655`: added the rheology-spectrum diagnostic.
 - `dc69540`: added the MATLAB raw-grid closure diagnostic.
 - `31610fa`: documented why the coefficient-path 125-mode lateral anchor was provisional.
 - `2a4fbee`: restored MATLAB CMB ownership in auxiliary stress/strain recovery.
 - `7dff75c`: added MATLAB `Nrbase=50` uniform radial-field export.
 - `d6a9404`: added Python point-by-point radial-field comparison.
+- `053e4b9`: made the MATLAB anchor robust to forcing-dependent struct outputs by using cells.
+- `f4e54ca`: removed unnecessary non-scalar rheology exports from the MATLAB anchor.
+- `1733639`: added direct Python/MATLAB `E00(r)` profile comparison.
 
 ## Current testing order
 
-1. **Re-run the focused multibasis unit tests after the CMB parity fix:**
-   `pytest -q pylov3d/tests/test_energy_multibasis.py`.
-2. **Generate the MATLAB uniform radial anchor:**
-   `/Applications/MATLAB_R2025b.app/bin/matlab -batch "run('scripts/io_matlab_uniform_radial_anchor.m')"`.
-3. **Compare Python and MATLAB radial fields point-by-point:**
+1. **Run the extended energy-profile comparison using the already generated MATLAB anchor:**
    `python scripts/io_compare_uniform_radial_anchor.py`.
-4. Use that result to repair the remaining uniform field discrepancy, if any. Do not tune the final energy sign or scale before the field comparison.
-5. In parallel, update Python's viscoelastic rheology processing to reproduce the authoritative six-mode raw-grid spectrum and `[43,41,41]` closure.
-6. Only after uniform radial-field parity and lateral spectrum parity are established should a new raw-grid `Nrbase=50` lateral energy anchor replace the obsolete coefficient-path Gate-C assertions.
+2. If the profile differs only by a global sign (`relL2(-Python,MATLAB) << 1` and best-fit `alpha ~ -1`), document and repair the sign convention only.
+3. If the best-fit scalar is not approximately `+/-1`, inspect the GSH energy coupling tensor and `+m/-m` assembly term-by-term before touching normalization.
+4. In parallel, update Python's viscoelastic rheology processing to reproduce the authoritative six-mode raw-grid spectrum and `[43,41,41]` closure.
+5. Only after uniform energy-profile parity and lateral spectrum parity are established should a new raw-grid `Nrbase=50` lateral energy anchor replace the obsolete coefficient-path Gate-C assertions.
 
 Do not use `--nrbase 50 --assert-matlab` with the old 125-mode lateral targets.
