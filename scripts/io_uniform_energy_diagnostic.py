@@ -3,7 +3,7 @@
 
 The uniform Love solution is already validated against the MATLAB Gate-C
 anchor, so this script isolates only the post-solve stress/strain and energy
-reconstruction.  It reports the radial contribution to the monopole energy,
+reconstruction. It reports the radial contribution to the monopole energy,
 then repeats the contraction after imposing MATLAB get_solution.m's endpoint
 convention: the outermost u_dot/stress/strain row is left zero.
 """
@@ -17,8 +17,8 @@ import numpy as np
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from pylov3d.energy import compute_stress_strain_coupled
 from pylov3d.energy_couplings import get_energy_couplings
+from pylov3d.energy_fields import recover_coupled_fields
 from pylov3d.grid import set_boundary_indices
 from pylov3d.io_lateral import build_io_forcings, build_io_model, io_default_numerics
 from pylov3d.rheology import get_rheology
@@ -36,7 +36,7 @@ def contract_uniform(results, forcings, model, numerics, zero_surface=False):
     stress = np.zeros((nr + 1, 6, len(modes)), dtype=complex)
     strain = np.zeros_like(stress)
     for f, (y, rj, aprop) in zip(forcings, results):
-        _, sf, ef = compute_stress_strain_coupled(
+        _, sf, ef = recover_coupled_fields(
             y, rj, aprop, model, np.asarray([f.n]), numerics
         )
         k = idx[(f.n, f.m)]
@@ -100,11 +100,11 @@ def main():
 
     print("TASK-046 uniform energy diagnostic, Nrbase=10")
     print(f"r range: {r[0]:.8f} .. {r[-1]:.8f}")
-    print(f"direct E, current endpoint handling: {e_full:.12e}")
+    print(f"direct E, solver-consistent endpoint handling: {e_full:.12e}")
     print(f"direct E, MATLAB zero-surface convention: {e_zero:.12e}")
-    print("MATLAB Gate-C target at Nrbase=50: 2.1668778416e+00")
+    print("MATLAB coefficient-path target at Nrbase=50: 2.1668778416e+00")
     order = np.argsort(np.abs(shell))[::-1][:10]
-    print("largest |radial shell contributions| (current):")
+    print("largest |radial shell contributions| (solver-consistent):")
     for k in order:
         print(
             f"  shell {k:4d}: rmid={0.5*(r[k]+r[k+1]):.8f} "
