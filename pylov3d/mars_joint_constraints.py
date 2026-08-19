@@ -3,20 +3,20 @@
 """Proposal-facing joint constraints for Mars hydration hypotheses.
 
 This module adds the missing density leg to the preliminary hydrated-solid
-seismic experiment.  Earlier diagnostics evaluated hydrated elastic moduli at
-the *observed* Wright et al. (2024) density to isolate elastic effects.  That
+seismic experiment. Earlier diagnostics evaluated hydrated elastic moduli at
+the *observed* Wright et al. (2024) density to isolate elastic effects. That
 was useful, but it prevented density/gravity from acting as an independent
 observable.
 
 Here we bracket the grain-scale density of strongly serpentinized ultramafic
-rock at 2.5--2.7 g cm^-3, with 2.6 g cm^-3 as a central proposal value.  These
+rock at 2.5--2.7 g cm^-3, with 2.6 g cm^-3 as a central proposal value. These
 are deliberately broad proposal-scale endmembers, consistent with the
 serpentinite ranges already used in the SSS proposal and with published
-serpentinized-peridotite measurements.  They are *not* a replacement for the
+serpentinized-peridotite measurements. They are *not* a replacement for the
 planned Perple_X mineralogical calculation.
 
 The mean hydrated crust density is mixed volumetrically with the shipped Mars
-reference-crust density (2900 kg m^-3).  This allows the same state to predict
+reference-crust density (2900 kg m^-3). This allows the same state to predict
 rho, Vp, Vs and tidal elastic moduli rather than inserting the seismic density
 by hand.
 """
@@ -24,9 +24,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .mars import MARS
+from .mars import LAYER_MU_CRUST, MARS
+from .mars_hydration import K_CRUST, RATIO_SCENARIOS
 from .mars_seismic import isotropic_velocities, seismic_chi2
-from .mars_serpentinite_connectivity import mixed_moduli
 
 
 RHO_CRUST_KG_M3 = float(MARS["crust_density"])
@@ -51,6 +51,44 @@ class HydratedSolidState:
     chi2_seismic: float
 
 
+def mixed_moduli(
+    f_h: float,
+    mu_ratio: float,
+    K_ratio: float,
+    law: str,
+) -> tuple[float, float]:
+    """Return effective ``(mu, K)`` [Pa] for a hydrated two-phase mixture.
+
+    Kept inside the package rather than importing the proposal diagnostic
+    script, so library modules never depend on ``scripts/``. Voigt is the
+    iso-strain upper bound, Reuss the iso-stress lower bound, and Hill their
+    arithmetic midpoint.
+    """
+    f = float(f_h)
+    if not 0.0 <= f <= 1.0:
+        raise ValueError("f_h must lie in [0,1]")
+    if mu_ratio <= 0 or K_ratio <= 0:
+        raise ValueError("endmember modulus ratios must be positive")
+
+    mu_dry = float(LAYER_MU_CRUST)
+    K_dry = float(K_CRUST)
+    mu_wet = float(mu_ratio) * mu_dry
+    K_wet = float(K_ratio) * K_dry
+
+    mu_v = (1.0 - f) * mu_dry + f * mu_wet
+    K_v = (1.0 - f) * K_dry + f * K_wet
+    if law == "voigt":
+        return mu_v, K_v
+
+    mu_r = 1.0 / ((1.0 - f) / mu_dry + f / mu_wet)
+    K_r = 1.0 / ((1.0 - f) / K_dry + f / K_wet)
+    if law == "reuss":
+        return mu_r, K_r
+    if law == "hill":
+        return 0.5 * (mu_v + mu_r), 0.5 * (K_v + K_r)
+    raise ValueError(f"unknown mixing law: {law}")
+
+
 def mixed_density(
     f_h: float,
     rho_serp_kg_m3: float = RHO_SERPENTINITE_KG_M3["central"],
@@ -72,8 +110,6 @@ def hydrated_solid_state(
     rho_scenario: str = "central",
 ) -> HydratedSolidState:
     """Return a self-consistent proposal-scale hydrated-solid seismic state."""
-    from .mars_hydration import RATIO_SCENARIOS
-
     if property_scenario not in RATIO_SCENARIOS:
         raise ValueError(f"unknown property scenario: {property_scenario}")
     if rho_scenario not in RHO_SERPENTINITE_KG_M3:
