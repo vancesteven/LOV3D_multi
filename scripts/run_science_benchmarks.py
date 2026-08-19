@@ -63,6 +63,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars_magnetic.py",
     "pylov3d/tests/test_mars_joint_constraints.py",
     "pylov3d/tests/test_mars_gravity_sensitivity.py",
+    "pylov3d/tests/test_mars_gravity_harmonics.py",
     "pylov3d/tests/test_mars_em_sensitivity.py",
     # Dissipation sanity: elastic material must dissipate zero energy, while
     # the viscoelastic Io reference model must dissipate non-zero energy.
