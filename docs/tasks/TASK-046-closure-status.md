@@ -2,7 +2,7 @@
 
 ## Numerical status
 
-TASK-046 has now passed both the physically faithful raw-grid end-to-end gate and a strict identical-coefficient MATLAB/Python solver-parity gate.
+TASK-046 has passed both the physically faithful raw-grid end-to-end gate and a strict identical-coefficient MATLAB/Python solver-parity gate.
 
 ### Raw-grid end-to-end Gate C
 
@@ -80,12 +80,49 @@ The task identified and repaired several independent translation defects:
 
 The earlier `[125,125,125]` MATLAB coefficient-input anchor is retired as a basis-mismatch artifact. It must not be used as a physical validation target.
 
-## Remaining promotion step
+## Publication-facing suite: PASS
 
-The numerical core of TASK-046 is closed. Before the PR is marked merge-ready, rerun the complete publication-facing science benchmark suite on the final branch head:
+After promoting the fast TASK-046 regressions into `scripts/run_science_benchmarks.py`, the complete science suite was rerun with independent PyALMA3 validation on 2026-08-18.
+
+Command:
 
 ```bash
 python scripts/run_science_benchmarks.py --with-pyalma3
 ```
 
-Record the final pytest count, wall time, Python executable/environment, key dependency versions, and MATLAB version/reference artifacts. The fast TASK-046 regressions are now included in `scripts/run_science_benchmarks.py`; the expensive `Nrbase=50` MATLAB/Python Gate C remains an archived cross-language validation rather than a routine unit-test dependency.
+Recorded runner command and result:
+
+```text
+/Users/svance/mamba/envs/PPcl/bin/python -m pytest -q -m "" \
+  pylov3d/tests/test_analytical.py \
+  pylov3d/tests/test_matlab_validation.py \
+  pylov3d/tests/test_matlab_validation_ocean.py \
+  pylov3d/tests/test_mars.py::TestMass \
+  pylov3d/tests/test_mars.py::TestMoI \
+  pylov3d/tests/test_mars.py::TestK2 \
+  pylov3d/tests/test_mars.py::TestLoveNumberSanity \
+  pylov3d/tests/test_mars.py::TestDensityProfile \
+  pylov3d/tests/test_energy.py::TestGetEnergy::test_elastic_zero_dissipation \
+  pylov3d/tests/test_energy.py::TestGetEnergy::test_io_nonzero_dissipation \
+  pylov3d/tests/test_energy.py::TestGlobalDissipation \
+  pylov3d/tests/test_energy_multibasis.py \
+  pylov3d/tests/test_energy_couplings_matlab_order.py \
+  pylov3d/tests/test_io_rheology_spectrum_parity.py \
+  pylov3d/tests/test_benchmark_pyalma3.py
+
+69 passed in 404.51s (0:06:44)
+```
+
+Environment/provenance captured here:
+
+- Python executable: `/Users/svance/mamba/envs/PPcl/bin/python`
+- environment name: `PPcl`
+- MATLAB reference generation: MATLAB R2025b (`/Applications/MATLAB_R2025b.app`)
+- strict MATLAB artifacts: `data/tests/io/io_uniform_radial_anchor.mat`, `io_raw_grid_energy_anchor.mat`, `io_identical_coefficients_anchor.mat`
+- package-version snapshot: not yet archived; capture separately rather than infer versions from unrelated environments.
+
+The fast TASK-046 regressions are part of the routine publication-facing suite. The expensive `Nrbase=50` MATLAB/Python Gate C remains an archived cross-language validation rather than a routine test dependency.
+
+## Status
+
+**TASK-046 numerical validation and publication-facing regression promotion are complete.** The branch is merge-ready subject to normal PR review/CI. Remaining scientific validation work such as the lateral bulk-modulus (`K`) path is explicitly separate from TASK-046.
