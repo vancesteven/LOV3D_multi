@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from pylov3d.mars_gravity_coefficients import gravity_from_thickness_coefficient
-from pylov3d.mars_gravity_harmonics import MARS_RADIUS_M, wavelength_to_degree
+from pylov3d.mars_gravity_harmonics import MARS_MEAN_RADIUS_M, degree_from_wavelength
 
 
 def main() -> int:
@@ -29,7 +29,7 @@ def main() -> int:
     print()
 
     for wavelength in wavelengths_km:
-        ell = wavelength_to_degree(wavelength * 1e3, radius_m=MARS_RADIUS_M)
+        ell = degree_from_wavelength(wavelength * 1e3, radius_m=MARS_MEAN_RADIUS_M)
         degree = max(1, int(round(ell)))
         print(f"lambda={wavelength:4d} km -> degree ~{ell:5.2f} (using l={degree})")
         g_un = gravity_from_thickness_coefficient(
