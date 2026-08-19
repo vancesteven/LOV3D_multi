@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Each entry is deliberately science-facing rather than a broad unit-test file.
 # The selected cases jointly cover an analytic elastic limit, a laterally
 # heterogeneous shell, a fluid layer, multilayer planetary structure,
-# dissipation sanity checks, and independent viscoelastic validation.
+# dissipation, and independent viscoelastic validation.
 CORE_BENCHMARKS = [
     # Analytic homogeneous elastic body / convention anchor.
     "pylov3d/tests/test_analytical.py",
@@ -59,6 +59,13 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_energy.py::TestGetEnergy::test_io_nonzero_dissipation",
     # Sign and scaling of the independent Im(k)-based global heating formula.
     "pylov3d/tests/test_energy.py::TestGlobalDissipation",
+    # TASK-046: native per-forcing closures, quadratic energy scaling, and
+    # MATLAB-equivalent GSH energy-coupling grouping.
+    "pylov3d/tests/test_energy_multibasis.py",
+    "pylov3d/tests/test_energy_couplings_matlab_order.py",
+    # TASK-046: authoritative six-mode viscoelastic Io spectrum and
+    # [43,41,41] perturbation closures from the native MATLAB raw-grid path.
+    "pylov3d/tests/test_io_rheology_spectrum_parity.py",
 ]
 
 PYALMA3_BENCHMARK = "pylov3d/tests/test_benchmark_pyalma3.py"
