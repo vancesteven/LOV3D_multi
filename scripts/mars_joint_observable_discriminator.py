@@ -5,7 +5,7 @@ Compares two broad families against the same InSight Vp/Vs/rho likelihood:
   1. self-consistent hydrated-solid states with serpentinite density bracket;
   2. fractured-frame dry/saturated states from the proposal-scale poroelastic grid.
 
-This script does not yet compute a full gravity anomaly or remanent field.  It
+This script does not yet compute a full gravity anomaly or remanent field. It
 identifies the seismically acceptable states whose density/composition differs,
 which are the exact targets for the next gravity, remanence and EM sensitivity
 steps.
@@ -14,7 +14,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
 from pylov3d.mars_joint_constraints import hydrated_solid_grid
 
@@ -81,22 +85,16 @@ def main() -> int:
         )
 
     if solid_good and poro_good:
-        # Find a cross-family pair that is nearly indistinguishable seismically
-        # but maximizes density separation. This is a useful target for a gravity
-        # sensitivity calculation.
         best = None
         for s in solid_good:
             for r in poro_good:
-                dvp = (s.vp_m_s / 1e3 - r["vp_km_s"])
-                dvs = (s.vs_m_s / 1e3 - r["vs_km_s"])
-                # Keep only pairs closer than ~half the published 1-sigma
-                # velocity uncertainties to avoid manufacturing a degeneracy.
+                dvp = s.vp_m_s / 1e3 - r["vp_km_s"]
+                dvs = s.vs_m_s / 1e3 - r["vs_km_s"]
                 if abs(dvp) > 0.10 or abs(dvs) > 0.15:
                     continue
                 drho = abs(s.rho_kg_m3 - r["rho_kg_m3"])
-                score = drho
-                if best is None or score > best[0]:
-                    best = (score, s, r, dvp, dvs)
+                if best is None or drho > best[0]:
+                    best = (drho, s, r, dvp, dvs)
         if best is not None:
             drho, s, r, dvp, dvs = best
             print("\nseismically similar cross-family pair with large density contrast:")
