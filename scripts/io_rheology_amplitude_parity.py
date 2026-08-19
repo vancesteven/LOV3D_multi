@@ -7,8 +7,14 @@ Python's coefficient API carries only lateral residuals and drops (0,0).
 
 This diagnostic factors each physical field into mean x mean-normalized
 residual, folds the means into the scalar layer mu and Maxwell time, and sends
-only the normalized residuals through process_lateral_variations.  Algebraically
-this reproduces the raw-grid Maxwell field without requiring a new grid API.
+only the normalized residuals through process_lateral_variations.
+
+After the scipy-to-LOV3D normalization fix, the m=0 coefficients match MATLAB
+at essentially machine precision. The MATLAB raw-grid transform leaves a small
+finite-grid asymmetry between +m and -m coefficients of an underlying real
+field. Python intentionally enforces the exact conjugacy relation. We therefore
+report both the individual raw-grid errors and parity against the symmetrized
+MATLAB pair average.
 """
 from __future__ import annotations
 
@@ -51,6 +57,10 @@ def _entries(sh: dict[tuple[int, int], complex], rel=1e-12):
     return [(n, m, a) for (n, m), a in sorted(sh.items()) if n > 0 and abs(a) > rel * vmax]
 
 
+def _relerr(a: complex, b: complex) -> float:
+    return abs(a - b) / max(abs(b), np.finfo(float).tiny)
+
+
 def main() -> int:
     raw = build_io_model()
     forcings = build_io_forcings()
@@ -84,7 +94,7 @@ def main() -> int:
     model = model._replace(mu=model.mu.at[LAYER].set(mu_arr[LAYER]),
                            MaxTime=model.MaxTime.at[LAYER].set(max_arr[LAYER]))
 
-    model2, lateral = process_lateral_variations(
+    _, lateral = process_lateral_variations(
         model, forcings,
         mu_variable=mu_variable,
         eta_variable=eta_variable,
@@ -100,15 +110,40 @@ def main() -> int:
     print(f"mu full-field mean factor:  {mu_mean:.12e}")
     print(f"eta full-field mean factor: {eta_mean:.12e}")
     print(f"retained modes: {len(got)} {sorted(got)}")
-    worst = 0.0
+
+    worst_raw = 0.0
     for nm in sorted(MATLAB_MUC):
         g = got.get(nm, 0j)
         ref = MATLAB_MUC[nm]
-        err = abs(g-ref) / max(abs(ref), np.finfo(float).tiny)
-        worst = max(worst, err)
+        err = _relerr(g, ref)
+        worst_raw = max(worst_raw, err)
         print(f"  {nm}: Python={g.real:+.10e}{g.imag:+.10e}i  MATLAB={ref.real:+.10e}{ref.imag:+.10e}i  relerr={err:.3e}")
-    print(f"worst retained-coefficient relerr: {worst:.3e}")
-    return 0 if len(got) == 6 and worst < 5e-3 else 2
+    print(f"worst individual raw-grid coefficient relerr: {worst_raw:.3e}")
+
+    print("\nsymmetrized MATLAB pair comparison:")
+    worst_sym = 0.0
+    for n in (2, 4):
+        py0 = got[(n, 0)]
+        ml0 = MATLAB_MUC[(n, 0)]
+        e0 = _relerr(py0, ml0)
+        worst_sym = max(worst_sym, e0)
+        print(f"  ({n},0): relerr={e0:.3e}")
+
+        ml_pair = 0.5 * (MATLAB_MUC[(n, -2)] + MATLAB_MUC[(n, 2)])
+        py_pair = 0.5 * (got[(n, -2)] + got[(n, 2)])
+        ep = _relerr(py_pair, ml_pair)
+        worst_sym = max(worst_sym, ep)
+        print(f"  ({n},±2) pair mean: relerr={ep:.3e}")
+
+        conj_err = _relerr(got[(n, -2)], np.conj(got[(n, 2)]))
+        # m=2 is even, so the exact real-field relation has no minus sign.
+        print(f"  ({n},±2) Python conjugacy relerr={conj_err:.3e}")
+
+    print(f"worst symmetrized-coefficient relerr: {worst_sym:.3e}")
+    # The raw MATLAB pair asymmetry is ~0.8%; the physically symmetrized means
+    # should agree much more tightly. 1e-4 is deliberately generous compared
+    # with the observed ~3e-5 pair-mean residual and avoids pinning roundoff.
+    return 0 if len(got) == 6 and worst_sym < 1e-4 else 2
 
 
 if __name__ == "__main__":
