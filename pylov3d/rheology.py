@@ -207,6 +207,14 @@ def process_lateral_variations(
     inputs are synthesized on a fixed degree-30 working representation,
     transformed through the nonlinear Maxwell law, re-expanded through
     degree 59, and filtered by real and imaginary amplitudes separately.
+
+    Internally the nonlinear transform is evaluated in SciPy's orthonormal,
+    Condon-Shortley complex-SH basis.  The coupled LOV3D solver, however,
+    consumes the 4pi-normalized/no-CS complex convention produced by the
+    MATLAB real-Stokes-to-complex conversion.  Nonzero-degree viscoelastic
+    coefficients are therefore converted at the processor/solver boundary by
+    ``(-1)^m / sqrt(4*pi)``.  The scalar degree-0 mean is already converted
+    separately through ``Y00 = 1/sqrt(4*pi)``.
     """
     n_layers = model.n_layers
     mu_variable = mu_variable or {}
@@ -255,9 +263,6 @@ def process_lateral_variations(
             layer_muC[ilayer] = {nm: mu_i * mu_map[nm] for nm in nm_list}
             layer_K[ilayer] = {nm: 0.0 for nm in nm_list}
         else:
-            # MATLAB parity: get_rheology.m uses a fixed degree-30 work field
-            # for coefficient inputs, then analyses the nonlinear complex
-            # modulus through degree 2*30-1 = 59.
             working_lmax = 30
             analysis_lmax = 2 * working_lmax - 1
             mu_coeffs = [
@@ -282,8 +287,6 @@ def process_lateral_variations(
             muC_new[ilayer] = mu00
             lam_new[ilayer] = Ks_i - (2.0 / 3.0) * mu00
 
-            # MATLAB filters real and imaginary spectra independently relative
-            # to the strongest nonzero component, then takes their union.
             rows: list[tuple[tuple[int, int], complex, float, float]] = []
             tiny = np.finfo(float).tiny
             for (n, m), amp in muC_sh.items():
@@ -298,7 +301,8 @@ def process_lateral_variations(
             if rows:
                 max_log = max(max(lr, li) for _, _, lr, li in rows)
                 significant = {
-                    nm: amp for nm, amp, lr, li in rows
+                    nm: ((-1.0) ** nm[1]) * amp * Y00
+                    for nm, amp, lr, li in rows
                     if (lr - max_log >= -rheology_cutoff)
                     or (li - max_log >= -rheology_cutoff)
                 }
