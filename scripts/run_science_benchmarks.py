@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # The selected cases jointly cover an analytic elastic limit, a laterally
 # heterogeneous shell, a fluid layer, multilayer planetary structure,
 # dissipation, independent viscoelastic validation, and the proposal-facing
-# Mars hydration/seismic/magnetic constraint interfaces.
+# Mars hydration/seismic/magnetic/gravity/EM constraint interfaces.
 CORE_BENCHMARKS = [
     # Analytic homogeneous elastic body / convention anchor.
     "pylov3d/tests/test_analytical.py",
@@ -56,11 +56,14 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars.py::TestDensityProfile",
     # Proposal-facing Mars multi-observable interfaces: InSight seismic
     # likelihood, dry-frame/Gassmann bounding physics, remanent-magnetization
-    # plausibility anchors, and self-consistent hydrated-solid density.
+    # plausibility anchors, self-consistent hydrated-solid density, and first-
+    # order gravity/EM sensitivity scalings for mission-planning experiments.
     "pylov3d/tests/test_mars_seismic.py",
     "pylov3d/tests/test_mars_poroelastic.py",
     "pylov3d/tests/test_mars_magnetic.py",
     "pylov3d/tests/test_mars_joint_constraints.py",
+    "pylov3d/tests/test_mars_gravity_sensitivity.py",
+    "pylov3d/tests/test_mars_em_sensitivity.py",
     # Dissipation sanity: elastic material must dissipate zero energy, while
     # the viscoelastic Io reference model must dissipate non-zero energy.
     "pylov3d/tests/test_energy.py::TestGetEnergy::test_elastic_zero_dissipation",
@@ -98,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         help=(
             "Include the independent PyALMA3 elastic + Maxwell benchmark. "
             "This is a hard requirement when requested: the script fails if "
-            "the alma package is unavailable."
+            "the alma package is unavailable. Install pylov3d[compat]/PyALMA3 first."
         ),
     )
     parser.add_argument(
