@@ -24,17 +24,20 @@ python scripts/run_science_benchmarks.py --with-pyalma3
 
 ## Verified publication-facing baseline
 
-A complete independent-code run was recorded on 2026-08-17:
+The final expanded independent-code suite was run on 2026-08-18 using
+`/Users/svance/mamba/envs/PPcl/bin/python` after promotion of the fast TASK-046
+regressions:
 
 ```text
-58 passed in 88.57s (0:01:28)
+69 passed in 404.51s (0:06:44)
 ```
 
-A later expanded run including the energy tests produced a complete stream of
-passing tests, but its final pytest summary was not preserved in the validation
-record. Do not infer a new publication-facing count from dots alone; the next
-full rerun should record commit, environment, dependency versions, count, and
-wall time.
+This supersedes the earlier recorded baseline of 58 tests. The added coverage
+includes native multibasis energy bookkeeping, MATLAB column-major GSH energy
+coupling, and the authoritative six-mode Io viscoelastic rheology closure.
+MATLAB reference artifacts used by TASK-046 were generated with MATLAB R2025b.
+A package-version snapshot should be archived separately rather than inferred
+from unrelated environments.
 
 ## Validation matrix
 
@@ -47,13 +50,12 @@ wall time.
 | Dissipation invariants | elastic sphere + viscoelastic Io | energy integral and heating sign/scaling | constitutive invariants | elastic ~0; viscoelastic non-zero; forcing scaling correct | selected `test_energy.py` |
 | Independent elastic implementation | uniform sphere | complex `k2` | PyALMA3 + analytic result | agreement within 1% | `test_benchmark_pyalma3.py` |
 | Independent Maxwell implementation | fluid core + Maxwell mantle | complex `k2` | PyALMA3 | Re/Im agreement within 0.1% | `test_benchmark_pyalma3.py` |
-| Viscoelastic lateral rheology + multibasis energy | Io eccentricity tide | mode closure, complex forcing-mode `k`, direct and Love-derived dissipation | native MATLAB raw-grid `Consistency_test_Energy.m` path | six retained rheology modes; `[43,41,41]` closure; raw-grid end-to-end response within documented 1% transform floor; direct/Love mismatch <3% | `test_io_rheology_spectrum_parity.py`, `io_energy_gate_bc_multibasis.py` |
+| Viscoelastic lateral rheology + multibasis energy | Io eccentricity tide | mode closure, complex forcing-mode `k`, direct and Love-derived dissipation | native MATLAB raw-grid `Consistency_test_Energy.m` path plus identical-coefficient solver anchor | six retained rheology modes; `[43,41,41]` closure; raw-grid end-to-end response within documented 1% transform floor; strict identical-input solver parity <1e-8; direct/Love mismatch <3% | `test_energy_multibasis.py`, `test_energy_couplings_matlab_order.py`, `test_io_rheology_spectrum_parity.py`, archived Gate C scripts |
 
-## TASK-046 status: raw-grid Gate C passes
+## TASK-046 status: numerical validation closed
 
-TASK-046 now has a physically faithful native-MATLAB raw-grid anchor at
-`Nrbase=50`. The original Io `mu_latlon`/`eta_latlon` path retains six complex
-rheology modes,
+TASK-046 has a physically faithful native-MATLAB raw-grid anchor at `Nrbase=50`.
+The original Io `mu_latlon`/`eta_latlon` path retains six complex rheology modes,
 
 ```text
 (2,-2), (2,0), (2,2), (4,-2), (4,0), (4,2)
@@ -73,56 +75,47 @@ The final Python raw-grid Gate C run reported:
 
 ```text
 native lateral mode counts: [43, 41, 41]
-
-relerr k_lat:
-  m=0   1.687e-4
-  m=-2  1.902e-4
-  m=+2  1.902e-4
-
+relerr k_lat = 1.687e-4 .. 1.902e-4
 relerr E_direct lateral = 7.542e-3
 relerr E_Love   lateral = 7.541e-3
-
-direct/Love mismatch:
-  uniform 2.1462%
-  lateral 2.1457%
+direct/Love mismatch uniform/lateral = 2.1462% / 2.1457%
+MATLAB raw-grid Gate C assertions: PASS
 ```
 
 The raw-grid MATLAB transform leaves a small finite-grid asymmetry between the
 `+m` and `-m` complex rheology coefficients of the otherwise symmetric Io
 pattern. After correcting the SciPy-to-LOV3D SH normalization, the remaining
-coefficient difference is approximately 0.8%, consistent with the remaining
-~0.75% lateral-energy difference. Python intentionally preserves the symmetric
-coefficient field rather than reproducing this discretization asymmetry.
-Therefore the raw-grid Gate C is an end-to-end physical validation with a
-measured 1% transform floor, not a strict solver-only parity test.
+coefficient difference is approximately 0.8%, consistent with the ~0.75%
+lateral-energy difference. Python intentionally preserves the symmetric field
+rather than reproducing this discretization asymmetry. Thus this raw-grid gate
+is an end-to-end physical validation with a measured 1% transform floor.
 
 Uniform validation is much tighter. At `Nrbase=50`, MATLAB and Python agree in
 primary state, GSH displacement, stress, strain, and the interior `E00(r)`
 profile at approximately `1e-10` relative once the MATLAB zeroed outermost
 auxiliary row is excluded. The energy-coupling bug was a NumPy/MATLAB reshape
-ordering error and is now protected by
-`test_energy_couplings_matlab_order.py`.
+ordering error and is now protected by `test_energy_couplings_matlab_order.py`.
 
-## Final strict solver-parity lane
+### Strict identical-coefficient solver parity
 
-A second TASK-046 lane now removes the raw-grid transform from the comparison.
-`scripts/io_matlab_identical_coefficients_anchor.m` constructs the native
-raw-grid rheology, symmetrizes the small `+/-m` transform difference, and applies
-those exact six lateral coefficients to the already-validated uniform complex
-rheology background. `scripts/io_compare_identical_coefficients_anchor.py` then
-loads that artifact and gives Python the identical coefficients and background.
+The raw-grid transform was then removed completely. MATLAB symmetrized its six
+retained coefficients and both codes solved the same lateral rheology field on
+the same uniform complex-rheology background.
 
-This is the remaining numerical-hygiene gate for TASK-046. It tests only:
+Observed strict comparison:
 
-1. active-mode closure and coupling construction;
-2. coupled radial solution and Love spectra;
-3. coupled stress/strain reconstruction; and
-4. multibasis direct-energy contraction.
+```text
+mode counts Python/MATLAB: [43, 41, 41] / [43, 41, 41]
+worst forcing-mode k relerr = 9.936e-12
+direct-energy relerr        = 2.215e-09
+Love-energy relerr          = 3.429e-11
+Python direct/Love mismatch = 2.14574731%
+strict identical-coefficient solver parity: PASS
+```
 
-The provisional strict tolerance is `1e-8` relative for forcing-mode `k`, direct
-energy, and Love-derived energy. If this passes, TASK-046 can be described as
-strict parent-code solver parity in addition to the already passing raw-grid
-end-to-end physical validation.
+This closes parent-code solver parity for coupling construction, radial
+propagation, Love extraction, coupled stress/strain recovery, generalized-
+spherical-harmonic energy coupling, and multibasis direct-energy contraction.
 
 ## Lateral bulk-modulus status
 
@@ -135,11 +128,10 @@ See `docs/LATERAL_K_VALIDATION.md`.
 
 ## Remaining high-value work
 
-1. run and archive the strict identical-coefficient TASK-046 anchor;
-2. rerun the complete publication-facing science benchmark suite and record its
-   final summary and dependency provenance;
-3. resolve the lateral `K` path with a genuinely non-zero reference case;
-4. generate a machine-readable validation table for the methods paper.
+1. resolve the lateral `K` path with a genuinely non-zero reference case;
+2. capture a machine-readable environment/dependency provenance snapshot;
+3. generate a machine-readable validation table for the methods paper;
+4. extend planetary/science validation of the Mars hydration/serpentinization cases as the proposal workflow matures.
 
 ## Interpretation for publication
 
@@ -154,4 +146,5 @@ Validation claims should distinguish five levels:
 TASK-046 is the cautionary example for why parent-code parity requires physical
 input equivalence, not only numerical similarity: the retired 125-mode anchor
 matched an incompatible coefficient convention, whereas the raw-grid benchmark
-recovered the actual six-mode Io physics.
+recovered the actual six-mode Io physics and the identical-coefficient lane
+established strict solver parity.
