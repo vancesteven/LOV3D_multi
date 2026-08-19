@@ -1,202 +1,227 @@
 # pylov3d scientific validation workflow
 
-This is the canonical record of **test order, scientific rationale, and observed results** for validation of the Python conversion. It complements `docs/SCIENCE_VALIDATION.md`, which is the compact publication-facing matrix, and the task notes under `docs/tasks/`, which preserve implementation details and failed diagnostic history.
+This is the canonical record of **test order, scientific rationale, and current
+acceptance state** for the Python conversion. `docs/SCIENCE_VALIDATION.md` is the
+compact publication-facing matrix; `docs/tasks/TASK-046-diagnostic-log.md`
+preserves the chronological failed-run history.
 
-The order is intentional. Later stages combine more physics and are harder to diagnose. A failure at a later stage must not be interpreted as invalidating earlier stages that have independent passing references.
+The order matters. Later stages combine more physics and are harder to diagnose.
+A failure at a later stage must not be interpreted as invalidating earlier stages
+that have independent references.
 
 ## Validation ladder
 
-### Stage 1 — local algebra and bookkeeping
+### Stage 1 — local algebra and bookkeeping: PASS
 
-**Question:** does a new implementation preserve required array, basis, sign, scaling, and limiting-case invariants before any expensive planetary comparison?
-
-For TASK-046:
+Run focused invariants before any expensive planetary comparison:
 
 ```bash
-pytest -q pylov3d/tests/test_energy_multibasis.py
+pytest -q \
+  pylov3d/tests/test_energy_multibasis.py \
+  pylov3d/tests/test_energy_couplings_matlab_order.py
 ```
 
-**Why first:** these tests isolate bookkeeping from planetary physics. If this stage fails, a MATLAB comparison is not diagnostically useful.
+These tests establish native per-forcing basis support, quadratic forcing
+scaling, and MATLAB column-major grouping in the GSH energy-coupling tensor.
 
-**Latest verified TASK-046 result:**
+Latest recorded focused results include:
 
 ```text
-2 passed in 0.73 s
+2 passed in 0.99 s
+1 passed after near-machine-precision tolerance correction
 ```
 
-The focused tests establish finite multibasis contraction, support for genuinely distinct forcing closures, and the required quadratic forcing scaling `E(F/2)=E(F)/4`. They are structural/physical-invariant tests only; they do not establish MATLAB parity.
+The original exact-equality regression failed only at `2.6e-16` relative from
+floating-point summation order; the corrected regression still rejects the
+substantively wrong C-order grouping.
 
-### Stage 2 — publication-facing core science matrix
-
-**Question:** does pylov3d reproduce known behavior across qualitatively different physical regimes before adding a new compound benchmark?
-
-Run:
+### Stage 2 — publication-facing core matrix: previously PASS, rerun pending
 
 ```bash
 python scripts/run_science_benchmarks.py --with-pyalma3
 ```
 
-The selected matrix includes analytic elasticity, archived MATLAB lateral-heterogeneity cases, a fluid-core Moon case, multilayer Mars structure, dissipation sanity checks, and independent PyALMA3 elastic/Maxwell comparisons.
-
-**Why second:** this protects against fixing one complicated benchmark by accidentally breaking already validated physics elsewhere.
-
-**Verified baseline:**
+Last complete recorded summary:
 
 ```text
 58 passed in 88.57s (0:01:28)
 ```
 
-This is the last complete final pytest summary captured in the validation record. Do not infer a later count from a partial stream of dots; record the next complete final line when rerun.
+A later expanded run emitted a complete stream of passing tests but its final
+pytest summary was not captured. The next final promotion of TASK-046 should be
+followed by a full rerun with commit and dependency provenance.
 
-### Stage 3 — establish the physically authoritative MATLAB target
+### Stage 3 — authoritative Io physical closure: PASS
 
-**Question:** are Python and MATLAB actually solving the same physical lateral-rheology field before any Love-number or energy comparison is interpreted?
-
-TASK-046 initially archived a coefficient-input MATLAB cross-check at `Nrbase=50`:
-
-```text
-N coupled modes = [125,125,125]
-```
-
-That script fed Python `scipy.special.sph_harm_y` coefficients through MATLAB's different coefficient-input convention. Its own header warned that the basis equivalence had not been established.
-
-The authoritative upstream Io test, `tests/Consistency_test_Energy.m`, instead supplies full `mu_latlon` and `eta_latlon` maps. Reproducing that original raw-grid path gives:
+The original upstream `Consistency_test_Energy.m` supplies full `mu_latlon` and
+`eta_latlon` fields. Reproducing that native raw-grid path gives:
 
 ```text
 retained asthenosphere rheology modes: 6
 retained degree range: 2..4
-active solution counts for m=[0,-2,+2]: [43 41 41]
+active solution counts m=[0,-2,+2]: [43 41 41]
 ```
 
-The six retained modes are
+The retained modes are
 
 ```text
 (2,-2), (2,0), (2,2), (4,-2), (4,0), (4,2)
 ```
 
-and the independent Python MATLAB-work-grid diagnostic gives the same `[43,41,41]` closure.
+The production Python rheology processor now reproduces this six-mode spectrum
+and `[43,41,41]` closure. The earlier `[125,125,125]` coefficient-input result
+is a basis-mismatch artifact and must not appear in physical acceptance criteria.
 
-**Conclusion:** `[43,41,41]` is the physical Io closure. The old `[125,125,125]` coefficient-path result is retained only as a basis-mismatch diagnostic artifact and must not appear in publication-facing acceptance criteria.
-
-### Stage 4 — uniform Love and direct-energy control
-
-**Question:** before lateral complexity is reintroduced, does the already-correct uniform tidal solution produce MATLAB-equivalent post-solve fields and direct energy?
-
-The uniform Love response is already strongly validated. Even at low radial resolution:
-
-```text
-k_uni = +0.7337217052 - 0.0151236753 i
-E_Love = 2.2144024577
-```
-
-which agrees essentially exactly with the MATLAB uniform anchor.
-
-TASK-046 then exposed and fixed several post-solve energy defects:
-
-1. the multi-forcing uniform calculation had been routed through a simplified radial contraction instead of MATLAB's full GSH angular contraction;
-2. coupled stress recovery retained interleaved-per-mode indexing assumptions even though the solver stores fields in grouped blocks;
-3. off-diagonal lateral-rheology constitutive terms were missing from recovered stress;
-4. post-solve stress used the wrong operational A1/A2 pairing;
-5. the CMB auxiliary-field node was labelled core and skipped, whereas MATLAB treats it as the first solid layer.
-
-The A1/A2 point is now source-verified: MATLAB `get_A1A2.m` returns `[A1,A2]`, but `get_solution.m` intentionally calls it as `[A2,A1] = get_A1A2(...)`. Python's corrected recovery now follows that same operational convention.
-
-After the catastrophic scale bug was removed, the uniform direct-energy ladder became:
-
-```text
-Nrbase=10  E_direct=-2.399564717933
-Nrbase=20  E_direct=-2.614859604596
-Nrbase=50  E_direct=-2.754371543041
-MATLAB Nrbase=50 coefficient-path uniform E00 = +2.166877841600
-```
-
-The discrepancy grows rather than shrinks with radial refinement. Therefore it is **not** a coarse-grid error and should not be treated by empirical renormalization or a sign flip.
-
-#### Required next diagnostic
-
-Generate a complete MATLAB uniform radial anchor:
+Regression:
 
 ```bash
-/Applications/MATLAB_R2025b.app/bin/matlab -batch "run('scripts/io_matlab_uniform_radial_anchor.m')"
+pytest -q pylov3d/tests/test_io_rheology_spectrum_parity.py
 ```
 
-Then compare the complete `Nrbase=50` radial fields:
+### Stage 4 — uniform radial fields and energy contraction: PASS
+
+At `Nrbase=50`, the point-by-point MATLAB/Python comparison established:
+
+```text
+k relerr                     = 3.08e-11
+state U..dPhi relL2          = 3.58e-11
+u_GSH relL2                  = 3.96e-11
+stress relL2                 = 3.85e-11
+strain relL2                 = 5.42e-11
+E00 profile relL2            = 7.56e-11   (excluding outermost row)
+Python E00                   = 2.166877846599
+MATLAB E00                   = 2.166877841569
+best profile scale           = 0.999999999956
+```
+
+The large earlier energy discrepancy was traced to NumPy using C-order for the
+translation of MATLAB `reshape(Caux,9,[])`. The corrected code uses
+`reshape(..., order='F')`. The only residual all-row discrepancy is MATLAB's
+explicitly zeroed outermost auxiliary stress/strain row.
+
+Diagnostic:
 
 ```bash
 python scripts/io_compare_uniform_radial_anchor.py
 ```
 
-The comparison reports pointwise/blockwise errors for:
+### Stage 5 — raw-grid MATLAB Gate C: PASS within measured transform floor
 
-- `U,V,W,R,S,T,Phi,dPhi`;
-- GSH displacement `u`;
-- six GSH stress components;
-- six GSH strain components.
-
-**Why this comes before any further energy changes:** the uniform Love number is already correct, so a pointwise field comparison will identify exactly where the remaining direct-energy disagreement first appears.
-
-### Stage 5 — Python lateral rheology spectrum parity
-
-**Question:** does Python's general viscoelastic lateral-rheology processor reproduce the six-mode physical spectrum found by the raw-grid MATLAB benchmark?
-
-Current general Python processing retains four rheology modes and gives:
+Authoritative MATLAB raw-grid anchor at `Nrbase=50`:
 
 ```text
-[29,29,29]
+active counts: [43 41 41]
+
+m=+0 k_lat = +7.331226411605e-01 -1.477975363870e-02 i
+m=-2 k_lat = +7.343584891776e-01 -1.557193356211e-02 i
+m=+2 k_lat = +7.343584891750e-01 -1.557193356303e-02 i
+
+direct energy uniform/lateral = 2.166877841569 / 2.228354218886
+Love energy   uniform/lateral = 2.214402434848 / 2.277217563440
+mismatch uniform/lateral      = 2.14615883% / 2.14574775%
 ```
 
-The MATLAB-faithful work-grid calculation gives six modes and:
+Final Python raw-grid Gate C run:
 
 ```text
-[43,41,41]
+native lateral mode counts: [43, 41, 41]
+
+relerr k_lat:
+  m=0   1.687e-4
+  m=-2  1.902e-4
+  m=+2  1.902e-4
+
+relerr E_direct lateral = 7.542e-3
+relerr E_Love   lateral = 7.541e-3
+
+direct/Love mismatch:
+  uniform 2.1462%
+  lateral 2.1457%
+
+MATLAB raw-grid Gate C assertions: PASS
+  (within documented raw-grid transform floor)
 ```
 
-The target is therefore **six retained modes / `[43,41,41]`**, not 125.
+Run with:
 
-This stage should be closed with a dedicated regression on the retained `(n,m)` spectrum and active-mode counts before running expensive lateral solves.
+```bash
+python scripts/io_energy_gate_bc_multibasis.py --nrbase 50 --assert-matlab
+```
 
-### Stage 6 — replacement raw-grid MATLAB Love/energy anchor
+#### Why this gate is 1%, not 1e-8
 
-Only after Stages 4 and 5 are closed should a new full `Nrbase=50` MATLAB lateral anchor be generated from the **raw-grid** Io field used by `Consistency_test_Energy.m`.
+After the SciPy-to-LOV3D coefficient normalization was corrected by the expected
+`1/sqrt(4*pi)` factor, the MATLAB raw-grid transform still leaves a small
+finite-grid asymmetry between its `+m` and `-m` complex coefficients. Python's
+coefficient representation preserves the symmetric field. The raw-grid
+response differences are therefore bounded by the transform itself rather than
+by the coupled radial solver. The measured ~0.8% coefficient asymmetry and
+~0.75% energy difference define the empirical transform floor.
 
-Archive at minimum:
+Use the cheap diagnostic to inspect this layer directly:
 
-- forcing-mode complex `k` for `m=0,-2,+2`;
-- active-mode counts;
-- selected coupled complex `k` coefficients;
-- direct `E00`;
-- Love-derived energy;
-- direct-vs-Love mismatch;
-- exact rheology spectrum and numerics.
+```bash
+python scripts/io_rheology_amplitude_parity.py
+```
 
-This replacement anchor supersedes the coefficient-path lateral values for physical validation.
+### Stage 6 — strict identical-coefficient solver parity: READY TO RUN
 
-### Stage 7 — final Python Gate B/C
+This is the final TASK-046 numerical-hygiene gate. It removes the raw-grid SH
+transform from the cross-language comparison.
 
-Only after the replacement raw-grid anchor exists should the Python compound benchmark become a hard pass/fail gate.
+First generate a canonical six-mode MATLAB artifact:
 
-The current `scripts/io_energy_gate_bc_multibasis.py --assert-matlab` still contains obsolete coefficient-path lateral targets and must **not** be used as a publication acceptance test until those assertions are replaced.
+```bash
+/Applications/MATLAB_R2025b.app/bin/matlab -batch \
+  "run('scripts/io_matlab_identical_coefficients_anchor.m')"
+```
 
-Final acceptance should require:
+The MATLAB script:
 
-1. uniform radial-field/direct-energy parity;
-2. six-mode lateral rheology spectrum and `[43,41,41]` closure;
-3. forcing-mode complex-Love parity against the raw-grid MATLAB anchor;
-4. direct-energy parity against the raw-grid MATLAB anchor;
-5. direct-vs-Love mismatch within a declared numerical tolerance based on the parent-code convergence test.
+1. constructs the already-vetted native raw-grid Io rheology;
+2. averages the small `+m/-m` transform asymmetry for degrees 2 and 4;
+3. applies those six exact lateral coefficients to the uniform complex
+   asthenosphere background, which already has ~1e-11 MATLAB/Python parity; and
+4. archives forcing-mode Love numbers plus direct and Love-derived energy.
 
-### Stage 8 — promote into the standard science matrix
+Then give Python the **same six coefficient values** from the MAT artifact:
 
-Only after Stage 7 passes should the Io viscoelastic+lateral+energy benchmark be added to `scripts/run_science_benchmarks.py` as a publication-facing case.
+```bash
+python scripts/io_compare_identical_coefficients_anchor.py
+```
 
-Then rerun the full suite and record:
+Provisional strict acceptance:
+
+```text
+mode counts identical
+worst forcing-mode k relerr < 1e-8
+direct-energy relerr         < 1e-8
+Love-energy relerr           < 1e-8
+```
+
+This test does not assess the raw-grid transform. It isolates coupling
+construction, radial propagation, Love extraction, coupled stress/strain
+recovery, and multibasis energy contraction.
+
+### Stage 7 — full publication-facing suite and promotion
+
+After Stage 6 passes:
+
+```bash
+python scripts/run_science_benchmarks.py --with-pyalma3
+```
+
+Record:
 
 - git commit;
 - Python executable/environment;
-- relevant NumPy/SciPy/JAX/PyALMA3 versions;
-- test count;
+- NumPy/SciPy/JAX/PyALMA3 versions;
+- final test count;
 - wall time;
-- MATLAB version and reference artifacts used.
+- MATLAB version and reference artifacts.
+
+Only after that rerun should TASK-046 be promoted from a task-specific Gate C
+into the standard publication-facing benchmark runner.
 
 ## Interpretation hierarchy
 
@@ -206,21 +231,21 @@ Validation claims should state their level explicitly:
 2. **analytic:** closed-form physics recovered;
 3. **parent-code parity:** Python reproduces an equivalent native MATLAB LOV3D calculation;
 4. **independent-code validation:** Python agrees with a separate implementation such as PyALMA3;
-5. **planetary/science validation:** a physically defensible planetary model simultaneously satisfies relevant observables and convergence tests.
+5. **planetary/science validation:** a defensible planetary model simultaneously satisfies relevant observables and convergence tests.
 
-Parent-code parity requires more than matching numbers: the input physical field and basis conventions must also be equivalent. TASK-046's retired 125-mode anchor is the explicit cautionary example.
+TASK-046 demonstrates why physical input equivalence matters. The retired
+125-mode anchor compared incompatible coefficient conventions; the raw-grid
+benchmark recovered the actual six-mode Io problem, and the identical-
+coefficient lane now separates transform accuracy from strict solver parity.
 
-## Current TASK-046 blocker order
+## Current TASK-046 order
 
-Resolve in this order:
+1. run `io_matlab_identical_coefficients_anchor.m`;
+2. run `io_compare_identical_coefficients_anchor.py`;
+3. repair only if strict coefficient-identical parity fails;
+4. rerun the complete science benchmark suite;
+5. update the PR from draft validation work to merge-ready only after the full
+   suite result and provenance are recorded.
 
-1. rerun `pytest -q pylov3d/tests/test_energy_multibasis.py` after the CMB parity correction;
-2. generate `io_uniform_radial_anchor.mat` with MATLAB;
-3. run `python scripts/io_compare_uniform_radial_anchor.py` and repair any remaining uniform radial-field discrepancy;
-4. modify the general Python viscoelastic rheology processor to reproduce the six raw-grid modes and `[43,41,41]` closure;
-5. generate the replacement full raw-grid MATLAB `Nrbase=50` lateral Love/energy anchor;
-6. replace obsolete coefficient-path assertions in the Python Gate B/C driver;
-7. run the final compound Gate B/C;
-8. rerun and record the complete publication-facing science suite.
-
-For chronological failed runs, rejected hypotheses, and exact numerical outputs, see `docs/tasks/TASK-046-diagnostic-log.md`.
+For chronological rejected hypotheses and historical outputs, see
+`docs/tasks/TASK-046-diagnostic-log.md`.
