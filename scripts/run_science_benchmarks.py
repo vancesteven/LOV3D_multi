@@ -38,7 +38,8 @@ ROOT = Path(__file__).resolve().parents[1]
 # Each entry is deliberately science-facing rather than a broad unit-test file.
 # The selected cases jointly cover an analytic elastic limit, a laterally
 # heterogeneous shell, a fluid layer, multilayer planetary structure,
-# dissipation, and independent viscoelastic validation.
+# dissipation, independent viscoelastic validation, and the proposal-facing
+# Mars hydration/seismic/magnetic constraint interfaces.
 CORE_BENCHMARKS = [
     # Analytic homogeneous elastic body / convention anchor.
     "pylov3d/tests/test_analytical.py",
@@ -53,6 +54,13 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars.py::TestK2",
     "pylov3d/tests/test_mars.py::TestLoveNumberSanity",
     "pylov3d/tests/test_mars.py::TestDensityProfile",
+    # Proposal-facing Mars multi-observable interfaces: InSight seismic
+    # likelihood, dry-frame/Gassmann bounding physics, remanent-magnetization
+    # plausibility anchors, and self-consistent hydrated-solid density.
+    "pylov3d/tests/test_mars_seismic.py",
+    "pylov3d/tests/test_mars_poroelastic.py",
+    "pylov3d/tests/test_mars_magnetic.py",
+    "pylov3d/tests/test_mars_joint_constraints.py",
     # Dissipation sanity: elastic material must dissipate zero energy, while
     # the viscoelastic Io reference model must dissipate non-zero energy.
     "pylov3d/tests/test_energy.py::TestGetEnergy::test_elastic_zero_dissipation",
