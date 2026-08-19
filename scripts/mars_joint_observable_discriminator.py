@@ -23,15 +23,28 @@ sys.path.insert(0, str(REPO_ROOT))
 from pylov3d.mars_joint_constraints import hydrated_solid_grid
 
 
+def _first_present(row: dict[str, str], *names: str) -> str:
+    for name in names:
+        if name in row:
+            return row[name]
+    raise KeyError(f"none of the expected columns {names!r} found; got {tuple(row)}")
+
+
 def _load_poroelastic(path: Path) -> list[dict]:
+    """Load the authoritative grid-writer schema with legacy aliases."""
     rows = []
     with path.open(newline="") as fh:
         for r in csv.DictReader(fh):
-            rr = {k: v for k, v in r.items()}
-            for key in ("phi", "Kd_over_Ks", "mud_over_mus", "vp_km_s", "vs_km_s", "rho_kg_m3", "chi2"):
-                rr[key] = float(rr[key])
-            rr["saturated"] = int(rr["saturated"])
-            rows.append(rr)
+            rows.append({
+                "phi": float(_first_present(r, "porosity", "phi")),
+                "Kd_over_Ks": float(_first_present(r, "Kdry_over_Ksolid", "Kd_over_Ks")),
+                "mud_over_mus": float(_first_present(r, "mudry_over_musolid", "mud_over_mus")),
+                "saturated": int(r["saturated"]),
+                "vp_km_s": float(_first_present(r, "Vp_km_s", "vp_km_s")),
+                "vs_km_s": float(_first_present(r, "Vs_km_s", "vs_km_s")),
+                "rho_kg_m3": float(r["rho_kg_m3"]),
+                "chi2": float(r["chi2"]),
+            })
     return rows
 
 
