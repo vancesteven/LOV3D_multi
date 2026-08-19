@@ -1,19 +1,27 @@
 %% TASK-046 strict identical-coefficient MATLAB solver-parity anchor
 % Remove the raw-grid spherical-harmonic transform from the cross-language
-% comparison.  First construct the authoritative raw-grid rheology, then form
+% comparison. First construct the authoritative raw-grid rheology, then form
 % a canonical six-mode coefficient field by averaging the small +m/-m
-% transform asymmetry.  Apply those coefficients to the *uniform* complex
-% asthenosphere mean in both languages.  This fixture tests only coupled-solver,
+% transform asymmetry. Apply those coefficients to the *uniform* complex
+% asthenosphere mean in both languages. This fixture tests only coupled-solver,
 % Love-number, stress/strain and energy parity.
 %
 % Run from repo root:
 %   /Applications/MATLAB_R2025b.app/bin/matlab -batch ...
 %       "run('scripts/io_matlab_identical_coefficients_anchor.m')"
 
-% Reuse the already-vetted construction of the Io model, forcings, raw-grid
-% rheology and uniform counterpart.  Because run() executes in this workspace,
-% IM, IMU, rv, Numerics, Forcing and repo_root remain available afterward.
-run('scripts/io_matlab_raw_grid_energy_anchor.m');
+% Resolve repository paths before invoking another script. MATLAB run() changes
+% the working directory to the target script's directory while it executes, so
+% a nested relative path like scripts/... becomes scripts/scripts/... . Use an
+% absolute path derived from this file instead.
+this_file = mfilename('fullpath');
+if isempty(this_file) || contains(this_file, 'LiveEditorEvaluationHelper')
+    this_file = matlab.desktop.editor.getActiveFilename;
+end
+[this_dir, ~, ~] = fileparts(this_file);
+repo_root = fileparts(this_dir);
+raw_anchor = fullfile(repo_root,'scripts','io_matlab_raw_grid_energy_anchor.m');
+run(raw_anchor);
 
 %% Canonicalize the six lateral coefficients
 rv_sym = rv;
@@ -28,10 +36,10 @@ for n = [2 4]
     rv_sym(ipos,4) = pair_mean;
 end
 
-% Use the uniform complex mean as the scalar background.  This makes the
+% Use the uniform complex mean as the scalar background. This makes the
 % strict fixture independent of any degree-0 quadrature difference in the raw
 % grid and gives Python and MATLAB the same 1-D background already validated to
-% ~1e-11.  Only the six explicit lateral coefficients are added.
+% ~1e-11. Only the six explicit lateral coefficients are added.
 IMS = IMU;
 IMS(3).rheology_variable = rv_sym;
 IMS(3).uniform = 0;
