@@ -56,15 +56,17 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars.py::TestDensityProfile",
     # Proposal-facing Mars multi-observable interfaces: InSight seismic
     # likelihood, dry-frame/Gassmann bounding physics, remanent-magnetization
-    # plausibility anchors, self-consistent hydrated-solid density, and first-
-    # order gravity/EM sensitivity scalings for mission-planning experiments.
+    # plausibility anchors, self-consistent hydrated-solid density, finite-shell
+    # gravity coefficients, and connected-pore EM sensitivity bounds.
     "pylov3d/tests/test_mars_seismic.py",
     "pylov3d/tests/test_mars_poroelastic.py",
     "pylov3d/tests/test_mars_magnetic.py",
     "pylov3d/tests/test_mars_joint_constraints.py",
     "pylov3d/tests/test_mars_gravity_sensitivity.py",
     "pylov3d/tests/test_mars_gravity_harmonics.py",
+    "pylov3d/tests/test_mars_gravity_coefficients.py",
     "pylov3d/tests/test_mars_em_sensitivity.py",
+    "pylov3d/tests/test_mars_em_profiles.py",
     # Dissipation sanity: elastic material must dissipate zero energy, while
     # the viscoelastic Io reference model must dissipate non-zero energy.
     "pylov3d/tests/test_energy.py::TestGetEnergy::test_elastic_zero_dissipation",
