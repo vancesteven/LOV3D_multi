@@ -34,6 +34,19 @@ def test_uniform_density_grid_has_no_nonzero_degree_coefficients():
     np.testing.assert_allclose(s, 0.0, rtol=0, atol=5e-12)
 
 
+def test_phase_corrected_transform_recovers_nonaxisymmetric_stokes_pair():
+    lmax = 8
+    c0 = np.zeros((lmax + 1, lmax + 1))
+    s0 = np.zeros_like(c0)
+    c0[3, 2] = 40.0 / math.sqrt(4.0 * math.pi)
+    s0[3, 2] = -25.0 / math.sqrt(4.0 * math.pi)
+    _, _, grid = stokes_to_grid(c0, s0, lmax)
+
+    c, s = grid_to_orthonormal_density_coefficients(grid, lmax)
+    assert c[3, 2] == pytest.approx(40.0, rel=0, abs=2e-10)
+    assert s[3, 2] == pytest.approx(-25.0, rel=0, abs=2e-10)
+
+
 def test_axisymmetric_degree2_density_map_matches_exact_finite_shell_gravity():
     lmax = 6
     desired_unit_norm_rho_lm = -250.0
