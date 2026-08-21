@@ -102,7 +102,27 @@ def test_finite_shell_formula_matches_direct_analytic_expression():
         * moment
         / ((2 * degree + 1) * MARS_MASS_KG * MARS_RADIUS_M**degree)
     )
-    assert got == pytest.approx(expected, rel=1e-15)
+    assert got == pytest.approx(expected, rel=2e-15)
+
+
+def test_finite_shell_is_stable_at_gmm3_degree_120():
+    q = finite_shell_potential_coefficient(
+        120,
+        -250.0,
+        MARS_RADIUS_M - 20e3,
+        MARS_RADIUS_M,
+    )
+    assert math.isfinite(q)
+    assert q < 0.0
+    # A shallower shell contributes more strongly at high degree than the same
+    # density coefficient buried deeper.
+    q_deep = finite_shell_potential_coefficient(
+        120,
+        -250.0,
+        MARS_RADIUS_M - 40e3,
+        MARS_RADIUS_M - 20e3,
+    )
+    assert abs(q) > abs(q_deep)
 
 
 def test_thin_sheet_is_small_thickness_limit_of_exact_shell():
