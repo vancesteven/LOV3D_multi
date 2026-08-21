@@ -5,22 +5,23 @@
 
 This module is deliberately narrow: it converts a bulk density-anomaly grid in
 radial shells into the orthonormal potential coefficients used by pylov3d's
-finite-shell gravity machinery.  It therefore provides the missing quantitative
-link
+finite-shell gravity machinery.  It therefore provides the quantitative link
 
     alteration/composition field -> density anomaly -> C_lm/S_lm-like signal
 
 without claiming that density anomaly is uniquely caused by hydration.
 
-The surface grids use the native LOV3D/MATLAB cell-centred equiangular layout
-``(2*lmax, 4*lmax)``.  ``grid_to_stokes`` returns the fully normalized real
-Stokes convention with basis norm 4*pi.  The finite-shell gravity formula uses
-unit-norm real harmonics, so density coefficients are multiplied by
-``sqrt(4*pi)`` before radial integration.
+The surface grids use the LOV3D/MATLAB cell-centred equiangular layout
+``(2*lmax, 4*lmax)``. ``grid_to_stokes`` reproduces the literal MATLAB
+``LatLon_SPH`` transform, including its deterministic longitude half-cell phase
+for m>0. That phase is required for raw-grid MATLAB parity, but it is not a
+physical rotation we want to imprint on a new Mars density field. Here we undo
+that known phase after analysis. The resulting real Stokes coefficients refer
+to the actual cell-centred longitude coordinates of the supplied map.
 
-For m>0 the inherited MATLAB ``LatLon_SPH`` half-cell longitude phase is retained
-exactly.  This rotates each cosine/sine pair but preserves its degree/order
-power.  Axisymmetric terms have no such phase.
+The Stokes basis has norm 4*pi. The finite-shell gravity formula uses unit-norm
+real harmonics, so density coefficients are multiplied by ``sqrt(4*pi)`` before
+radial integration.
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ def density_contrast_from_alteration(
 
     ``hydrated_fraction`` is the fraction of the locally reactive component that
     is altered. ``reactive_fraction`` is the bulk-rock fraction of that reactive
-    component.  The result is
+    component. The result is
 
         delta_rho = f_h * f_reactive * (rho_hydrated - rho_dry).
 
@@ -75,6 +76,34 @@ def density_contrast_from_alteration(
         raise ValueError("alteration fractions and density endmembers must be broadcastable") from exc
 
 
+def _remove_matlab_half_cell_phase(
+    c_stokes: np.ndarray,
+    s_stokes: np.ndarray,
+    lmax: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Undo the known m-dependent longitude phase in MATLAB ``LatLon_SPH``.
+
+    For synthesized coefficients ``C,S``, the literal MATLAB analysis returns
+
+        C' = C cos(alpha) + S sin(alpha)
+        S' = S cos(alpha) - C sin(alpha)
+
+    with ``alpha = m*pi/(4*lmax)``. This function applies the inverse rotation.
+    """
+    c = np.asarray(c_stokes, dtype=float).copy()
+    s = np.asarray(s_stokes, dtype=float).copy()
+    for degree in range(lmax + 1):
+        for order in range(1, degree + 1):
+            alpha = order * np.pi / (4.0 * lmax)
+            ca = np.cos(alpha)
+            sa = np.sin(alpha)
+            cp = c_stokes[degree, order]
+            sp = s_stokes[degree, order]
+            c[degree, order] = cp * ca - sp * sa
+            s[degree, order] = sp * ca + cp * sa
+    return c, s
+
+
 def grid_to_orthonormal_density_coefficients(
     density_grid_kg_m3: np.ndarray,
     lmax: int,
@@ -84,6 +113,7 @@ def grid_to_orthonormal_density_coefficients(
     if not np.all(np.isfinite(grid)):
         raise ValueError("density grid must be finite")
     c_stokes, s_stokes = grid_to_stokes(grid, lmax)
+    c_stokes, s_stokes = _remove_matlab_half_cell_phase(c_stokes, s_stokes, lmax)
     return SQRT_4PI * c_stokes, SQRT_4PI * s_stokes
 
 
