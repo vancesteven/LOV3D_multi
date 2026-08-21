@@ -1,10 +1,14 @@
 import math
 
+import numpy as np
 import pytest
 
 from pylov3d.mars_gravity_coefficients import (
+    MARS_MASS_KG,
     MARS_RADIUS_M,
+    finite_shell_potential_coefficient,
     gravity_from_thickness_coefficient,
+    layered_density_potential_coefficient,
     radial_gravity_from_coefficient,
     thin_sheet_potential_coefficient,
 )
@@ -84,6 +88,59 @@ def test_wrapper_matches_two_step_evaluation():
     assert g2 == pytest.approx(g1, rel=1e-15)
 
 
+def test_finite_shell_formula_matches_direct_analytic_expression():
+    degree = 8
+    rho_lm = -350.0
+    ri = MARS_RADIUS_M - 20e3
+    ro = MARS_RADIUS_M - 5e3
+    got = finite_shell_potential_coefficient(degree, rho_lm, ri, ro)
+    moment = (ro ** (degree + 3) - ri ** (degree + 3)) / (degree + 3)
+    expected = (
+        4.0
+        * math.pi
+        * rho_lm
+        * moment
+        / ((2 * degree + 1) * MARS_MASS_KG * MARS_RADIUS_M**degree)
+    )
+    assert got == pytest.approx(expected, rel=1e-15)
+
+
+def test_thin_sheet_is_small_thickness_limit_of_exact_shell():
+    degree = 20
+    rho_lm = 420.0
+    thickness = 10.0  # deliberately thin compared with Mars radius
+    exact = finite_shell_potential_coefficient(
+        degree,
+        rho_lm,
+        MARS_RADIUS_M - thickness,
+        MARS_RADIUS_M,
+    )
+    sheet = thin_sheet_potential_coefficient(degree, thickness, rho_lm)
+    # First neglected term scales as thickness/R.
+    assert exact == pytest.approx(sheet, rel=5e-5)
+
+
+def test_layered_profile_is_sum_of_exact_shell_moments():
+    r = np.array([MARS_RADIUS_M - 30e3, MARS_RADIUS_M - 20e3, MARS_RADIUS_M])
+    rho = np.array([-400.0, 150.0])
+    got = layered_density_potential_coefficient(11, r, rho)
+    expected = finite_shell_potential_coefficient(11, rho[0], r[0], r[1]) + finite_shell_potential_coefficient(
+        11, rho[1], r[1], r[2]
+    )
+    assert got == pytest.approx(expected, rel=1e-15)
+
+
+def test_equal_and_opposite_density_shells_can_cancel_by_radial_moment():
+    degree = 5
+    r = np.array([MARS_RADIUS_M - 100e3, MARS_RADIUS_M - 50e3, MARS_RADIUS_M])
+    # Choose second-shell coefficient to cancel the first shell's exact radial moment.
+    m1 = (r[1] ** (degree + 3) - r[0] ** (degree + 3)) / (degree + 3)
+    m2 = (r[2] ** (degree + 3) - r[1] ** (degree + 3)) / (degree + 3)
+    rho = np.array([1.0, -m1 / m2])
+    q = layered_density_potential_coefficient(degree, r, rho)
+    assert q == pytest.approx(0.0, abs=1e-20)
+
+
 def test_validation_rejects_invalid_inputs():
     with pytest.raises(ValueError):
         thin_sheet_potential_coefficient(0, 1.0, 1.0)
@@ -91,3 +148,7 @@ def test_validation_rejects_invalid_inputs():
         thin_sheet_potential_coefficient(2, 1.0, 1.0, compensation_fraction=1.1)
     with pytest.raises(ValueError):
         radial_gravity_from_coefficient(2, 1e-6, -1.0)
+    with pytest.raises(ValueError):
+        finite_shell_potential_coefficient(2, 1.0, 2.0, 1.0)
+    with pytest.raises(ValueError):
+        layered_density_potential_coefficient(2, np.array([1.0, 2.0]), np.array([1.0, 2.0]))
