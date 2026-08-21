@@ -5,7 +5,7 @@
 
 This module is deliberately narrow: it converts a bulk density-anomaly grid in
 radial shells into the orthonormal potential coefficients used by pylov3d's
-finite-shell gravity machinery.  It therefore provides the quantitative link
+finite-shell gravity machinery. It therefore provides the quantitative link
 
     alteration/composition field -> density anomaly -> C_lm/S_lm-like signal
 
@@ -21,7 +21,9 @@ to the actual cell-centred longitude coordinates of the supplied map.
 
 The Stokes basis has norm 4*pi. The finite-shell gravity formula uses unit-norm
 real harmonics, so density coefficients are multiplied by ``sqrt(4*pi)`` before
-radial integration.
+radial integration. A final helper converts the resulting physical q_lm arrays
+to the normalized GMM-3 C_lm/S_lm convention, including the reference-radius
+change from 3389.5 to 3396 km.
 """
 
 from __future__ import annotations
@@ -34,6 +36,10 @@ from .mars_gravity_coefficients import (
     MARS_MASS_KG,
     MARS_RADIUS_M,
     layered_density_potential_coefficient,
+)
+from .mars_gravity_normalization import (
+    GMM3_REFERENCE_RADIUS_M,
+    orthonormal_to_gmm3_normalized,
 )
 from .matlab_sph import grid_to_stokes
 
@@ -187,3 +193,45 @@ def layered_density_gravity_coefficients(
                     mass_kg=mass_kg,
                 )
     return q_cos, q_sin
+
+
+def orthonormal_gravity_arrays_to_gmm3(
+    q_cos: np.ndarray,
+    q_sin: np.ndarray,
+    *,
+    source_radius_m: float = MARS_RADIUS_M,
+    gmm3_radius_m: float = GMM3_REFERENCE_RADIUS_M,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Convert physical q_lm arrays to normalized GMM-3 C_lm/S_lm arrays.
+
+    Input arrays must be square and have identical shapes ``(lmax+1,lmax+1)``.
+    Entries with order > degree are ignored and returned as zero. Degree zero is
+    converted if supplied, although the 3D alteration forward model normally
+    leaves it zero because total-mass closure is treated separately.
+    """
+    qc = np.asarray(q_cos, dtype=float)
+    qs = np.asarray(q_sin, dtype=float)
+    if qc.ndim != 2 or qc.shape[0] != qc.shape[1] or qs.shape != qc.shape:
+        raise ValueError("q_cos and q_sin must be identical square 2-D arrays")
+    if not np.all(np.isfinite(qc)) or not np.all(np.isfinite(qs)):
+        raise ValueError("gravity coefficient arrays must be finite")
+
+    c = np.zeros_like(qc)
+    s = np.zeros_like(qs)
+    lmax = qc.shape[0] - 1
+    for degree in range(lmax + 1):
+        for order in range(degree + 1):
+            c[degree, order] = orthonormal_to_gmm3_normalized(
+                qc[degree, order],
+                degree,
+                source_radius_m=source_radius_m,
+                gmm3_radius_m=gmm3_radius_m,
+            )
+            if order > 0:
+                s[degree, order] = orthonormal_to_gmm3_normalized(
+                    qs[degree, order],
+                    degree,
+                    source_radius_m=source_radius_m,
+                    gmm3_radius_m=gmm3_radius_m,
+                )
+    return c, s
