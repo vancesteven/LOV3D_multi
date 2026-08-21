@@ -84,6 +84,12 @@ CORE_BENCHMARKS = [
     # TASK-046: authoritative six-mode viscoelastic Io spectrum and
     # [43,41,41] perturbation closures from the native MATLAB raw-grid path.
     "pylov3d/tests/test_io_rheology_spectrum_parity.py",
+    # TASK-046 closure: literal MATLAB SPH transform convention and the
+    # production fractional-grid viscoelastic-rheology processor.  These pin
+    # the native half-cell FFT phase rather than assuming an identity
+    # synthesis/analysis round trip.
+    "pylov3d/tests/test_matlab_sph.py",
+    "pylov3d/tests/test_rheology_grid.py",
 ]
 
 PYALMA3_BENCHMARK = "pylov3d/tests/test_benchmark_pyalma3.py"
