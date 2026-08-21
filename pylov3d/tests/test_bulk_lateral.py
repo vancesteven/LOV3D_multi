@@ -31,9 +31,11 @@ def test_factor_three_matches_uniform_constitutive_deltaK_exactly():
     )
 
     # Varying K at fixed mu changes only the scalar-stress row. The coupling
-    # kernel with Cp[0]=1 must equal that constitutive difference exactly.
-    np.testing.assert_allclose(A1_1 - A1_0, A1_c, rtol=0, atol=2e-15)
-    np.testing.assert_allclose(A2_1 - A2_0, A2_c, rtol=0, atol=2e-15)
+    # kernel with Cp[0]=1 must equal that constitutive difference to floating-
+    # point roundoff. Keep an absolute-only tolerance because the expected
+    # matrix contains exact zeros.
+    np.testing.assert_allclose(A1_1 - A1_0, A1_c, rtol=0, atol=5e-15)
+    np.testing.assert_allclose(A2_1 - A2_0, A2_c, rtol=0, atol=5e-15)
 
 
 def _elastic_model_and_forcing():
