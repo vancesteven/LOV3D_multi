@@ -4,7 +4,7 @@
 """Spherical-harmonic gravity sensitivity for Mars density anomalies.
 
 The original proposal-scale calculation represented a thickness anomaly as a
-thin sheet.  This module now also supports exact finite radial shells so a 3D
+thin sheet. This module now also supports exact finite radial shells so a 3D
 composition/alteration model can pass density-harmonic coefficients as a
 function of depth without collapsing them to one equivalent surface sheet.
 
@@ -19,10 +19,11 @@ For a volume-density harmonic ``rho_lm(r)`` the exact generalization is
            * integral rho_lm(r) r**(l+2) dr.
 
 A constant coefficient between radii ``r_inner`` and ``r_outer`` therefore has
-an analytic finite-shell expression.  The thin-sheet equation is recovered in
-the small-thickness limit.
+an analytic finite-shell expression. The implementation evaluates it in terms
+of radius ratios rather than raw powers of metre-valued radii, avoiding
+floating-point overflow through and beyond GMM-3 degree 120.
 
-These are physical orthonormal-harmonic coefficients.  Use
+These are physical orthonormal-harmonic coefficients. Use
 ``mars_gravity_normalization`` before comparing them with GMM-3 C_lm/S_lm.
 """
 
@@ -57,7 +58,7 @@ def thin_sheet_potential_coefficient(
     """Return dimensionless orthonormal-harmonic potential coefficient q_lm.
 
     ``thickness_coeff_m`` is the coefficient of a layer-thickness anomaly, not
-    the thickness of a globally uniform layer.  Compensation is represented by
+    the thickness of a globally uniform layer. Compensation is represented by
     an equal/opposite column-mass harmonic at the specified depth.
     """
     _validate_gravity_geometry(degree, radius_m, mass_kg)
@@ -92,24 +93,31 @@ def finite_shell_potential_coefficient(
     """Return exact q_lm for a constant density harmonic in one radial shell.
 
     ``density_coeff_kg_m3`` is the coefficient multiplying a unit-norm real
-    spherical harmonic throughout the shell.  The shell must lie at or below
+    spherical harmonic throughout the shell. The shell must lie at or below
     the external-potential reference radius.
     """
     _validate_gravity_geometry(degree, reference_radius_m, mass_kg)
     ri = float(inner_radius_m)
     ro = float(outer_radius_m)
+    R = float(reference_radius_m)
     if ri < 0 or ro <= ri:
         raise ValueError("require 0 <= inner_radius_m < outer_radius_m")
-    if ro > reference_radius_m:
+    if ro > R:
         raise ValueError("outer_radius_m cannot exceed reference_radius_m")
 
-    radial_moment = (ro ** (degree + 3) - ri ** (degree + 3)) / (degree + 3)
+    # Algebraically identical to
+    # (ro**(l+3)-ri**(l+3))/((l+3)*R**l), but numerically stable at high l.
+    radial_factor_m3 = (
+        R**3
+        / (degree + 3)
+        * ((ro / R) ** (degree + 3) - (ri / R) ** (degree + 3))
+    )
     return (
         4.0
         * math.pi
         * float(density_coeff_kg_m3)
-        * radial_moment
-        / ((2 * degree + 1) * mass_kg * reference_radius_m**degree)
+        * radial_factor_m3
+        / ((2 * degree + 1) * mass_kg)
     )
 
 
@@ -124,7 +132,7 @@ def layered_density_potential_coefficient(
     """Integrate a piecewise-constant radial density-harmonic profile exactly.
 
     ``radius_edges_m`` must increase outward and have one more entry than
-    ``density_coefficients_kg_m3``.  Each density value is an l,m harmonic
+    ``density_coefficients_kg_m3``. Each density value is an l,m harmonic
     coefficient for that radial shell, so positive and negative contributions
     naturally cancel when summed.
     """
