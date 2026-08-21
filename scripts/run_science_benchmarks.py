@@ -25,6 +25,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_analytical.py",
     "pylov3d/tests/test_matlab_validation.py",
     "pylov3d/tests/test_matlab_validation_ocean.py",
+    "pylov3d/tests/test_compat_current.py",
     "pylov3d/tests/test_mars.py::TestMass",
     "pylov3d/tests/test_mars.py::TestMoI",
     "pylov3d/tests/test_mars.py::TestK2",
