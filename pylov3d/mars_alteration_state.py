@@ -121,19 +121,28 @@ def _physical_grid_to_stokes(grid: np.ndarray, lmax: int) -> tuple[np.ndarray, n
     return _remove_matlab_half_cell_phase(c, s, lmax)
 
 
-def _fractional_complex_modes(grid: np.ndarray, mean: float, lmax: int) -> list[tuple[int, int, complex]]:
+def _fractional_complex_modes(
+    grid: np.ndarray,
+    mean: float,
+    lmax: int,
+    *,
+    relative_floor: float = 1e-13,
+) -> list[tuple[int, int, complex]]:
+    """Return fractional solver modes, dropping pure transform roundoff."""
     if not np.isfinite(mean) or mean <= 0:
         raise ValueError("mean material property must be positive")
+    if relative_floor < 0:
+        raise ValueError("relative_floor must be non-negative")
     c, s = _physical_grid_to_stokes(grid, lmax)
     real_coeffs: dict[tuple[int, int], float] = {}
     for degree in range(1, lmax + 1):
         for order in range(degree + 1):
             cv = float(c[degree, order] / mean)
-            if cv != 0.0:
+            if abs(cv) > relative_floor:
                 real_coeffs[(degree, order)] = cv
             if order > 0:
                 sv = float(s[degree, order] / mean)
-                if sv != 0.0:
+                if abs(sv) > relative_floor:
                     real_coeffs[(degree, -order)] = sv
     return _real_sh_to_complex_mu_variable(real_coeffs)
 
