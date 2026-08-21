@@ -1,37 +1,47 @@
 # Copyright (c) 2026 pylov3d contributors.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Finite-shell spherical-harmonic gravity sensitivity for Mars.
+"""Spherical-harmonic gravity sensitivity for Mars density anomalies.
 
-The functions here intentionally separate geometry from coefficient normalization.
-A layer-thickness anomaly is represented in an orthonormal spherical-harmonic
-basis, with coefficient H_lm in metres. For a density contrast ``delta_rho``
-and reference radius ``R``, the dimensionless potential coefficient at R is
+The original proposal-scale calculation represented a thickness anomaly as a
+thin sheet.  This module now also supports exact finite radial shells so a 3D
+composition/alteration model can pass density-harmonic coefficients as a
+function of depth without collapsing them to one equivalent surface sheet.
 
-    q_lm = 4*pi*delta_rho*R**2 / ((2*l+1)*M) * H_lm
+For unit-norm real spherical harmonics, a thin sheet with thickness coefficient
+``H_lm`` has dimensionless external-potential coefficient
 
-for a thin sheet at R. A compensating sheet at radius ``Rb`` can be included
-through a compensation fraction c. The convention used here conserves column
-mass per solid angle, giving the degree-dependent factor
+    q_lm = 4*pi*delta_rho*R**2 / ((2*l+1)*M) * H_lm.
 
-    1 - c*(Rb/R)**l.
+For a volume-density harmonic ``rho_lm(r)`` the exact generalization is
 
-The corresponding radial-gravity harmonic at altitude h is
+    q_lm = 4*pi / ((2*l+1)*M*R**l)
+           * integral rho_lm(r) r**(l+2) dr.
 
-    g_lm(h) = GM/(R+h)^2 * (l+1) * q_lm * (R/(R+h))**l.
+A constant coefficient between radii ``r_inner`` and ``r_outer`` therefore has
+an analytic finite-shell expression.  The thin-sheet equation is recovered in
+the small-thickness limit.
 
-This module is proposal-scale sensitivity machinery, not yet a replacement for
-full Mars gravity-field inversion with a published covariance and explicit
-normalization convention for C_lm/S_lm products.
+These are physical orthonormal-harmonic coefficients.  Use
+``mars_gravity_normalization`` before comparing them with GMM-3 C_lm/S_lm.
 """
 
 from __future__ import annotations
 
 import math
 
+import numpy as np
+
 G = 6.67430e-11
 MARS_RADIUS_M = 3389.5e3
 MARS_MASS_KG = 6.4171e23
+
+
+def _validate_gravity_geometry(degree: int, radius_m: float, mass_kg: float) -> None:
+    if degree < 1:
+        raise ValueError("degree must be >= 1")
+    if radius_m <= 0 or mass_kg <= 0:
+        raise ValueError("radius_m and mass_kg must be positive")
 
 
 def thin_sheet_potential_coefficient(
@@ -44,11 +54,13 @@ def thin_sheet_potential_coefficient(
     compensation_fraction: float = 0.0,
     compensation_depth_m: float = 0.0,
 ) -> float:
-    """Return dimensionless orthonormal-harmonic potential coefficient q_lm."""
-    if degree < 1:
-        raise ValueError("degree must be >= 1")
-    if radius_m <= 0 or mass_kg <= 0:
-        raise ValueError("radius_m and mass_kg must be positive")
+    """Return dimensionless orthonormal-harmonic potential coefficient q_lm.
+
+    ``thickness_coeff_m`` is the coefficient of a layer-thickness anomaly, not
+    the thickness of a globally uniform layer.  Compensation is represented by
+    an equal/opposite column-mass harmonic at the specified depth.
+    """
+    _validate_gravity_geometry(degree, radius_m, mass_kg)
     if not 0.0 <= compensation_fraction <= 1.0:
         raise ValueError("compensation_fraction must lie in [0, 1]")
     if compensation_depth_m < 0 or compensation_depth_m >= radius_m:
@@ -68,6 +80,77 @@ def thin_sheet_potential_coefficient(
     return q
 
 
+def finite_shell_potential_coefficient(
+    degree: int,
+    density_coeff_kg_m3: float,
+    inner_radius_m: float,
+    outer_radius_m: float,
+    *,
+    reference_radius_m: float = MARS_RADIUS_M,
+    mass_kg: float = MARS_MASS_KG,
+) -> float:
+    """Return exact q_lm for a constant density harmonic in one radial shell.
+
+    ``density_coeff_kg_m3`` is the coefficient multiplying a unit-norm real
+    spherical harmonic throughout the shell.  The shell must lie at or below
+    the external-potential reference radius.
+    """
+    _validate_gravity_geometry(degree, reference_radius_m, mass_kg)
+    ri = float(inner_radius_m)
+    ro = float(outer_radius_m)
+    if ri < 0 or ro <= ri:
+        raise ValueError("require 0 <= inner_radius_m < outer_radius_m")
+    if ro > reference_radius_m:
+        raise ValueError("outer_radius_m cannot exceed reference_radius_m")
+
+    radial_moment = (ro ** (degree + 3) - ri ** (degree + 3)) / (degree + 3)
+    return (
+        4.0
+        * math.pi
+        * float(density_coeff_kg_m3)
+        * radial_moment
+        / ((2 * degree + 1) * mass_kg * reference_radius_m**degree)
+    )
+
+
+def layered_density_potential_coefficient(
+    degree: int,
+    radius_edges_m: np.ndarray,
+    density_coefficients_kg_m3: np.ndarray,
+    *,
+    reference_radius_m: float = MARS_RADIUS_M,
+    mass_kg: float = MARS_MASS_KG,
+) -> float:
+    """Integrate a piecewise-constant radial density-harmonic profile exactly.
+
+    ``radius_edges_m`` must increase outward and have one more entry than
+    ``density_coefficients_kg_m3``.  Each density value is an l,m harmonic
+    coefficient for that radial shell, so positive and negative contributions
+    naturally cancel when summed.
+    """
+    r = np.asarray(radius_edges_m, dtype=float)
+    rho = np.asarray(density_coefficients_kg_m3, dtype=float)
+    if r.ndim != 1 or rho.ndim != 1 or r.size != rho.size + 1:
+        raise ValueError("radius_edges_m must be 1-D with len(edges)=len(density)+1")
+    if not np.all(np.isfinite(r)) or not np.all(np.isfinite(rho)):
+        raise ValueError("radius edges and density coefficients must be finite")
+    if np.any(np.diff(r) <= 0):
+        raise ValueError("radius_edges_m must increase strictly outward")
+
+    terms = [
+        finite_shell_potential_coefficient(
+            degree,
+            rho_i,
+            r0,
+            r1,
+            reference_radius_m=reference_radius_m,
+            mass_kg=mass_kg,
+        )
+        for r0, r1, rho_i in zip(r[:-1], r[1:], rho)
+    ]
+    return float(math.fsum(terms))
+
+
 def radial_gravity_from_coefficient(
     degree: int,
     q_lm: float,
@@ -77,8 +160,7 @@ def radial_gravity_from_coefficient(
     mass_kg: float = MARS_MASS_KG,
 ) -> float:
     """Return radial-gravity harmonic amplitude in m/s^2 per unit Y_lm."""
-    if degree < 1:
-        raise ValueError("degree must be >= 1")
+    _validate_gravity_geometry(degree, radius_m, mass_kg)
     if altitude_m < 0:
         raise ValueError("altitude_m must be non-negative")
     r = radius_m + altitude_m
