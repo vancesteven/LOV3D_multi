@@ -4,10 +4,15 @@
 """Import the neutral PlanetProfile/PlanetThrak radial ``.npz`` artifact.
 
 The artifact schema is intentionally independent of either package's internal
-classes.  pylov3d uses only the fields required for radial tidal structure:
-body radius, depth, density, bulk modulus and shear modulus.  The first version
+classes. pylov3d uses only the fields required for radial tidal structure:
+body radius, depth, density, bulk modulus and shear modulus. The first version
 is elastic unless an explicit viscosity field is added to the artifact schema
 later.
+
+Because reducing a high-resolution PlanetProfile profile can change global
+structure, this module also reports exact mass and spherical axial moment of
+inertia for the piecewise-constant shells. Those diagnostics are kept separate
+from the converter so a reduction cannot silently pass through the interface.
 """
 
 from __future__ import annotations
@@ -31,6 +36,15 @@ class RadialArtifactShells:
     K_Pa: np.ndarray
     mu_Pa: np.ndarray
     metadata: dict[str, object]
+
+
+@dataclass(frozen=True)
+class RadialBulkDiagnostics:
+    mass_kg: float
+    axial_moi_kgm2: float
+    cmr2: float
+    mass_relative_error: float | None
+    cmr2_error: float | None
 
 
 def _read_metadata(data) -> dict[str, object]:
@@ -96,6 +110,44 @@ def load_radial_artifact_shells(path, *, body_radius_m: float | None = None) -> 
             mu_Pa=arrays["shear_modulus_Pa"][order],
             metadata=meta,
         )
+
+
+def radial_shell_bulk_diagnostics(shells: RadialArtifactShells) -> RadialBulkDiagnostics:
+    """Compute exact M and C/MR^2 for piecewise-constant spherical shells.
+
+    For shell density ``rho`` spanning ``r_in`` to ``r_out``,
+
+    ``M = 4*pi*rho*(r_out^3-r_in^3)/3``
+
+    and the axial moment is
+
+    ``C = 8*pi*rho*(r_out^5-r_in^5)/15``.
+    """
+    r_out = np.asarray(shells.outer_radius_m, dtype=float)
+    r_in = np.concatenate(([0.0], r_out[:-1]))
+    rho = np.asarray(shells.rho_kgm3, dtype=float)
+    mass = float((4.0 * np.pi / 3.0) * np.sum(rho * (r_out**3 - r_in**3)))
+    C = float((8.0 * np.pi / 15.0) * np.sum(rho * (r_out**5 - r_in**5)))
+    R = float(r_out[-1])
+    cmr2 = C / (mass * R**2)
+
+    mass_err = None
+    if "body_mass_kg" in shells.metadata:
+        reference = float(shells.metadata["body_mass_kg"])
+        if reference <= 0:
+            raise ValueError("meta_body_mass_kg must be positive")
+        mass_err = (mass - reference) / reference
+    cmr2_err = None
+    if "cmr2" in shells.metadata:
+        reference_cmr2 = float(shells.metadata["cmr2"])
+        cmr2_err = cmr2 - reference_cmr2
+    return RadialBulkDiagnostics(
+        mass_kg=mass,
+        axial_moi_kgm2=C,
+        cmr2=cmr2,
+        mass_relative_error=mass_err,
+        cmr2_error=cmr2_err,
+    )
 
 
 def radial_artifact_to_interior_model(
