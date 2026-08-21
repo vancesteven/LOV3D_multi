@@ -7,11 +7,13 @@ from pylov3d.mars_alteration_gravity import (
     density_contrast_from_alteration,
     grid_to_orthonormal_density_coefficients,
     layered_density_gravity_coefficients,
+    orthonormal_gravity_arrays_to_gmm3,
 )
 from pylov3d.mars_gravity_coefficients import (
     MARS_RADIUS_M,
     finite_shell_potential_coefficient,
 )
+from pylov3d.mars_gravity_normalization import orthonormal_to_gmm3_normalized
 from pylov3d.matlab_sph import stokes_to_grid
 
 
@@ -74,6 +76,22 @@ def test_axisymmetric_degree2_density_map_matches_exact_finite_shell_gravity():
     np.testing.assert_allclose(q_sin, 0.0, rtol=0, atol=1e-18)
 
 
+def test_gmm3_array_bridge_matches_scalar_normalization_for_cosine_and_sine():
+    q_cos = np.zeros((6, 6))
+    q_sin = np.zeros_like(q_cos)
+    q_cos[5, 2] = 2.1e-7
+    q_sin[5, 2] = -7.0e-8
+    c, s = orthonormal_gravity_arrays_to_gmm3(q_cos, q_sin)
+    assert c[5, 2] == pytest.approx(
+        orthonormal_to_gmm3_normalized(q_cos[5, 2], 5), rel=1e-15
+    )
+    assert s[5, 2] == pytest.approx(
+        orthonormal_to_gmm3_normalized(q_sin[5, 2], 5), rel=1e-15
+    )
+    assert c[2, 5] == 0.0
+    assert s[2, 5] == 0.0
+
+
 def test_invalid_fraction_and_grid_inputs_are_rejected():
     with pytest.raises(ValueError, match="hydrated_fraction"):
         density_contrast_from_alteration(1.2, 1.0, 3000.0, 2600.0)
@@ -83,3 +101,5 @@ def test_invalid_fraction_and_grid_inputs_are_rejected():
             np.array([MARS_RADIUS_M - 1e3, MARS_RADIUS_M]),
             2,
         )
+    with pytest.raises(ValueError, match="square"):
+        orthonormal_gravity_arrays_to_gmm3(np.zeros((2, 3)), np.zeros((2, 3)))
