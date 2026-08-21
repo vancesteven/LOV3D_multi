@@ -39,6 +39,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars_gravity_coefficients.py",
     "pylov3d/tests/test_mars_alteration_gravity.py",
     "pylov3d/tests/test_mars_alteration_state.py",
+    "pylov3d/tests/test_bulk_lateral.py",
     "pylov3d/tests/test_mars_gmm3.py",
     "pylov3d/tests/test_mars_gravity_normalization.py",
     "pylov3d/tests/test_mars_gravity_background.py",
