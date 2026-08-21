@@ -57,7 +57,7 @@ CORE_BENCHMARKS = [
     # Proposal-facing Mars multi-observable interfaces: InSight seismic
     # likelihood, dry-frame/Gassmann bounding physics, remanent-magnetization
     # plausibility anchors, self-consistent hydrated-solid density, finite-shell
-    # gravity coefficients, GMM-3 parsing/normalization/background, and
+    # and 3D alteration gravity, GMM-3 parsing/normalization/background, and
     # connected-pore EM bounds.
     "pylov3d/tests/test_mars_seismic.py",
     "pylov3d/tests/test_mars_poroelastic.py",
@@ -66,6 +66,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_mars_gravity_sensitivity.py",
     "pylov3d/tests/test_mars_gravity_harmonics.py",
     "pylov3d/tests/test_mars_gravity_coefficients.py",
+    "pylov3d/tests/test_mars_alteration_gravity.py",
     "pylov3d/tests/test_mars_gmm3.py",
     "pylov3d/tests/test_mars_gravity_normalization.py",
     "pylov3d/tests/test_mars_gravity_background.py",
