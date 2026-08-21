@@ -3,6 +3,7 @@ import pytest
 
 from pylov3d.mars_alteration_state import AlterationEndmembers
 from pylov3d.mars_common_state import build_common_alteration_forward_inputs
+from pylov3d.mars_gravity_coefficients import MARS_RADIUS_M
 from pylov3d.matlab_sph import stokes_to_grid
 
 
@@ -20,7 +21,7 @@ def test_uniform_alteration_changes_mean_properties_but_no_lateral_gravity():
     lmax = 6
     nz = 2
     fh = np.full((2 * lmax, 4 * lmax, nz), 0.5)
-    r = np.array([3.34e6, 3.365e6, 3.39e6])
+    r = np.array([MARS_RADIUS_M - 50e3, MARS_RADIUS_M - 25e3, MARS_RADIUS_M])
     out = build_common_alteration_forward_inputs(
         fh,
         0.4,
@@ -47,7 +48,7 @@ def test_same_nonuniform_alteration_field_drives_gravity_and_rigidity_modes():
     _, _, fh2d = stokes_to_grid(c, s, lmax)
     assert fh2d.min() >= 0.0 and fh2d.max() <= 1.0
     fh = fh2d[:, :, None]
-    r = np.array([3.34e6, 3.39e6])
+    r = np.array([MARS_RADIUS_M - 50e3, MARS_RADIUS_M])
 
     out = build_common_alteration_forward_inputs(
         fh,
@@ -69,7 +70,7 @@ def test_invalid_hydration_field_shape_is_rejected():
         build_common_alteration_forward_inputs(
             np.zeros((3, 4, 1)),
             1.0,
-            np.array([3.3e6, 3.39e6]),
+            np.array([MARS_RADIUS_M - 90e3, MARS_RADIUS_M]),
             2,
             ENDMEMBERS,
         )
