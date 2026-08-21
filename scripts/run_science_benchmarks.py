@@ -85,11 +85,12 @@ CORE_BENCHMARKS = [
     # [43,41,41] perturbation closures from the native MATLAB raw-grid path.
     "pylov3d/tests/test_io_rheology_spectrum_parity.py",
     # TASK-046 closure: literal MATLAB SPH transform convention and the
-    # production fractional-grid viscoelastic-rheology processor.  These pin
-    # the native half-cell FFT phase rather than assuming an identity
-    # synthesis/analysis round trip.
+    # production fractional-grid viscoelastic-rheology processor. These pin
+    # the native half-cell FFT phase and the six retained complex coefficients
+    # against the independent MATLAB raw-grid anchor.
     "pylov3d/tests/test_matlab_sph.py",
     "pylov3d/tests/test_rheology_grid.py",
+    "pylov3d/tests/test_io_raw_grid_coefficient_parity.py",
 ]
 
 PYALMA3_BENCHMARK = "pylov3d/tests/test_benchmark_pyalma3.py"
