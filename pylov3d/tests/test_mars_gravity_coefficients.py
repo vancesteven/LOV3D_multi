@@ -102,7 +102,9 @@ def test_finite_shell_formula_matches_direct_analytic_expression():
         * moment
         / ((2 * degree + 1) * MARS_MASS_KG * MARS_RADIUS_M**degree)
     )
-    assert got == pytest.approx(expected, rel=2e-15)
+    # The production form uses stable radius ratios while this reference uses
+    # large raw powers, so roundoff differs at the ~1e-14 level.
+    assert got == pytest.approx(expected, rel=3e-14)
 
 
 def test_finite_shell_is_stable_at_gmm3_degree_120():
