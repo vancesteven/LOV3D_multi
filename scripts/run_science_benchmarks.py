@@ -91,6 +91,9 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_matlab_sph.py",
     "pylov3d/tests/test_rheology_grid.py",
     "pylov3d/tests/test_io_raw_grid_coefficient_parity.py",
+    # Slow but decisive publication gate: raw maps through nonlinear Maxwell
+    # transform, coupled solver and both energy calculations at Nrbase=50.
+    "pylov3d/tests/test_io_raw_grid_gate_c.py",
 ]
 
 PYALMA3_BENCHMARK = "pylov3d/tests/test_benchmark_pyalma3.py"
