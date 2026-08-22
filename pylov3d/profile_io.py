@@ -55,8 +55,18 @@ def _read_metadata(data) -> dict[str, object]:
     return meta
 
 
-def load_radial_artifact_shells(path, *, body_radius_m: float | None = None) -> RadialArtifactShells:
-    """Read and validate a neutral radial artifact as core-to-surface shells."""
+def load_radial_artifact_shells(
+    path,
+    *,
+    body_radius_m: float | None = None,
+    enforce_max_layers: bool = True,
+) -> RadialArtifactShells:
+    """Read and validate a neutral radial artifact as core-to-surface shells.
+
+    ``enforce_max_layers=False`` is only for inspection/reduction workflows.
+    Direct conversion to ``InteriorModel`` still enforces the JAX static layer
+    limit and never silently decimates a high-resolution profile.
+    """
     with np.load(Path(path), allow_pickle=False) as data:
         version = int(np.asarray(data["schema_version"]).item())
         if version != PROFILE_SCHEMA_VERSION:
@@ -98,10 +108,10 @@ def load_radial_artifact_shells(path, *, body_radius_m: float | None = None) -> 
         r = r[order]
         if np.any(np.diff(r) <= 0):
             raise ValueError("radial artifact shell radii must be unique")
-        if n > MAX_LAYERS:
+        if enforce_max_layers and n > MAX_LAYERS:
             raise ValueError(
                 f"radial artifact has {n} shells but pylov3d MAX_LAYERS={MAX_LAYERS}; "
-                "export a scientifically controlled reduced PlanetProfile model first"
+                "inspect/reduce it explicitly before conversion"
             )
         return RadialArtifactShells(
             outer_radius_m=r,
@@ -113,16 +123,7 @@ def load_radial_artifact_shells(path, *, body_radius_m: float | None = None) -> 
 
 
 def radial_shell_bulk_diagnostics(shells: RadialArtifactShells) -> RadialBulkDiagnostics:
-    """Compute exact M and C/MR^2 for piecewise-constant spherical shells.
-
-    For shell density ``rho`` spanning ``r_in`` to ``r_out``,
-
-    ``M = 4*pi*rho*(r_out^3-r_in^3)/3``
-
-    and the axial moment is
-
-    ``C = 8*pi*rho*(r_out^5-r_in^5)/15``.
-    """
+    """Compute exact M and C/MR^2 for piecewise-constant spherical shells."""
     r_out = np.asarray(shells.outer_radius_m, dtype=float)
     r_in = np.concatenate(([0.0], r_out[:-1]))
     rho = np.asarray(shells.rho_kgm3, dtype=float)
@@ -163,7 +164,7 @@ def radial_artifact_to_interior_model(
     n = shells.outer_radius_m.size
     ocean = (shells.mu_Pa <= fluid_mu_tol_Pa).astype(int)
     if n:
-        ocean[0] = 0  # deepest zero-shear shell is the central core convention
+        ocean[0] = 0
     mu = shells.mu_Pa.copy()
     mu[ocean.astype(bool)] = 0.0
     return make_interior_model(
