@@ -56,12 +56,12 @@ def _couplings_coefficient(
     """Vectorized Wigner product for energy coupling.
 
     All inputs are int arrays of equal length (subset of the 324-element
-    quantum number vectors).  Returns an array whose length is
-    ``len(na) / 9``, after reshaping to (9, -1) and summing over the
-    first axis.
+    quantum number vectors). Returns an array whose length is ``len(na) / 9``.
 
-    Translates ``couplings_coefficient`` in ``get_energy_couplings.m``
-    lines 296–312.
+    MATLAB's ``reshape(Caux, 9, [])`` is column-major. NumPy's default reshape
+    is row-major, so the translation must use ``order='F'`` here. Otherwise
+    the wrong groups of nine Wigner-product terms are summed into each tensor
+    coefficient even though the individual Wigner values are correct.
     """
     ones = np.ones_like(na)
     zeros = np.zeros_like(na)
@@ -93,8 +93,9 @@ def _couplings_coefficient(
         * CC
     )
 
-    # Reshape to (9, -1) and sum over the 9 inner indices
-    C_int = C_aux.reshape(9, -1)
+    # MATLAB: C_int = reshape(Caux,9,[]); C = sum(C_int);
+    # Preserve MATLAB/Fortran column-major grouping explicitly.
+    C_int = C_aux.reshape(9, -1, order="F")
     return C_int.sum(axis=0)
 
 
@@ -139,8 +140,8 @@ def get_energy_couplings(
     la = np.array([2, 2, 2, 2, 2, 0])
     lb = np.array([2, 2, 2, 2, 2, 0])
     # Full 324-element vectors (6 × 6 × 9 = 324)
-    la_full = np.repeat(la, 54)       # each of 6 la values repeated 54 times
-    lb_full = np.tile(np.repeat(lb, 9), 6)  # each of 6 lb values repeated 9, tiled 6x
+    la_full = np.repeat(la, 54)
+    lb_full = np.tile(np.repeat(lb, 9), 6)
 
     EC = np.zeros((N_sol, N_sol, N_en, 6, 6))
 
@@ -152,12 +153,10 @@ def get_energy_couplings(
             nb_val = int(n_sol[i2])
             mb_val = int(m_sol[i2])
 
-            # Selection rules: triangle inequality + m conservation
             n_lo = abs(na_val - nb_val)
             n_hi = na_val + nb_val
             m_target = ma_val + mb_val
 
-            # Find matching energy modes
             mask = (n_en >= n_lo) & (n_en <= n_hi) & (m_en == m_target)
             ind_modes = np.where(mask)[0]
             if len(ind_modes) == 0:
@@ -167,7 +166,6 @@ def get_energy_couplings(
                 nc_val = int(n_en[idx])
                 mc_val = int(m_en[idx])
 
-                # Build 324-element na2, nb2 vectors
                 na2_6 = np.array([na_val - 2, na_val - 1, na_val,
                                   na_val + 1, na_val + 2, na_val])
                 nb2_6 = np.array([nb_val - 2, nb_val - 1, nb_val,
@@ -176,7 +174,6 @@ def get_energy_couplings(
                 nb2_full = np.tile(np.repeat(nb2_6, 9), 6)
                 nc_full = np.full(324, nc_val)
 
-                # Selection rules: parity + triangle on (na2, nb2, nc)
                 nz_mask = (
                     ((na2_full + nb2_full + nc_full) % 2 == 0)
                     & (nb2_full >= np.abs(na2_full - nc_full))
@@ -188,16 +185,11 @@ def get_energy_couplings(
 
                 n_nz = len(nz_idx)
 
-                # Row/column indices in the (6,6) output
-                # i4 = which of the 6 na2 blocks (0-indexed)
-                # i5 = which of the 6 nb2 blocks (0-indexed)
-                i4_vec = nz_idx // 54              # na2 block index
-                i5_vec = (nz_idx // 9) % 6         # nb2 block index
-                # Take every 9th (one per na1×nb1 group)
+                i4_vec = nz_idx // 54
+                i5_vec = (nz_idx // 9) % 6
                 i4_out = i4_vec[::9]
                 i5_out = i5_vec[::9]
 
-                # Build input arrays for the non-zero subset
                 na_arr = np.full(n_nz, na_val)
                 ma_arr = np.full(n_nz, ma_val)
                 nb_arr = np.full(n_nz, nb_val)
@@ -209,7 +201,6 @@ def get_energy_couplings(
                 la_arr = la_full[nz_idx]
                 lb_arr = lb_full[nz_idx]
 
-                # Build na1, nb1 arrays
                 na1v = np.array([na_val - 1, na_val, na_val + 1])
                 nb1v = np.array([nb_val - 1, nb_val, nb_val + 1])
                 rep_na1 = n_nz // 9
@@ -217,20 +208,20 @@ def get_energy_couplings(
                 na1_arr = np.tile(np.repeat(na1v, 3), rep_na1)
                 nb1_arr = np.tile(nb1v, rep_nb1)
 
-                # Compute coupling coefficients
                 ec_vec = _couplings_coefficient(
                     na_arr, na2_arr, la_arr, ma_arr,
                     nb_arr, nb2_arr, lb_arr, mb_arr,
                     nc_arr, mc_arr, na1_arr, nb1_arr,
                 )
 
-                # Fill (6, 6) matrix
+                # MATLAB uses column-major sub2ind/reshape; this Python pair of
+                # row-major linear indexing plus row-major reshape places the
+                # value at the same logical [i4,i5] matrix coordinate.
                 store = np.zeros(36)
                 linear_idx = i4_out * 6 + i5_out
                 store[linear_idx] = ec_vec
                 EC[i1, i2, idx, :, :] = store.reshape(6, 6)
 
-    # Trim to non-zero energy modes
     nz_en = []
     for i in range(N_en):
         if np.any(np.abs(EC[:, :, i, :, :]) > 0):
