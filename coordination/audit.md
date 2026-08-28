@@ -26,3 +26,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: pylov3d/profile_convergence.py, pylov3d/profile_reduction.py, pylov3d/tests/test_profile_convergence.py, scripts/radial_reduction_convergence.py, scripts/run_science_benchmarks.py, docs/RADIAL_PROFILE_REDUCTION_2026-08-21.md
 - Verification: new tests 10/10; full run_science_benchmarks.py 174/174 passed; CLI on the 64-shell fixture shows |dk2|/|k2| falling to 5.2e-4 at 16 layers
 - Handoff: Gate machinery is ready; still needs a real PlanetProfile Mars radial artifact to run for science (none exists in-repo). Convergence here is elastic-only, per the reducer's stated scope.
+
+## 2026-08-28T02:00Z — claude-lov3d-genai
+- Did: Preserved the three untracked MATLAB TASK-046 anchor files found in the sibling main checkout (~/src/LOV3d_multi, which had them only as untracked working files) by committing them here; also committed the /external/ ignore rule that existed there only as an uncommitted .gitignore edit.
+- Files: data/tests/io/io_identical_coefficients_anchor.mat, data/tests/io/io_uniform_radial_anchor.mat, data/tests/io/io_raw_grid_energy_anchor.mat, .gitignore
+- Verification: io_compare_identical_coefficients_anchor.py -> strict solver parity PASS (worst k relerr 1.3e-11); io_compare_uniform_radial_anchor.py -> alpha=0.9999999999559, diffs ~1e-9 except MATLAB-zeroed surface row; io_raw_grid_energy_anchor.mat loads via scipy with expected keys (no Python consumer script; it is the authoritative MATLAB Gate C artifact)
+- Handoff: LOV3d_multi still carries the originals as untracked files plus regenerable CSV/log outputs; per protocol I did not modify that tree.

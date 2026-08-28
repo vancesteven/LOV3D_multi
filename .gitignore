@@ -30,3 +30,4 @@ scripts/**/__pycache__/
 pylov3d/tests/output/
 .obsidian/
 graphify-out/
+/external/
