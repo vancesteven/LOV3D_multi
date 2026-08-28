@@ -20,3 +20,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: none (merge + validation)
 - Verification: run_science_benchmarks.py, 167 passed in 318 s
 - Handoff: Publication gate in docs/RADIAL_PROFILE_REDUCTION_2026-08-21.md is still open — Love-number convergence vs. target layer count has not been demonstrated for any reduced profile.
+
+## 2026-08-28T01:00Z — claude-lov3d-genai
+- Did: Implemented the open publication gate from docs/RADIAL_PROFILE_REDUCTION_2026-08-21.md: pylov3d/profile_convergence.py reduces the same high-resolution artifact to a sequence of layer counts, solves degree-2 elastic Love numbers per reduction, and reports successive |dk2|/|k2|; added scripts/radial_reduction_convergence.py (accepts an artifact or --synthetic Mars-like fixture) and pylov3d/tests/test_profile_convergence.py (registered in run_science_benchmarks.py). Also fixed reduced_shells_to_interior_model: a multi-shell fluid run touching the center now converts as liquid core (mu=0, ocean unset, matching build_mars_model) instead of ocean flags the solver rejects at layer index < 2.
+- Files: pylov3d/profile_convergence.py, pylov3d/profile_reduction.py, pylov3d/tests/test_profile_convergence.py, scripts/radial_reduction_convergence.py, scripts/run_science_benchmarks.py, docs/RADIAL_PROFILE_REDUCTION_2026-08-21.md
+- Verification: new tests 10/10; full run_science_benchmarks.py 174/174 passed; CLI on the 64-shell fixture shows |dk2|/|k2| falling to 5.2e-4 at 16 layers
+- Handoff: Gate machinery is ready; still needs a real PlanetProfile Mars radial artifact to run for science (none exists in-repo). Convergence here is elastic-only, per the reducer's stated scope.

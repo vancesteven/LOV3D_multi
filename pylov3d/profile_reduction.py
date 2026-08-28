@@ -162,11 +162,18 @@ def reduced_shells_to_interior_model(
     n = shells.outer_radius_m.size
     if n > MAX_LAYERS:
         raise ValueError(f"reduced model still has {n} shells > MAX_LAYERS={MAX_LAYERS}")
-    ocean = (np.asarray(shells.mu_Pa) <= fluid_mu_tol_Pa).astype(int)
-    if n:
-        ocean[0] = 0
+    fluid = np.asarray(shells.mu_Pa) <= fluid_mu_tol_Pa
+    ocean = fluid.astype(int)
+    # The innermost contiguous fluid run is a liquid core, not an ocean: the
+    # solver (like upstream MATLAB LOV3D) rejects ocean flags at layer
+    # index < 2, and build_mars_model represents the liquid core as mu=0
+    # with the ocean flag unset.
+    i = 0
+    while i < n and fluid[i]:
+        ocean[i] = 0
+        i += 1
     mu = np.asarray(shells.mu_Pa, dtype=float).copy()
-    mu[ocean.astype(bool)] = 0.0
+    mu[fluid] = 0.0
     return make_interior_model(
         R0_km=(np.asarray(shells.outer_radius_m) / 1e3).tolist(),
         rho0=np.asarray(shells.rho_kgm3).tolist(),

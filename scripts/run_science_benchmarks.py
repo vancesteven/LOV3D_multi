@@ -28,6 +28,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_compat_current.py",
     "pylov3d/tests/test_profile_io.py",
     "pylov3d/tests/test_profile_reduction.py",
+    "pylov3d/tests/test_profile_convergence.py",
     "pylov3d/tests/test_mars.py::TestMass",
     "pylov3d/tests/test_mars.py::TestMoI",
     "pylov3d/tests/test_mars.py::TestK2",

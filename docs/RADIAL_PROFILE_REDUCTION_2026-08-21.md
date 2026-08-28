@@ -36,4 +36,14 @@ python scripts/reduce_radial_artifact.py path/to/profile.npz --layers 16
 
 Bulk closure alone is not sufficient for a tidal model. Before choosing a reduced profile for science, calculate Love numbers over a sequence of target layer counts and demonstrate convergence. If the desired convergence cannot be reached below `MAX_LAYERS`, increase the static layer limit or develop a more specialized reduction rather than relaxing the convergence requirement.
 
+This gate is executable (2026-08-28): `pylov3d.profile_convergence.love_number_convergence` reduces the same high-resolution artifact independently to each target layer count, solves degree-2 elastic Love numbers per reduction, and `successive_k2_differences` reports the relative k2 movement between successive counts. Run
+
+```bash
+python scripts/radial_reduction_convergence.py path/to/profile.npz --layers 6 8 10 12 14 16
+```
+
+or `--synthetic 64` for the built-in Mars-like fixture. Choose a layer count only where `|dk2|/|k2|` is far below the science error budget.
+
+Conversion note: a multi-shell fluid region touching the planet center is converted as a liquid core (`mu=0`, ocean flag unset), matching `build_mars_model` and the solver's convention; only fluid shells above a solid interior are flagged as ocean layers.
+
 No viscoelastic averaging rule is asserted here. The current reducer is an elastic-structure handoff and must be extended separately before reducing strongly varying viscosity/anelastic structure.
