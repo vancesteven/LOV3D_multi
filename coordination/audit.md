@@ -38,3 +38,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: external/SSS_2025_Mars/* (separate repo, ignored here); plans/STATUS.md (refreshed per CLAUDE.md queue-freshness rule)
 - Verification: md/doc updates verified against pylov3d docs and git log (cite: commits above); Methods_Models.tex edits implemented, unverified (no TeX toolchain here; static \ref/\cite check found no unresolved keys)
 - Handoff: Steve to review PROPOSAL_ASSESSMENT_2026-09-11.md §7, apply Task 2 items himself (stray apostrophe at zProposal.tex:173), and push/sync the proposal repo with Overleaf. Protocol rewrite (AGENTS.md, CLAUDE.md, plans/) found uncommitted in this tree and left as-is.
+
+## 2026-09-12T00:00Z — claude-lov3d-genai
+- Did: Pushed the three proposal documentation commits (51e5de5, a48d0b6, 9fe2ff1) from external/SSS_2025_Mars to its origin main (fast-forward 0723ca2 -> 9fe2ff1) after Steve asked about push capability. Branch local-wip-2026-08-18 left local-only (preservation branch).
+- Files: none in this repo
+- Verification: git push output shows fast-forward; main == origin/main
+- Handoff: Overleaf will pick up the new .md files and the Methods_Models.tex hunks on next sync; zProposal.tex unchanged.
