@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-28T23:59Z (claude-lov3d-genai)
+Updated: 2026-09-29T02:30Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -73,6 +73,27 @@ detectable") and TASK-043 (thermal-vs-crust 0.05 sigma) assume (2,0)-only
 forcing, crust/L=2 templates, seismic-timescale beta, sigma=1.1e-11. Berne's
 detection is l=1 **mantle** mu under the full solar tide with annual softening.
 Not a contradiction, but the null result's scope must be stated explicitly.
+
+## Preliminary: pointwise-connectivity higher-degree study (2026-09-29)
+
+PRELIMINARY per Steve: Berne will provide updated calculations that supersede
+these numbers; machinery is verified, numbers are for scoping only.
+`pylov3d/mars_hydration_connectivity.py` applies Voigt/Hill/Reuss pointwise to
+the crustal-thickness hydration field (Fig-3 geometry) and evaluates the full
+coupled response via the extended Love tensor. 12-combo sweep (central/low x 3
+laws x f_h {0.1, 0.5}, lmax_field=4, lmax_out=2, Nrbase=30, order 2), CSV at
+`data/tests/mars/connectivity_higher_degree_preliminary.csv`:
+
+- delta_k2_mean spans 6.3e-5 to 8.0e-4, consistent with the Fig-3 mean-only
+  ranges; pointwise-vs-mean-only shifts are small (Jensen-convexity direction
+  verified in tests).
+- k_2m splitting is 1e-8 to 1.1e-6 at this truncation — but its m-ordering is
+  connectivity-sensitive (Voigt: m=0 largest; Reuss: m=2 largest).
+- The degree-3 response to (2,0) forcing is 3.8e-6 to 3.2e-5 — roughly 30-60x
+  larger than the k_2m splitting here, i.e. in this configuration the l=3
+  channel (Berne's annual-tomography channel) is the stronger lateral
+  observable. lmax_out=2 truncation; not directly comparable to the Methods
+  lmax=4 topography-field numbers.
 
 ## Blockers
 
