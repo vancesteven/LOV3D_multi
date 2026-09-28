@@ -44,3 +44,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: none in this repo
 - Verification: git push output shows fast-forward; main == origin/main
 - Handoff: Overleaf will pick up the new .md files and the Methods_Models.tex hunks on next sync; zProposal.tex unchanged.
+
+## 2026-09-28T00:00Z — claude-lov3d-genai
+- Did: Assessed proposal (external/SSS_2025_Mars @ 4ab83ce, fast-forwarded from 9fe2ff1) against Berne et al. 2026 (papers/berne2026tidal.pdf, read-only). Three Claude general-purpose subagents (Opus 5.5): science validity, pyLOV3D capability gap, science directions; Codex CLI 0.149.0 (gpt-5.6-sol) read-only fact-check; C1-C3 confirmed, C4 confirmed by manager spot-check, C5 raised open question (logged in open-questions.md). Manager adjudicated; corrected a subagent COM-COF number (300 K -> 1.46 km, not 2.9 km). Wrote PROPOSAL_ASSESSMENT_2026-09-28_BERNE2026.md in the proposal repo; added Berne parity/extension roadmap (B1-B10) to plans/STATUS.md.
+- Files: external/SSS_2025_Mars/PROPOSAL_ASSESSMENT_2026-09-28_BERNE2026.md (separate repo, uncommitted); plans/STATUS.md
+- Verification: review only; citations spot-checked against zProposal.tex/Methods_Models.tex and the paper text; COM-COF and water-budget numbers recomputed. No code changed.
+- Handoff: Steve to apply F1-F3 in zProposal.tex (not edited by agents). Roadmap B1-B3 are the first LOV3D tasks; open physics question on m'!=0 annual forcing recorded in STATUS.md.
