@@ -50,3 +50,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: external/SSS_2025_Mars/PROPOSAL_ASSESSMENT_2026-09-28_BERNE2026.md (separate repo, uncommitted); plans/STATUS.md
 - Verification: review only; citations spot-checked against zProposal.tex/Methods_Models.tex and the paper text; COM-COF and water-budget numbers recomputed. No code changed.
 - Handoff: Steve to apply F1-F3 in zProposal.tex (not edited by agents). Roadmap B1-B3 are the first LOV3D tasks; open physics question on m'!=0 annual forcing recorded in STATUS.md.
+
+## 2026-09-28T18:30Z — claude-lov3d-genai
+- Did: Roadmap B1 (extended Love tensor K^{l'm'}_{lm}, complex + real 4pi cos/sin basis) and B4 (degree-3/4 forcing anchor), implemented by a Claude coder subagent (Opus 5.5) and reviewed by the manager. Zenodo example recon (Claude general-purpose subagent, Opus 5.5) findings logged in open-questions.md: non-zero annual m'!=0 forcing, odd-m sine sign convention differs from our src, and a 2-layer toy model rather than ED Table 2.
+- Files: pylov3d/extended_love.py, pylov3d/tests/test_extended_love.py, pylov3d/tests/test_love_degree_n.py, plans/STATUS.md, coordination/open-questions.md
+- Verification: manager re-ran test_love_degree_n.py 4/4, test_extended_love.py 14/14 (fast), and slow test_mars_columns_match_matlab 1/1 (m'=0,1,2 vs native MATLAB spectra, max abs 1.2e-12)
+- Handoff: B2 parity against Zenodo k2_responses.txt with both sine conventions; the sqrt2 flag in mars_detectability.required_stokes_amplitude (m_forcing_solve!=0 branch)

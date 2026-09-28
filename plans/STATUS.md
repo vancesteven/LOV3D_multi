@@ -36,16 +36,29 @@ the natural parity reference. Priority order:
 
 | # | Item | Effort | Status | Verification bar |
 |---|---|---|---|---|
-| B1 | Extended-Love-tensor API: loop forcing (2,m'), m'=-2..2, return K^{l'm'}_{lm} in real cos/sin basis | S | not implemented | zero-amplitude K = delta*k2 to 1e-12; MATLAB anchor for (2,+-1),(2,+-2) forcing with mantle l=1 mu to <=1e-9 |
+| B1 | Extended-Love-tensor API: loop forcing (2,m'), m'=-2..2, return K^{l'm'}_{lm} in real cos/sin basis | S | verified — `pylov3d/extended_love.py`; `test_extended_love.py` 14/14 fast + slow `test_mars_columns_match_matlab` (m'=0,1,2 vs native MATLAB, 1.2e-12 abs), re-run by manager 2026-09-28. m'<0 covered only by the Python-side conjugate identity | zero-amplitude K = delta*k2 to 1e-12; MATLAB anchor for (2,+-1),(2,+-2) forcing with mantle l=1 mu to <=1e-9 |
 | B2 | Berne 1D reference (ED Table 2) + mantle-l=1 MATLAB anchor | S | not implemented | 1D k2 matches; MAP-coefficient K matches native MATLAB LOV3D <=1e-9 |
 | B3 | Ephemeris forcing f_p(t) + annual projection (Berne eq. 5-7) + polar-cap term (eq. 9-10) | M | not implemented | reproduce Zenodo script dC/dS (l=2,3) to <=1e-3 relative |
-| B4 | Degree-3 forcing anchor (numpy path; JAX rejects n!=2) | S | implemented, unverified | 1D k3,k4 vs homogeneous-sphere analytic and PyALMA3/MATLAB to 1e-8 |
+| B4 | Degree-3 forcing anchor (numpy path; JAX rejects n!=2) | S | verified — `pylov3d/tests/test_love_degree_n.py` 4/4; k2,k3,k4 vs analytic incompressible sphere, rel err 1.6e-9/6.8e-10/6.3e-10 | 1D k3,k4 vs homogeneous-sphere analytic and PyALMA3/MATLAB to 1e-8 |
 | B5 | Lateral-coefficient likelihood + sampler on dC/dS | M | not implemented | injected-truth recovery within 1 sigma; Berne ED Table 3 medians within their intervals |
 | B6 | Large-amplitude convergence (perturbation_order 2-4 at 60-80% mu) | S | not implemented | successive dC3m changes < 1% of sigma; one MATLAB cross-check |
 | B7 | Anelastic (Andrade/Burgers) lateral rheology at annual/semiannual periods | L | not implemented | 1D Andrade k_n vs PyALMA3 < 1e-4; Maxwell-limit Gate C parity |
 | B8 | T, X_Fe, hydration, NAM water -> (mu, K, rho, Q) frequency-dependent mapping | M | not implemented | reproduce Berne dmu/dT = -0.204 GPa/K at 5.94e7 s and Fig. 3 contours to 5% |
 | B9 | Joint thermal-vs-hydration discriminator (tidal A/B + GMM-3 + COM-COF + InSight Q + EM) | M | not implemented | synthetic-truth recovery; whitened cross-correlation < 0.95 |
 | B10 | Lateral density / Moho relief in the tidal solve | L | not implemented | check Berne "<0.3%" claim against MATLAB/FE reference |
+
+Next (B2, revised): Zenodo example is a 2-layer non-dimensional model on stock
+LOV3D_open (not ED Table 2). Build a pylov3d parity anchor against its shipped
+MATLAB `k2_responses.txt`, running both odd-m sine conventions to decide which
+one the example used (see `coordination/open-questions.md`). Archive currently
+only in /tmp; must be copied into `data/` (CC-BY-4.0) before a test can use it.
+
+Follow-ups: (i) `mars_detectability.required_stokes_amplitude` applies
+c_f/c_resp = 1/sqrt2 when m_forcing_solve != 0, which disagrees with K_real's
+sqrt2|K| per standing component (shipped bounds use m_forcing_solve=0, so
+unaffected) — not implemented, needs a targeted check; (ii) direct MATLAB
+anchor for m'<0 forcing needs `scripts/mars_lateral_cross_check.m` rerun with
+`forcing_orders = [-2 -1]`.
 
 Open physics question (needs adjudication, not assumption): in the body-fixed
 frame m'!=0 solar forcing oscillates (semi)diurnally; how much survives the
