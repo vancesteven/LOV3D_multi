@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-28 (claude-lov3d-genai)
+Updated: 2026-09-28T21:30Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -36,10 +36,10 @@ the natural parity reference. Priority order:
 
 | # | Item | Effort | Status | Verification bar |
 |---|---|---|---|---|
-| B1 | Extended-Love-tensor API: loop forcing (2,m'), m'=-2..2, return K^{l'm'}_{lm} in real cos/sin basis | S | verified — `pylov3d/extended_love.py`; `test_extended_love.py` 14/14 fast + slow `test_mars_columns_match_matlab` (m'=0,1,2 vs native MATLAB, 1.2e-12 abs), re-run by manager 2026-09-28. m'<0 covered only by the Python-side conjugate identity | zero-amplitude K = delta*k2 to 1e-12; MATLAB anchor for (2,+-1),(2,+-2) forcing with mantle l=1 mu to <=1e-9 |
+| B1 | Extended-Love-tensor API: loop forcing (2,m'), m'=-2..2, return K^{l'm'}_{lm} in real cos/sin basis | S | verified — `pylov3d/extended_love.py`; `test_extended_love.py` 14/14 fast + slow `test_mars_columns_match_matlab` (m'=0,1,2 vs native MATLAB, 1.2e-12 abs), re-run by manager 2026-09-28. m'<0 covered only by the Python-side conjugate identity | met 2026-09-28: `test_extended_love.py` 19/19 — zero-amplitude diag = 1D k2; columns m'=0,1,2 vs `mars_lateral_cross_check.mat` to 1e-10 (m'<0 via the tested conjugate identity, no direct MATLAB run); rotation-covariance CS-convention check |
 | B2 | Berne 1D reference (ED Table 2) + mantle-l=1 MATLAB anchor | S | not implemented | 1D k2 matches; MAP-coefficient K matches native MATLAB LOV3D <=1e-9 |
 | B3 | Ephemeris forcing f_p(t) + annual projection (Berne eq. 5-7) + polar-cap term (eq. 9-10) | M | not implemented | reproduce Zenodo script dC/dS (l=2,3) to <=1e-3 relative |
-| B4 | Degree-3 forcing anchor (numpy path; JAX rejects n!=2) | S | verified — `pylov3d/tests/test_love_degree_n.py` 4/4; k2,k3,k4 vs analytic incompressible sphere, rel err 1.6e-9/6.8e-10/6.3e-10 | 1D k3,k4 vs homogeneous-sphere analytic and PyALMA3/MATLAB to 1e-8 |
+| B4 | Degree-3 forcing anchor (numpy path; JAX rejects n!=2) | S | verified — `pylov3d/tests/test_love_degree_n.py` 4/4; k2,k3,k4 vs analytic incompressible sphere, rel err 1.6e-9/6.8e-10/6.3e-10 | met 2026-09-28 (analytic half): `test_love_degree_n.py` k_n n=2,3,4 vs Love 1911 sphere to 1e-8; PyALMA3/MATLAB cross-check still open |
 | B5 | Lateral-coefficient likelihood + sampler on dC/dS | M | not implemented | injected-truth recovery within 1 sigma; Berne ED Table 3 medians within their intervals |
 | B6 | Large-amplitude convergence (perturbation_order 2-4 at 60-80% mu) | S | not implemented | successive dC3m changes < 1% of sigma; one MATLAB cross-check |
 | B7 | Anelastic (Andrade/Burgers) lateral rheology at annual/semiannual periods | L | not implemented | 1D Andrade k_n vs PyALMA3 < 1e-4; Maxwell-limit Gate C parity |
@@ -76,4 +76,4 @@ Not a contradiction, but the null result's scope must be stated explicitly.
 - No real PlanetProfile Mars radial artifact in-repo; planetprofile-genai uses its own `plans/CODEX-QUEUE.md` convention (not the shared inbox).
 - Python env: reference venv `~/src/LOV3d_multi/venvLOV3Dconv-linux` is broken on this host; a working `.venv-linux` exists in this tree (git-ignored). `py3nj` must be copied from the reference venv (no dev headers to build it).
 - No TeX toolchain on this host; proposal compile/page-count checks must run on Overleaf.
-- Protocol rewrite (`AGENTS.md`, `CLAUDE.md`, `plans/`) is uncommitted in this tree as of 2026-09-11.
+- `papers/berne2026tidal.pdf` is deliberately untracked (third-party copyright); `/papers/` is git-ignored.
