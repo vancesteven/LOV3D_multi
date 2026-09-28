@@ -30,6 +30,7 @@ CORE_BENCHMARKS = [
     "pylov3d/tests/test_profile_reduction.py",
     "pylov3d/tests/test_profile_convergence.py",
     "pylov3d/tests/test_berne2026.py",
+    "pylov3d/tests/test_berne_zenodo_parity.py::TestConventionStructure",
     "pylov3d/tests/test_love_degree_n.py",
     "pylov3d/tests/test_extended_love.py::TestZeroAmplitude",
     "pylov3d/tests/test_extended_love.py::TestRealConversion",

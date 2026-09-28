@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-28T21:30Z (claude-lov3d-genai)
+Updated: 2026-09-28T23:59Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -37,7 +37,7 @@ the natural parity reference. Priority order:
 | # | Item | Effort | Status | Verification bar |
 |---|---|---|---|---|
 | B1 | Extended-Love-tensor API: loop forcing (2,m'), m'=-2..2, return K^{l'm'}_{lm} in real cos/sin basis | S | verified — `pylov3d/extended_love.py`; `test_extended_love.py` 14/14 fast + slow `test_mars_columns_match_matlab` (m'=0,1,2 vs native MATLAB, 1.2e-12 abs), re-run by manager 2026-09-28. m'<0 covered only by the Python-side conjugate identity | met 2026-09-28: `test_extended_love.py` 19/19 — zero-amplitude diag = 1D k2; columns m'=0,1,2 vs `mars_lateral_cross_check.mat` to 1e-10 (m'<0 via the tested conjugate identity, no direct MATLAB run); rotation-covariance CS-convention check |
-| B2 | Berne 1D reference (ED Table 2) + mantle-l=1 MATLAB anchor | S | not implemented | 1D k2 matches; MAP-coefficient K matches native MATLAB LOV3D <=1e-9 |
+| B2 | Berne 1D reference (ED Table 2) + mantle-l=1 MATLAB anchor | S | verified | ED Table 2 transcribed from paper image -> pylov3d/berne2026.py, k2=0.176316 within 1.2 sigma of 0.169+/-0.006 (`test_berne2026.py`); cross-solver lateral anchor exceeded the bar: pylov3d matches the shipped Zenodo LOV3D_open responses to 1.0e-12 worst rel over 365 modes x 5 forcings with degree-1..3 structure (`test_berne_zenodo_parity.py`, `scripts/berne_zenodo_convention_check.py`) |
 | B3 | Ephemeris forcing f_p(t) + annual projection (Berne eq. 5-7) + polar-cap term (eq. 9-10) | M | not implemented | reproduce Zenodo script dC/dS (l=2,3) to <=1e-3 relative |
 | B4 | Degree-3 forcing anchor (numpy path; JAX rejects n!=2) | S | verified — `pylov3d/tests/test_love_degree_n.py` 4/4; k2,k3,k4 vs analytic incompressible sphere, rel err 1.6e-9/6.8e-10/6.3e-10 | met 2026-09-28 (analytic half): `test_love_degree_n.py` k_n n=2,3,4 vs Love 1911 sphere to 1e-8; PyALMA3/MATLAB cross-check still open |
 | B5 | Lateral-coefficient likelihood + sampler on dC/dS | M | not implemented | injected-truth recovery within 1 sigma; Berne ED Table 3 medians within their intervals |
@@ -63,6 +63,10 @@ anchor for m'<0 forcing needs `scripts/mars_lateral_cross_check.m` rerun with
 Open physics question (needs adjudication, not assumption): in the body-fixed
 frame m'!=0 solar forcing oscillates (semi)diurnally; how much survives the
 annual projection of eq. 7 must be checked by running the time series (B3).
+Open-questions item 2 (sine convention) is RESOLVED 2026-09-28: the Zenodo
+archive's shipped outputs use run_forward_shear.m's (-1)^m sine map, not the
+canonical get_rheology.m one; solver parity is 1.0e-12. Whether the paper's
+production pipeline shares that convention is a question for the authors.
 
 Re-scope needed: `test_mars_detectability.py:226` ("no off-(2,0) mode
 detectable") and TASK-043 (thermal-vs-crust 0.05 sigma) assume (2,0)-only
