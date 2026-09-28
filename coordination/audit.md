@@ -74,3 +74,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: pylov3d/mars_hydration_connectivity.py, pylov3d/tests/test_mars_hydration_connectivity.py, scripts/mars_connectivity_higher_degree.py, scripts/run_science_benchmarks.py, data/tests/mars/connectivity_higher_degree_preliminary.csv, plans/STATUS.md
 - Verification: test_mars_hydration_connectivity.py 6/6 including the slow tensor-sanity solve (74 s); sweep ran clean, clip_fraction 0 everywhere; CSV header carries the PRELIMINARY caveat and full numerics config
 - Handoff: when Berne's updated calculations arrive, rerun the sweep against them and revisit lmax_out (2 -> 4) convergence; the l=3-dominance finding should be checked at lmax_out=4 before any proposal use.
+
+## 2026-09-29T03:00Z — claude-lov3d-genai
+- Did: Regenerated proposal Figure 3 with scripts/proposal_figures/fig_composite_inference_structure.py from the connectivity CSV (copied read-only from ~/src/LOV3d_multi, now committed here for reproducibility) and pushed both fig3_composite.pdf and .png to the proposal's origin main (f9a223d). Discharges PROPOSAL_COMPLETION_STATUS item 2 (figure regeneration/copy). Generator reported 4288 posterior samples, ESS=4093.
+- Files: external/SSS_2025_Mars/figures/fig3_composite.{pdf,png} (separate repo, pushed); data/tests/mars/serpentinite_connectivity_sensitivity.csv
+- Verification: generator ran clean and wrote both artifacts; visual check not performed (Steve closing machine); check the compiled figure on next Overleaf pass
+- Handoff: confirm Figure 3 renders correctly at printed size on Overleaf.
