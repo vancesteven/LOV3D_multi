@@ -1,0 +1,24 @@
+# Shear-modulus lateral-variation coefficients for a LOV3D forward run.
+# Each coefficient is the amplitude of a REAL spherical-harmonic term given as
+# a percentage of peak-to-peak variation relative to the mean shear modulus.
+#   order > 0 : cosine (C_nm) term
+#   order = 0 : zonal  (C_n0) term
+#   order < 0 : sine   (S_n|m|) term
+# 
+#
+# degree  order   percent
+  1       -1      -29.0
+  1        0      74.6
+  1        1      -47.0
+  2       -2      1e-5
+  2       -1      1e-5
+  2        0      1e-5
+  2        1      1e-5
+  2        2      1e-5
+  3       -3      -69.0
+  3       -2      65.0
+  3       -1      88.0
+  3        0      5.0
+  3        1      -50.0
+  3        2      -88.8
+  3        3      12.8
