@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-29T02:30Z (claude-lov3d-genai)
+Updated: 2026-09-29T05:30Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -87,13 +87,20 @@ laws x f_h {0.1, 0.5}, lmax_field=4, lmax_out=2, Nrbase=30, order 2), CSV at
 - delta_k2_mean spans 6.3e-5 to 8.0e-4, consistent with the Fig-3 mean-only
   ranges; pointwise-vs-mean-only shifts are small (Jensen-convexity direction
   verified in tests).
-- k_2m splitting is 1e-8 to 1.1e-6 at this truncation — but its m-ordering is
-  connectivity-sensitive (Voigt: m=0 largest; Reuss: m=2 largest).
-- The degree-3 response to (2,0) forcing is 3.8e-6 to 3.2e-5 — roughly 30-60x
-  larger than the k_2m splitting here, i.e. in this configuration the l=3
-  channel (Berne's annual-tomography channel) is the stronger lateral
-  observable. lmax_out=2 truncation; not directly comparable to the Methods
-  lmax=4 topography-field numbers.
+- The degree-3 response to (2,0) forcing is CONVERGED in lateral truncation:
+  lmax_out 2 -> 4 moves it only 1.6-3.4% (f_h=0.5 spot-check,
+  `connectivity_higher_degree_lmax4_check.csv`). Robust range at f_h=0.5:
+  1.8e-5 to 3.2e-5 across scenario x law.
+- The k_2m splitting is NOT converged at lmax_out=2: it grows 10-40x at
+  lmax_out=4 (to 1.4e-6..8.9e-6 at f_h=0.5) because the diagonal shift is
+  second order and needs the degree-3/4 lateral content. The 02:30Z claim that
+  the splitting m-ordering is connectivity-sensitive is WITHDRAWN — at
+  lmax_out=4 every combo orders m=0 > m=1 > m=2; the Reuss m=2-largest
+  ordering was a truncation artifact.
+- Net: the l=3 channel (Berne's annual-tomography channel) remains the
+  stronger lateral observable, by ~3-4x over the best k_2m splitting at
+  lmax_out=4 (down from the spurious 30-60x at lmax_out=2). Quote splitting
+  numbers only from lmax_out>=4 runs.
 
 ## Blockers
 
