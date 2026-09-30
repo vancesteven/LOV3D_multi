@@ -45,6 +45,7 @@ from common import CATEGORICAL as COLORS, apply_style  # noqa: E402
 REPO = Path(__file__).resolve().parents[2]
 CHAIN = REPO / "docs" / "figures" / "proposal" / "mars_posterior_chain.npz"
 CONNECTIVITY_CSV = REPO / "data" / "tests" / "mars" / "serpentinite_connectivity_sensitivity.csv"
+HIGHER_DEGREE_CSV = REPO / "data" / "tests" / "mars" / "connectivity_higher_degree_curves.csv"
 
 LABELS = {
     "rho_core": r"$\rho_{\rm core}$ [kg m$^{-3}$]",
@@ -84,14 +85,34 @@ def _load_or_generate_connectivity_rows(path: Path) -> list[dict]:
     return rows
 
 
+def _load_higher_degree_rows(path: Path) -> list[dict]:
+    """Rows of scripts/mars_connectivity_higher_degree.py's CSV (comment
+    lines stripped). Requires the sweep to have been run; see that script."""
+    if not path.exists():
+        raise SystemExit(
+            f"missing {path}\nRun scripts/mars_connectivity_higher_degree.py "
+            "--scenarios central low high --laws voigt hill reuss "
+            "--f-h 0.1 0.2 0.3 0.4 0.5 --lmax-out 2 first."
+        )
+    rows = []
+    with path.open(newline="") as fh:
+        lines = [ln for ln in fh if not ln.startswith("#")]
+    for r in csv.DictReader(lines):
+        rows.append({
+            "scenario": r["scenario"], "law": r["law"], "f_h": float(r["f_h"]),
+            "max_l3_from_20": float(r["max_l3_from_20"]),
+        })
+    return rows
+
+
 def main(out: Path) -> None:
     apply_style()
     d = np.load(CHAIN, allow_pickle=False)
     samples, point = d["samples"], d["point_fit"]
     names = [str(n) for n in d["free_params"]]
 
-    fig = plt.figure(figsize=(4.6, 4.4))
-    gs = fig.add_gridspec(2, 1, height_ratios=[1.0, 1.25], hspace=0.55)
+    fig = plt.figure(figsize=(4.6, 6.4))
+    gs = fig.add_gridspec(3, 1, height_ratios=[1.0, 1.25, 1.25], hspace=0.62)
 
     # --- Top: posterior marginals (1x4) -------------------------------
     gs_top = gs[0].subgridspec(1, 4, wspace=0.35)
@@ -163,6 +184,44 @@ def main(out: Path) -> None:
     ax.legend(loc="upper left", fontsize=5.4, frameon=False)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
+
+    # --- Third panel: degree-3 response of the same hydration structure ---
+    hd = _load_higher_degree_rows(HIGHER_DEGREE_CSV)
+    hf_vals = [0.0] + sorted({r["f_h"] for r in hd})
+
+    def hd_series(scenario: str, law: str) -> np.ndarray:
+        by_f = {r["f_h"]: r["max_l3_from_20"] for r in hd
+                if r["scenario"] == scenario and r["law"] == law}
+        return np.array([0.0] + [by_f[f] for f in hf_vals[1:]], dtype=float)
+
+    hd_env = np.array(
+        [[0.0]] + [[r["max_l3_from_20"] for r in hd if np.isclose(r["f_h"], f)]
+                   for f in hf_vals[1:]], dtype=object)
+    hd_lo = np.array([np.min(v) for v in hd_env], dtype=float)
+    hd_hi = np.array([np.max(v) for v in hd_env], dtype=float)
+
+    ax3 = fig.add_subplot(gs[2])
+    ax3.fill_between(hf_vals, hd_lo, hd_hi, color=COLORS[0], alpha=0.24,
+                     linewidth=0, label="serpentinite properties + connectivity")
+    ax3.plot(hf_vals, hd_series("central", "voigt"), color=COLORS[0], lw=1.0,
+             marker="o", markersize=2.2, label="central: Voigt")
+    ax3.plot(hf_vals, hd_series("central", "hill"), color=COLORS[1], lw=0.9,
+             ls="--", label="central: Hill")
+    ax3.plot(hf_vals, hd_series("central", "reuss"), color=COLORS[2], lw=0.9,
+             ls=":", label="central: Reuss")
+    ax3.set_xlabel(r"hydrated ultramafic fraction $f_h$", fontsize=7)
+    ax3.set_ylabel(r"$\max_m |k_{3m}|$ per unit $(2,0)$ forcing", fontsize=7)
+    ax3.tick_params(labelsize=6)
+    ax3.set_title("Degree-3 tidal response of the same hydration structure",
+                  fontsize=8)
+    ax3.annotate(
+        "degree-2 lateral truncation\n(degree-3 response converged to <4%)",
+        xy=(0.985, 0.06), xycoords="axes fraction",
+        ha="right", va="bottom", fontsize=5.6, color="0.4",
+    )
+    ax3.legend(loc="upper left", fontsize=5.4, frameon=False)
+    for sp in ("top", "right"):
+        ax3.spines[sp].set_visible(False)
 
     fig.savefig(out, bbox_inches="tight")
     fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight")

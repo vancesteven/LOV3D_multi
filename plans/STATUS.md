@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-29T05:30Z (claude-lov3d-genai)
+Updated: 2026-09-30T03:30Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -97,6 +97,9 @@ laws x f_h {0.1, 0.5}, lmax_field=4, lmax_out=2, Nrbase=30, order 2), CSV at
   the splitting m-ordering is connectivity-sensitive is WITHDRAWN — at
   lmax_out=4 every combo orders m=0 > m=1 > m=2; the Reuss m=2-largest
   ordering was a truncation artifact.
+- 2026-09-30: full 45-combo curve sweep at lmax_out=2
+  (`connectivity_higher_degree_curves.csv`) feeds the new degree-3 panel of
+  proposal Figure 3 (pushed, 7dec481); l=3 numbers only, which are converged.
 - Net: the l=3 channel (Berne's annual-tomography channel) remains the
   stronger lateral observable, by ~3-4x over the best k_2m splitting at
   lmax_out=4 (down from the spurious 30-60x at lmax_out=2). Quote splitting
