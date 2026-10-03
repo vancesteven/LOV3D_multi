@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-09-30T03:30Z (claude-lov3d-genai)
+Updated: 2026-10-03T00:30Z (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -18,7 +18,7 @@ documentation in `external/SSS_2025_Mars` was synced to the code state on
 
 | Item | Owner | Status | Artifact |
 |---|---|---|---|
-| Love-number convergence gate for radial reduction (`pylov3d/profile_convergence.py`) | claude-lov3d-genai | verified | `pylov3d/tests/test_profile_convergence.py` 10/10; `scripts/run_science_benchmarks.py` 174/174 (2026-08-28) |
+| Love-number convergence gate for radial reduction (`pylov3d/profile_convergence.py`) | claude-lov3d-genai | verified | `pylov3d/tests/test_profile_convergence.py` 10/10; `scripts/run_science_benchmarks.py` 204/204 (2026-10-03) |
 | Liquid-core conversion in `reduced_shells_to_interior_model` | claude-lov3d-genai | verified | `test_profile_convergence.py::TestLiquidCoreConversion` |
 | MATLAB TASK-046 anchors committed (`data/tests/io/*_anchor.mat`) | claude-lov3d-genai | verified | `scripts/io_compare_identical_coefficients_anchor.py` strict parity PASS, 1.3e-11 |
 | Proposal docs sync (`external/SSS_2025_Mars` 51e5de5, a48d0b6, 9fe2ff1) | claude-lov3d-genai | implemented, unverified | no TeX toolchain to compile; static `\ref`/`\cite` check clean |
