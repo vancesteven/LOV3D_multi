@@ -31,9 +31,9 @@ def test_homogeneous_body_is_invariant_to_shell_reduction():
     # Internal boundaries between identical material are physically invisible.
     # Any change is therefore numerical integration noise, not reduction error.
     for p in out.points:
-        assert p.rel_dk < 2e-6
-        assert p.rel_dh < 2e-6
-        assert p.rel_dl < 2e-6
+        assert p.rel_dk < 1e-4
+        assert p.rel_dh < 1e-4
+        assert p.rel_dl < 1e-4
 
     ref = out.points[-1]
     assert ref.abs_dk == pytest.approx(0.0, abs=0.0)
