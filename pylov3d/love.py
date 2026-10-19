@@ -54,7 +54,11 @@ def get_love(
     eta_variable : dict, optional
         Lateral viscosity variations.  Same format as *mu_variable*.
     K_variable : dict, optional
-        Lateral bulk modulus variations.  Same format as *mu_variable*.
+        Lateral bulk modulus variations as fractional ``delta K / Kmean``
+        harmonics. The upstream MATLAB interface advertises this input but its
+        preprocessing path leaves the bulk coupling column empty. pylov3d uses
+        the separately tested constitutive extension in ``bulk_lateral`` where
+        the scalar-stress amplitude is ``3*delta K``.
 
     Returns
     -------
@@ -76,11 +80,12 @@ def get_love(
     couplings = None
     lateral = None
     if mu_variable or eta_variable or K_variable:
-        from .rheology import process_lateral_variations
+        from .bulk_lateral import process_lateral_variations_with_bulk
         from .couplings import get_couplings
 
-        model, lateral = process_lateral_variations(
-            model, forcing,
+        model, lateral = process_lateral_variations_with_bulk(
+            model,
+            forcing,
             mu_variable=mu_variable,
             eta_variable=eta_variable,
             K_variable=K_variable,
@@ -88,7 +93,9 @@ def get_love(
 
         f0 = forcing[0] if isinstance(forcing, list) else forcing
         couplings = get_couplings(
-            lateral.variations, f0.n, f0.m,
+            lateral.variations,
+            f0.n,
+            f0.m,
             perturbation_order=numerics.perturbation_order,
         )
 
@@ -165,7 +172,6 @@ def extract_love_numbers(
     gs_surface = float(model.gs[model.n_layers - 1])
 
     if couplings is None:
-        # 1D case (existing behavior)
         U_surf = complex(y_sol[-1, 0])
         V_surf = complex(y_sol[-1, 1])
         Phi_surf = complex(y_sol[-1, 6])
@@ -180,7 +186,6 @@ def extract_love_numbers(
             k=np.array([k]), h=np.array([h]), l=np.array([l_love]),
         )
 
-    # Coupled case
     N = len(couplings.n_s)
     N6 = 6 * N
 
