@@ -1,6 +1,6 @@
 # Status — LOV3d-genai
 
-Updated: 2026-10-03T00:30Z (claude-lov3d-genai)
+Updated: 2026-10-20 (claude-lov3d-genai)
 
 Refresh the `Updated:` line and the affected sections in any session that
 pushes commits, integrates artifacts, or changes a queue.
@@ -22,6 +22,7 @@ documentation in `external/SSS_2025_Mars` was synced to the code state on
 | Liquid-core conversion in `reduced_shells_to_interior_model` | claude-lov3d-genai | verified | `test_profile_convergence.py::TestLiquidCoreConversion` |
 | MATLAB TASK-046 anchors committed (`data/tests/io/*_anchor.mat`) | claude-lov3d-genai | verified | `scripts/io_compare_identical_coefficients_anchor.py` strict parity PASS, 1.3e-11 |
 | Proposal docs sync (`external/SSS_2025_Mars` 51e5de5, a48d0b6, 9fe2ff1) | claude-lov3d-genai | implemented, unverified | no TeX toolchain to compile; static `\ref`/`\cite` check clean |
+| Proposal Task 1.2 text rewritten for the new k3 Figure 1 pane (`external/SSS_2025_Mars` 304fa0f) | claude-lov3d-genai | implemented, unverified | no TeX toolchain; static cite/math-balance check clean; needs Overleaf compile check |
 | Convergence gate on a real PlanetProfile Mars artifact | — | not implemented | needs artifact from planetprofile-genai lane |
 
 Status must be one of `verified` / `implemented, unverified` / `not implemented`.
