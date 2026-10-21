@@ -104,3 +104,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: external/SSS_2025_Mars/zProposal.tex (separate repo, pushed); plans/STATUS.md
 - Verification: implemented, unverified — no TeX toolchain on this host; static checks clean (all three cite keys resolve in the bib files, even $ count and balanced braces in the edited passage). Needs an Overleaf compile + read-through.
 - Handoff: Berne's updated calculations deliberately not addressed for now (Steve's call); PRELIMINARY caveat retained as a TeX comment with sweep provenance. The quoted numbers are Hill-law/central-properties from connectivity_higher_degree_curves.csv; the l=3 figures are the truncation-converged ones.
+
+## 2026-10-21 — claude-lov3d-genai
+- Did: Pulled Steve's Overleaf rounds 204f879 (numbered pane refs, magnetics-deferral sentence) and b8ace45 (line 114 reworded so PlanetProfile's magnetism integration reads as future capability, not a deliverable); confirmed no remaining active-text magnetic commitments. Pushed one mechanical fix: stray comma in the now two-item "gravity and seismic constraints" list (83a14a2).
+- Files: external/SSS_2025_Mars/zProposal.tex (separate repo, pushed)
+- Verification: implemented, unverified — single-word punctuation change, static read of the line only; Overleaf compile still pending for the whole Task 1.2 passage.
+- Handoff: none.
