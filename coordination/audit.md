@@ -110,3 +110,9 @@ or delete existing entries. Format is defined in `AGENTS.md`.
 - Files: external/SSS_2025_Mars/zProposal.tex (separate repo, pushed)
 - Verification: implemented, unverified — single-word punctuation change, static read of the line only; Overleaf compile still pending for the whole Task 1.2 passage.
 - Handoff: none.
+
+## 2026-10-21 (later) — claude-lov3d-genai
+- Did: Addressed colleague feedback on the proposal (via Steve). Pulled 02c7a32 (Steve's intro expansion: radiolysis H2 sentence, felsic third InSight interpretation, Berne follow-up framing "a goal of this study"). Equations item was already resolved (both the V_fr,react integral and the Task 2.1 Boussinesq extension are inline math, display environments commented). Added the missing provenance for Figure 2 (right): two sentences in Task 1.3 stating the infiltration times are from Shadab et al. 2025's gravity-driven unsaturated-flow modeling (GRL, 10.1029/2024GL111939) and that Task 1.3's fracture-accessibility field is the control tying that percolation to thermal-cracking history. Pushed 4483dbd. H2-production elaboration deliberately left for future work per Steve.
+- Files: external/SSS_2025_Mars/zProposal.tex (separate repo, pushed)
+- Verification: implemented, unverified — no TeX toolchain; static checks clean (Shadab2025 key in zSURP_refs.bib, math delimiters balanced); Overleaf compile pending.
+- Handoff: no quantitative claims added (the 50-200 yr percolation figure circulating in press coverage was NOT quoted; verify against the paper before ever citing it).
